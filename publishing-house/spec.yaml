@@ -106,8 +106,20 @@ approval_checklist:
     prerequisites_verifiable: false
     assessment_strategy: ""
     catalog_gap: ""
-    design_overview: ""
-    module_summaries: []
+    design_overview: "This lab teaches developers and platform engineers how modern software supply chains enforce provenance, signing, and policy-gated releases using Konflux and Red Hat's supply chain security tooling. Participants work in isolated tenant namespaces on a shared cluster, onboarding a real application into Konflux, building and scanning images, verifying SLSA Level 3 signatures and attestations, gating releases with Enterprise Contract policy checks, and promoting a signed artifact to a production Quay registry — completing the full secure software lifecycle in 90 minutes at an intermediate level."
+    module_summaries:
+      - title: "Orientation"
+        overview: "Participants tour the pre-provisioned environment and confirm access to their GitLab repository, Quay organization, and Konflux workspace. The module frames the supply chain security problem and explains the role each tool plays before any hands-on steps begin."
+      - title: "Onboard Your Application"
+        overview: "Participants create a Konflux Application and Component linked to their GitLab repository and wire up Pipelines-as-Code so that pushes automatically trigger build pipelines. The module ends with confirmation that the first PipelineRun has been created."
+      - title: "Build and Scan"
+        overview: "Participants trigger a pipeline build via a code push, trace each stage in the Konflux UI, and open and inspect the automatically generated CycloneDX SBOM. They verify the image and all associated artifacts are present in Quay after the pipeline completes."
+      - title: "Signing and Provenance"
+        overview: "Participants use cosign to verify the cryptographic signature on their built image and inspect the SLSA Level 3 provenance attestation to confirm the source commit and builder identity. They also examine the Rekor transparency log entry to see the tamper-evident record of the signing event."
+      - title: "Integration Testing and Policy"
+        overview: "Participants examine the Enterprise Contract policy rules applied to their application and observe how the integration pipeline evaluates those rules against the signed artifact. They observe a policy failure demonstration to understand how failed checks block artifact promotion."
+      - title: "Release to Production"
+        overview: "Participants trigger a Konflux release using the pre-provisioned ReleasePlan and verify the signed image is present in the production Quay registry after the release pipeline completes. The module closes by tracing the full artifact lifecycle from source commit to production-ready, policy-verified, signed release."
     rcars_overlap_pct: 98
     rcars_top_matches:
       - title: "Product Enablement: Red Hat Advanced Developer Suite (TL3)"
