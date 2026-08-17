@@ -1,68 +1,51 @@
-# [Project Name]
+# konflux-tssc-lab
 
-<!-- Replace with your project name and brief description. -->
+# Build, Sign, and Ship: Securing the Software Supply Chain with Konflux
 
-## Getting Started
+Modern software supply chains demand more than just building and deploying code — they require cryptographic proof of provenance, automated vulnerability scanning, and policy-enforced releases. In this 90-minute hands-on lab, you'll experience the complete secure software lifecycle using **Konflux**, Red Hat's next-generation build and release platform.
 
-1. Clone this template and scaffold your lab pattern:
+Working in your own tenant workspace on a shared OpenShift cluster, you'll onboard a real application from a GitLab repository, trigger automated builds via Pipelines-as-Code, and watch Konflux generate SBOMs, sign your artifacts with **Trusted Artifact Signer**, and produce SLSA Level 3 provenance attestations — all without writing a single pipeline. You'll then verify your supply chain integrity using **Enterprise Contract** policy checks and promote your application through a controlled release pipeline to a production namespace, with images pushed to a self-hosted **Quay** registry.
 
-```bash
-git clone https://github.com/rhpds/rhdp-publishing-house-template my-lab
-cd my-lab
-python scaffold.py
-```
+By the end of this lab, you'll understand how Konflux connects build, sign, scan, and release into a single automated workflow — and how your organization can adopt it to meet increasingly strict software supply chain security requirements.
 
-2. Install the RHDP Publishing House skills plugin in Claude Code or Cursor
-3. Run `/rhdp-publishing-house` in this directory to start intake
-4. Follow the orchestrator's guidance
+**Products:** Konflux, Red Hat Trusted Artifact Signer, Red Hat Quay, OpenShift Pipelines, GitLab
 
-## Lab Patterns
 
-The scaffold script (`scaffold.py`) configures this template for one of three lab patterns:
+**Owner:** treddy08
 
-| Pattern | Infrastructure | Showroom | Created Directories | site.yml |
-|---------|---------------|----------|---------------------|----------|
-| **AgD v2 Open** | AgnosticD v2 | Classic (no solve/validate) | `content/` only | `rhdp_showroom_theme` (default) |
-| **AgD v2 Guided** | AgnosticD v2 | Guided (solve/validate buttons) | `runtime-automation/`, `content/` | `nookbag-bundle` (overwritten) |
-| **ZT Guided** | Project Zero | Guided (solve/validate buttons) | `config/`, `setup-automation/`, `runtime-automation/`, `content/` | `nookbag-bundle` (overwritten) |
+---
 
-After scaffolding, edit `ui-config.yml` to configure tabs for your infrastructure target (terminals, OCP console, external URLs).
-See the [showroom-template](https://github.com/rhpds/showroom-template) branches for example tab configurations.
+## What was set up
 
-Run `python scaffold.py --help` for non-interactive usage. Pass `--automation {ansible,gitops,both}`
-in the same invocation to also scaffold an `automation/` directory from `.scaffolds/automation/` —
-this must be done up front, since `.scaffolds/` is removed once scaffolding completes. Add
-`--topology shared-cluster` to additionally include `automation/gitops/bootstrap-tenant/` (per-user
-namespace + RBAC); omit it for single-tenant topologies, where only `automation/gitops/bootstrap-infra/`
-is created.
+1. Repository created
+2. `catalog-info.yaml` added to repository
+3. Registered in Developer Hub catalog
+4. Orchestrator workflow started — your AI-guided content pipeline is running!
 
-## Structure
+## What happens next
 
-Before scaffolding, the repo only has:
+Claude will walk you through the entire content lifecycle — from intake and spec creation, through Jira tracking and reviews, all the way to a published lab on RHDP. Just follow the prompts!
 
-- `scaffold.py` — Lab pattern scaffolding script (run once after cloning)
-- `.scaffolds/` — Common and pattern-specific files (removed after scaffolding)
-- `publishing-house/` — Project state (manifest), specs, reviews, decisions
-- `hooks/` — Claude Code hooks
+## Getting started
 
-### After Scaffolding
+### DevSpaces (recommended)
 
-Common to every pattern:
+1. Open in DevSpaces: `https://devspaces.apps.ocpv-infra02.wdc07.infra.demo.redhat.com#https://github.com/rhpds/konflux-tssc-lab`
+2. Use Claude via the **extension** or the **CLI**:
+   - **Extension:** Click the **Claude** icon in the sidebar, click **New Session**. If the Claude icon is not visible, open **Extensions** (`Ctrl/Cmd+Shift+X`), find **Claude Code for VS Code** under the DevSpaces section, click it, then click **Enable (Workspace)**.
+   - **CLI:** Open a terminal and run `claude`
+3. Run `/rhdp-publishing-house` — and you're off!
 
-- `content/` — Showroom AsciiDoc content (Antora modules), pre-populated with a minimal `antora.yml`, `nav.adoc`, and `index.adoc`
-- `qa-automation/` — Health check and e2e test playbooks
-- `site.yml` — Antora playbook. Defaults to the `rhdp_showroom_theme` bundle; guided patterns overwrite it with a `nookbag-bundle` version
+### Local machine
 
-Pattern-specific:
-
-- `ui-config.yml` — Showroom UI layout config (set by scaffold, customize tabs afterward)
-- `podman-compose.yaml` — Local dev preview (`podman compose up`, then http://localhost:8080). AgD v2 Open only — guided patterns rely on Nookbag to drive navigation and aren't previewable via plain Antora + httpd
-- `runtime-automation/` — Per-module solve/validate playbooks (Guided patterns)
-- `setup-automation/` — Environment setup playbook (ZT Guided only)
-- `config/` — Project Zero instance, network, and firewall definitions (ZT Guided only)
-
-Only if `--automation` was passed to `scaffold.py`:
-
-- `automation/ansible/` — Starter Ansible collection (`ansible`/`both`)
-- `automation/gitops/bootstrap-infra/` — Helm chart with a test namespace (`gitops`/`both`)
-- `automation/gitops/bootstrap-tenant/` — Per-user namespace + RBAC (`gitops`/`both`, only with `--topology shared-cluster`)
+1. Install the skills:
+   ```
+   git clone -b prod https://github.com/rhpds/rhdp-publishing-house-skills.git ~/.claude/skills/publishing-house
+   ```
+2. Clone the repo:
+   ```
+   git clone https://github.com/rhpds/konflux-tssc-lab
+   ```
+3. `cd konflux-tssc-lab`
+4. Start Claude CLI: `claude`
+5. Run `/rhdp-publishing-house` — and you're off!
