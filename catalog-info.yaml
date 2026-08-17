@@ -3,25 +3,24 @@ kind: Component
 metadata:
   name: konflux-tssc-lab
   title: konflux-tssc-lab
-  description: "# Build, Sign, and Ship: Securing the Software Supply Chain with
-    Konflux  Modern software supply chains demand more than just building and
-    deploying code — they require cryptographic proof of provenance, automated
-    vulnerability scanning, and policy-enforced releases. In this 90-minute
-    hands-on lab, you'll experience the complete secure software lifecycle using
-    **Konflux**, Red Hat's next-generation build and release platform.  Working
-    in your own tenant workspace on a shared OpenShift cluster, you'll onboard a
-    real application from a GitLab repository, trigger automated builds via
-    Pipelines-as-Code, and watch Konflux generate SBOMs, sign your artifacts
-    with **Trusted Artifact Signer**, and produce SLSA Level 3 provenance
-    attestations — all without writing a single pipeline. You'll then verify
-    your supply chain integrity using **Enterprise Contract** policy checks and
-    promote your application through a controlled release pipeline to a
-    production namespace, with images pushed to a self-hosted **Quay**
-    registry.  By the end of this lab, you'll understand how Konflux connects
-    build, sign, scan, and release into a single automated workflow — and how
-    your organization can adopt it to meet increasingly strict software supply
-    chain security requirements.  **Products:** Konflux, Red Hat Trusted
-    Artifact Signer, Red Hat Quay, OpenShift Pipelines, GitLab "
+  description: "# Build, Sign, and Ship: Securing the Software Supply Chain with Konflux\
+    \  Modern software supply chains demand more than just building and deploying\
+    \ code \u2014 they require cryptographic proof of provenance, automated vulnerability\
+    \ scanning, and policy-enforced releases. In this 90-minute hands-on lab, you'll\
+    \ experience the complete secure software lifecycle using **Konflux**, Red Hat's\
+    \ next-generation build and release platform.  Working in your own tenant workspace\
+    \ on a shared OpenShift cluster, you'll onboard a real application from a GitLab\
+    \ repository, trigger automated builds via Pipelines-as-Code, and watch Konflux\
+    \ generate SBOMs, sign your artifacts with **Trusted Artifact Signer**, and produce\
+    \ SLSA Level 3 provenance attestations \u2014 all without writing a single pipeline.\
+    \ You'll then verify your supply chain integrity using **Enterprise Contract**\
+    \ policy checks and promote your application through a controlled release pipeline\
+    \ to a production namespace, with images pushed to a self-hosted **Quay** registry.\
+    \  By the end of this lab, you'll understand how Konflux connects build, sign,\
+    \ scan, and release into a single automated workflow \u2014 and how your organization\
+    \ can adopt it to meet increasingly strict software supply chain security requirements.\
+    \  **Products:** Konflux, Red Hat Trusted Artifact Signer, Red Hat Quay, OpenShift\
+    \ Pipelines, GitLab "
   annotations:
     ph.rhdp.io/content-type: lab
     ph.rhdp.io/deployment-mode: rhdp_published
@@ -29,21 +28,24 @@ metadata:
     ph.rhdp.io/owner: treddy@redhat.com
     backstage.io/techdocs-ref: dir:.
     github.com/project-slug: rhpds/konflux-tssc-lab
-    ph.rhdp.io/created-at: 2026-08-17T00:03:33.483Z
+    ph.rhdp.io/created-at: 2026-08-17 00:03:33.483000+00:00
   tags:
-    - publishing-house
-    - lab
-    - rhdp-published
+  - publishing-house
+  - lab
+  - rhdp-published
   links:
-    - url: https://github.com/rhpds/konflux-tssc-lab
-      title: Repository
-      icon: github
-    - url: https://devspaces.apps.ocpv-infra02.wdc07.infra.demo.redhat.com#https://github.com/rhpds/konflux-tssc-lab
-      title: Open in DevSpaces
-      icon: catalog
-    - url: https://central-api-publishing-house.apps.ocpv-infra02.wdc07.infra.demo.redhat.com
-      title: Central
-      icon: dashboard
+  - url: https://github.com/rhpds/konflux-tssc-lab
+    title: Repository
+    icon: github
+  - url: https://devspaces.apps.ocpv-infra02.wdc07.infra.demo.redhat.com#https://github.com/rhpds/konflux-tssc-lab
+    title: Open in DevSpaces
+    icon: catalog
+  - url: https://central-api-publishing-house.apps.ocpv-infra02.wdc07.infra.demo.redhat.com
+    title: Central
+    icon: dashboard
+  - url: https://redhat.atlassian.net/browse/RHDPCD-1039
+    title: Jira Epic
+    icon: dashboard
 spec:
   type: content
   lifecycle: experimental
