@@ -108,8 +108,24 @@ approval_checklist:
     catalog_gap: ""
     design_overview: ""
     module_summaries: []
-    rcars_overlap_pct: null
-    rcars_top_matches: []
+    rcars_overlap_pct: 98
+    rcars_top_matches:
+      - title: "Product Enablement: Red Hat Advanced Developer Suite (TL3)"
+        ci_name: "pert.redhat-rhads.prod"
+        url: "https://catalog.demo.redhat.com/catalog?item=pert.redhat-rhads.prod"
+        relevance_score: 98
+        why_it_fits: "Modules 4, 7, 8, and 9 directly cover Red Hat Trusted Artifact Signer, Tekton Chains, SLSA provenance/attestations, Enterprise Contract policy gates, and container image signing/verification with Quay — precisely the skills the request targets."
+      - title: "Trusted Software Factory (CNV)"
+        ci_name: "agd-v2.trusted-software-factory-cnv.prod"
+        url: "https://catalog.demo.redhat.com/catalog?item=agd-v2.trusted-software-factory-cnv.prod"
+        relevance_score: 88
+        why_it_fits: "This demo covers the exact technology stack requested — Konflux, RHTAS, Quay, and OpenShift Pipelines — and directly addresses SLSA Level 3 provenance, image signature verification, Enterprise Contract/Conforma policy gating, and deploying policy-verified signed artifacts."
+      - title: "LB1464: Unifying DevSecOps: Secure, Standardized Application Delivery Across Containers (CNV)"
+        ci_name: "summit-2026.lb1464-unified-devsecops-delivery-cnv.prod"
+        url: "https://catalog.demo.redhat.com/catalog?item=summit-2026.lb1464-unified-devsecops-delivery-cnv.prod"
+        relevance_score: 82
+        why_it_fits: "This lab directly covers Red Hat Trusted Artifact Signer, Red Hat Quay, OpenShift Pipelines (Tekton/Tekton Chains), and Enterprise Contract policy enforcement — all core topics in the request — with hands-on exercises around artifact signing, image verification, and policy-driven promotion pipelines."
+    catalog_gap: "This lab uniquely centers Konflux as the primary build orchestrator, delivers the complete sign → verify → policy → release lifecycle in a self-contained 90-minute intermediate hands-on lab, and does so without detours into RHDH setup, AI, or platform engineering. None of the existing catalog items combines Konflux-native onboarding with the full supply chain security lifecycle at that scope and duration."
     rejections: []
 
   infra:
