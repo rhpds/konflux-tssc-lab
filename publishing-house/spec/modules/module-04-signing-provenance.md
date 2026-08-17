@@ -4,7 +4,7 @@
 
 ### Brief Overview
 
-This module focuses on the cryptographic guarantees that make a built image trustworthy after it leaves the build pipeline. Participants use `cosign` to verify the image signature created by Red Hat Trusted Artifact Signer, inspect the SLSA Level 3 provenance attestation to trace the image back to its source commit and build environment, and confirm the transparency log entry in Rekor. The module answers the question "how do I know this image is what it claims to be?" and establishes the evidence chain that Enterprise Contract policy checks will evaluate in Module 5.
+This module focuses on the cryptographic guarantees that make a built image trustworthy after it leaves the build pipeline. Participants use `cosign` to verify the image signature created by Red Hat Trusted Artifact Signer, inspect the SLSA Level 3 provenance attestation to trace the image back to its source commit and build environment, and confirm the transparency log entry in Rekor. The module answers the question "how do I know this image is what it claims to be?" and establishes the evidence chain that Conforma policy checks will evaluate in Module 5.
 
 ### Audience and Time
 
@@ -89,7 +89,7 @@ This module focuses on the cryptographic guarantees that make a built image trus
 - SLSA Level 3 provenance attestations provide a machine-verifiable record of what was built, by whom, from what source, and in what build environment.
 - The Rekor transparency log creates an immutable, auditable record of every signing event — even if an attacker compromises the registry, the log entry proves the original state.
 - The combination of image signature + provenance attestation + transparency log entry gives downstream consumers (policy engines, platform engineers, auditors) the evidence they need to decide whether to trust an image.
-- `cosign verify` is the primary tool for consuming this evidence; Enterprise Contract (Module 5) automates this verification at scale with policy-encoded rules.
+- `cosign verify` is the primary tool for consuming this evidence; Conforma (Module 5) automates this verification at scale with policy-encoded rules.
 
 ### Infrastructure Notes
 

@@ -15,7 +15,7 @@ This final module completes the end-to-end supply chain by releasing the policy-
 ### Learning Objectives
 
 - Configure and trigger a Konflux ReleasePlan to initiate the controlled release pipeline for a policy-passing Snapshot.
-- Verify that the release pipeline re-evaluates the Enterprise Contract policy before promoting the artifact to the production Quay registry.
+- Verify that the release pipeline re-evaluates the Conforma policy before promoting the artifact to the production Quay registry.
 - Verify the signed image and its attestations are present in the production Quay organization after a successful release.
 - Demonstrate end-to-end supply chain integrity by tracing the artifact from the source commit through signing, policy validation, and production release.
 
@@ -47,7 +47,7 @@ This final module completes the end-to-end supply chain by releasing the policy-
    The managed namespace name is provided in the lab guide.
 4. In the ReleasePlanAdmission output, identify:
    - `spec.applications` — the list of Applications allowed to release through this admission (confirm your Application is listed or matches the selector).
-   - `spec.policy` — the Enterprise Contract policy bundle reference that will be enforced during release.
+   - `spec.policy` — the Conforma policy bundle reference that will be enforced during release.
    - `spec.pipeline` — the release pipeline that will run (includes the final EC check and the Quay push steps).
    - `spec.environment` — if present, the target environment configuration (production Quay organization and repository).
 5. Confirm that the `spec.policy` in the ReleasePlanAdmission references the same (or stricter) policy bundle as the one evaluated in Module 05. The release pipeline cannot be weaker than the integration check.
@@ -67,10 +67,10 @@ This final module completes the end-to-end supply chain by releasing the policy-
 **Section 3 — Monitor the Release Pipeline**
 
 11. In the Konflux UI, click the Release to open its detail view. Observe the release pipeline stages. The release pipeline typically includes:
-    - An Enterprise Contract evaluation task (re-validates the signed artifact against the production policy).
+    - An Conforma evaluation task (re-validates the signed artifact against the production policy).
     - A task that pushes the image (and its SBOM and provenance attestation) to the production Quay organization.
     - A task that records the release event (may write to a release log or update the Snapshot status).
-12. Wait for the Enterprise Contract task to complete. In the task logs, confirm the result is **Pass**. If it fails, the pipeline will stop and the image will not be pushed to production — observe the failure message and note which policy rule blocked the release.
+12. Wait for the Conforma task to complete. In the task logs, confirm the result is **Pass**. If it fails, the pipeline will stop and the image will not be pushed to production — observe the failure message and note which policy rule blocked the release.
 13. Wait for the image push task to complete. In its logs, find the line showing the production image reference (the Quay URL and digest of the promoted image). Copy this reference.
 14. Monitor the full release pipeline until it reaches **Succeeded**.
 15. In the terminal, run:
@@ -97,18 +97,18 @@ This final module completes the end-to-end supply chain by releasing the policy-
     - **Source commit** (Module 02 — GitLab push) → uniquely referenced in the SLSA attestation.
     - **Build** (Module 03 — Konflux PipelineRun) → produced the image digest and SBOM.
     - **Sign and attest** (Module 04 — Trusted Artifact Signer + Rekor) → cryptographic signature and transparency log entry.
-    - **Policy check** (Module 05 — Enterprise Contract) → Snapshot marked as passing.
+    - **Policy check** (Module 05 — Conforma) → Snapshot marked as passing.
     - **Release** (Module 06 — ReleasePlan + release pipeline) → image promoted to production with all attestations intact.
 22. Confirm that every step is traceable: given only the production image digest, you can retrieve the SLSA provenance to find the source commit, the build PipelineRun, the signing event in Rekor, and the policy evaluation that approved the release.
 
 ### Key Takeaways
 
 - The ReleasePlan/ReleasePlanAdmission model separates the teams that request a release (Application team, tenant namespace) from the teams that govern release policy (platform/security team, managed namespace) — no single team controls both sides of the gate.
-- The release pipeline re-evaluates Enterprise Contract policy at release time — it does not trust the integration-time result. This prevents a scenario where policy changes between build and release.
+- The release pipeline re-evaluates Conforma policy at release time — it does not trust the integration-time result. This prevents a scenario where policy changes between build and release.
 - Image promotion does not re-build the image — the same immutable digest built and signed in Module 03 is what reaches production. There is no "release build" that could introduce differences.
 - Attestations (SBOM, SLSA provenance) travel with the image because they are stored in the same Quay repository keyed to the same digest. Promoting the image also promotes its entire evidence package.
 - End-to-end traceability is the core value proposition: starting from a production image digest, any authorized party can reconstruct the full supply chain history without relying on a central database.
-- The combination of SLSA, Sigstore, Enterprise Contract, and Konflux implements a complete software supply chain security framework aligned with SLSA Level 3 requirements and applicable to any team building on OpenShift.
+- The combination of SLSA, Sigstore, Conforma, and Konflux implements a complete software supply chain security framework aligned with SLSA Level 3 requirements and applicable to any team building on OpenShift.
 
 ### Infrastructure Notes
 

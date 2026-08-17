@@ -61,7 +61,7 @@ This module introduces participants to the lab scenario, the software supply cha
 - SLSA (Supply Chain Levels for Software Artifacts) defines a framework for proving build provenance; this lab targets SLSA Level 3.
 - SBOMs (Software Bills of Materials) enumerate the dependencies inside an image, enabling vulnerability tracking and compliance reporting.
 - Sigstore and Red Hat Trusted Artifact Signer provide the cryptographic infrastructure for image signing and a tamper-evident transparency log (Rekor).
-- Konflux orchestrates the full build-sign-attest-release pipeline and enforces Enterprise Contract policy checks before promotion.
+- Konflux orchestrates the full build-sign-attest-release pipeline and enforces Conforma policy checks before promotion.
 - Each participant's resources are fully isolated in a tenant namespace — actions in one namespace do not affect others.
 
 ### Infrastructure Notes

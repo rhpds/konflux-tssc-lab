@@ -4,7 +4,7 @@
 
 ### Brief Overview
 
-Before an artifact can be released to production, Konflux runs it through an Integration pipeline and evaluates it against an Enterprise Contract (Conforma) policy set. This module walks participants through the Integration pipeline results for their Component, examines the policy rules that govern artifact promotion, and — critically — demonstrates what happens when a policy check fails by observing how a failed check blocks the artifact from moving forward. Participants leave with a concrete understanding of how policy-as-code enforces supply chain standards automatically, without relying on human approval gates.
+Before an artifact can be released to production, Konflux runs it through an Integration pipeline and evaluates it against an Conforma policy set. This module walks participants through the Integration pipeline results for their Component, examines the policy rules that govern artifact promotion, and — critically — demonstrates what happens when a policy check fails by observing how a failed check blocks the artifact from moving forward. Participants leave with a concrete understanding of how policy-as-code enforces supply chain standards automatically, without relying on human approval gates.
 
 ### Audience and Time
 
@@ -14,7 +14,7 @@ Before an artifact can be released to production, Konflux runs it through an Int
 
 ### Learning Objectives
 
-- Analyze the Enterprise Contract policy rules applied to your Konflux Application and understand what each rule enforces.
+- Analyze the Conforma policy rules applied to your Konflux Application and understand what each rule enforces.
 - Observe how the Integration pipeline evaluates policy checks against the signed artifact produced in earlier modules.
 - Troubleshoot a policy check failure by reading the policy evaluation output and identifying which rule was violated and why.
 - Verify that a policy-passing artifact is marked as eligible for promotion while a failing artifact is blocked.
@@ -23,17 +23,17 @@ Before an artifact can be released to production, Konflux runs it through an Int
 
 | Section | Title | Duration |
 |---------|-------|----------|
-| 1 | Examine the Enterprise Contract Policy | 4 min |
+| 1 | Examine the Conforma Policy | 4 min |
 | 2 | Review Integration Pipeline Results | 5 min |
 | 3 | Observe a Policy Failure | 4 min |
 | 4 | Confirm the Passing Artifact Status | 2 min |
 
 ### Detailed Steps
 
-**Section 1 — Examine the Enterprise Contract Policy**
+**Section 1 — Examine the Conforma Policy**
 
-1. In the Konflux UI, navigate to your Application and then to the **Enterprise Contract** or **Policy** section (exact navigation label depends on the Konflux version; the lab guide provides a screenshot).
-2. Open the Enterprise Contract (EC) policy assigned to your Application. Note the policy source — it references a policy bundle (an OCI image or a git repository containing Rego rules).
+1. In the Konflux UI, navigate to your Application and then to the **Conforma** or **Policy** section (exact navigation label depends on the Konflux version; the lab guide provides a screenshot).
+2. Open the Conforma (EC) policy assigned to your Application. Note the policy source — it references a policy bundle (an OCI image or a git repository containing Rego rules).
 3. Read the list of policy rules shown in the UI. Identify the following categories of rules (the lab guide lists the specific rules active in this environment):
    - **Attestation rules:** require that a SLSA provenance attestation is present and signed.
    - **Image rules:** require that the image is signed and the signature is verifiable.
@@ -52,8 +52,8 @@ Before an artifact can be released to production, Konflux runs it through an Int
 
 6. In the Konflux UI, navigate to **Integrations** or **Snapshots** for your Application. A Snapshot was created automatically when your PipelineRun succeeded in Module 03.
 7. Click the Snapshot to open its detail view. Confirm it references the image digest from Module 03.
-8. Observe the Integration pipeline runs listed for the Snapshot. The default integration pipeline includes an Enterprise Contract check task.
-9. Click the Enterprise Contract integration test run. In its logs or results tab, find the EC evaluation output. Confirm that the result is **Pass** (or **Success**) for the artifact built following the lab steps.
+8. Observe the Integration pipeline runs listed for the Snapshot. The default integration pipeline includes an Conforma check task.
+9. Click the Conforma integration test run. In its logs or results tab, find the EC evaluation output. Confirm that the result is **Pass** (or **Success**) for the artifact built following the lab steps.
 10. In the terminal, run:
     ```
     oc get integrationtestscenario -n <your-tenant-namespace>
@@ -80,7 +80,7 @@ Before an artifact can be released to production, Konflux runs it through an Int
     ```
 14. In the JSON output, locate the `components[].violations` array. Identify the specific rules that failed and read their `msg` fields to understand what the violation means.
 15. Confirm that at least one of the following violation types appears: missing signature, missing SLSA attestation, or untrusted builder identity.
-16. Observe the overall `success` field in the JSON — it is `false` when any violation is present. This is the signal that Enterprise Contract would use to block promotion in a real release pipeline.
+16. Observe the overall `success` field in the JSON — it is `false` when any violation is present. This is the signal that Conforma would use to block promotion in a real release pipeline.
 17. In the Konflux UI, if the lab environment has a pre-created failing Snapshot, navigate to it and observe how the UI marks it — it should be visually distinguished from passing Snapshots (e.g., a red status, "Failed" label, or blocked promotion indicator).
 
 **Section 4 — Confirm the Passing Artifact Status**
@@ -95,7 +95,7 @@ Before an artifact can be released to production, Konflux runs it through an Int
 
 ### Key Takeaways
 
-- Enterprise Contract (Conforma) evaluates Rego policy rules against the evidence attached to an image: signature, SBOM, and SLSA provenance attestation.
+- Conforma evaluates Rego policy rules against the evidence attached to an image: signature, SBOM, and SLSA provenance attestation.
 - Policy checks are automated — they run inside the Integration pipeline without any human intervention, making enforcement consistent and auditable.
 - A single failing policy rule blocks the entire Snapshot from being promoted, regardless of how many other rules pass. This is "fail-closed" policy enforcement.
 - The difference between a passing and failing artifact is visible in the Konflux UI and queryable via `oc get snapshot` — platform engineers can observe policy compliance across all Applications from a central view.
@@ -104,7 +104,7 @@ Before an artifact can be released to production, Konflux runs it through an Int
 
 ### Infrastructure Notes
 
-- The `ec` (Enterprise Contract) CLI or `conforma` CLI must be available in the participant's terminal. Writers must confirm the correct binary name, version, and installation method for this lab environment.
+- The `ec` (Conforma) CLI or `conforma` CLI must be available in the participant's terminal. Writers must confirm the correct binary name, version, and installation method for this lab environment.
 - The policy bundle reference (`--policy` flag) is environment-specific. Writers must replace `<policy-bundle-ref>` with the exact OCI reference or git URL used in this cluster — obtain it from the EnterpriseContractPolicy object in the tenant or managed namespace:
   ```
   oc get enterprisecontractpolicy -A

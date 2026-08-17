@@ -4,7 +4,7 @@
 
 This lab teaches developers and platform engineers how modern software supply chains enforce provenance, signing, and policy-gated releases using Konflux and Red Hat's supply chain security tooling. It exists because teams adopting SLSA and Sigstore practices have few hands-on resources that show the full lifecycle end to end.
 
-Participants onboard a real application from a pre-provisioned GitLab repository into Konflux, trigger automated builds via Pipelines-as-Code, inspect the generated SBOMs and SLSA Level 3 provenance attestations, verify cryptographic signatures using cosign and Trusted Artifact Signer, gate a release with Enterprise Contract policy checks, and promote a signed artifact to a production Quay registry — all in an isolated tenant namespace on a shared cluster.
+Participants onboard a real application from a pre-provisioned GitLab repository into Konflux, trigger automated builds via Pipelines-as-Code, inspect the generated SBOMs and SLSA Level 3 provenance attestations, verify cryptographic signatures using cosign and Trusted Artifact Signer, gate a release with Conforma policy checks, and promote a signed artifact to a production Quay registry — all in an isolated tenant namespace on a shared cluster.
 
 ## Target Audience
 
@@ -27,7 +27,7 @@ Participants onboard a real application from a pre-provisioned GitLab repository
 1. Configure an application in Konflux and connect it to automated Pipelines-as-Code builds triggered from GitLab
 2. Build a container image and analyze the SBOM in CycloneDX format generated automatically by the Konflux pipeline
 3. Verify cryptographic image signatures and SLSA Level 3 provenance attestations using cosign and Trusted Artifact Signer
-4. Analyze Enterprise Contract policy checks and observe how failed checks block artifact promotion between environments
+4. Analyze Conforma policy checks and observe how failed checks block artifact promotion between environments
 5. Deploy a policy-verified, signed artifact through a controlled release pipeline to a production Quay registry
 6. Verify end-to-end supply chain integrity from source commit to signed, provenance-attested production release
 
@@ -45,7 +45,7 @@ Red Hat products:
 
 Upstream projects (not GA Red Hat products):
 - Konflux (upstream build and release platform)
-- Enterprise Contract / Conforma (upstream policy engine)
+- Conforma (upstream policy engine)
 - GitLab (self-hosted, pre-installed in lab environment)
 - cosign (Sigstore CLI tool, used in student exercises)
 

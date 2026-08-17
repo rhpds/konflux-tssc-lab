@@ -68,7 +68,7 @@ With the application onboarded, this module takes participants deep into what th
 14. Locate the `predicate.components` array (CycloneDX format). Count the number of components listed. These are the packages included in the image.
 15. Pick any component from the list. Identify its `name`, `version`, and `licenses` fields.
 16. Look for any components flagged with known CVEs (the predicate may include vulnerability information or reference an external vulnerability report). Note whether any high-severity issues are present.
-17. Observe that the SBOM is machine-readable and structured — this is the format that Enterprise Contract and external security tooling consume in later modules.
+17. Observe that the SBOM is machine-readable and structured — this is the format that Conforma and external security tooling consume in later modules.
 
 **Section 4 — Review Scan Results and Quay Artifacts**
 
