@@ -21,7 +21,13 @@ project:
 
 spec:
   title: "Build, Sign, and Ship: Securing the Software Supply Chain with Konflux"
-  learning_objectives: []
+  learning_objectives:
+    - "Configure an application in Konflux and connect it to automated Pipelines-as-Code builds triggered from GitLab"
+    - "Build a container image and analyze the SBOM in CycloneDX format generated automatically by the Konflux pipeline"
+    - "Verify cryptographic image signatures and SLSA Level 3 provenance attestations using cosign and Trusted Artifact Signer"
+    - "Analyze Enterprise Contract policy checks and observe how failed checks block artifact promotion between environments"
+    - "Deploy a policy-verified, signed artifact through a controlled release pipeline to a production Quay registry"
+    - "Verify end-to-end supply chain integrity from source commit to signed, provenance-attested production release"
   modules:
   - id: module-01
     title: "Orientation"
@@ -51,7 +57,7 @@ spec:
     platform: "ocp"            # ocp | rhel-vms — determines which sizing fields apply
     topology: "shared-cluster" # shared-cluster | per-student | cnv-pool
     cloud_provider: cnv        # cnv | aws | troshka — cnv is default
-    max_concurrent_users: null # set at scheduling time
+    max_concurrent_users: 20
 
     # --- OCP-specific fields (only when platform = ocp) ---
     ocp_version: "4.20"                # e.g. 4.20 — minimum 4.20; leave empty for rhel-vms
