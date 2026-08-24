@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: konflux-tssc-lab
   title: konflux-tssc-lab
-  description: "# Build, Sign, and Ship: Securing the Software Supply Chain with Konflux\
+  description: "Build, Sign, and Ship: Securing the Software Supply Chain with Konflux\
     \  Modern software supply chains demand more than just building and deploying\
     \ code \u2014 they require cryptographic proof of provenance, automated vulnerability\
     \ scanning, and policy-enforced releases. In this 90-minute hands-on lab, you'll\
@@ -20,7 +20,7 @@ metadata:
     \ scan, and release into a single automated workflow \u2014 and how your organization\
     \ can adopt it to meet increasingly strict software supply chain security requirements.\
     \  **Products:** Konflux, Red Hat Trusted Artifact Signer, Red Hat Quay, OpenShift\
-    \ Pipelines, GitLab "
+    \ Pipelines, GitLab"
   annotations:
     ph.rhdp.io/content-type: lab
     ph.rhdp.io/deployment-mode: rhdp_published
