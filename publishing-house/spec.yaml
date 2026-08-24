@@ -14,7 +14,7 @@ project:
   showroom_type: "classic"
   intake_type: "new"
   automation_type: "ansible"
-  description: "# Build, Sign, and Ship: Securing the Software Supply Chain with Konflux  Modern software supply chains demand more than just building and deploying code — they require cryptographic proof of provenance, automated vulnerability scanning, and policy-enforced releases. In this 90-minute hands-on lab, you'll experience the complete secure software lifecycle using **Konflux**, Red Hat's next-generation build and release platform.  Working in your own tenant workspace on a shared OpenShift cluster, you'll onboard a real application from a GitLab repository, trigger automated builds via Pipelines-as-Code, and watch Konflux generate SBOMs, sign your artifacts with **Trusted Artifact Signer**, and produce SLSA Level 3 provenance attestations — all without writing a single pipeline. You'll then verify your supply chain integrity using **Conforma** policy checks and promote your application through a controlled release pipeline to a production namespace, with images pushed to a self-hosted **Quay** registry.  By the end of this lab, you'll understand how Konflux connects build, sign, scan, and release into a single automated workflow — and how your organization can adopt it to meet increasingly strict software supply chain security requirements.  **Products:** Konflux, Red Hat Trusted Artifact Signer, Red Hat Quay, OpenShift Pipelines, GitLab "
+  description: "# Build, Sign, and Ship: Securing the Software Supply Chain with Konflux  Modern software supply chains demand more than just building and deploying code — they require cryptographic proof of provenance, automated vulnerability scanning, and policy-enforced releases. In this 2-hour hands-on lab, you'll experience the complete secure software lifecycle using **Konflux**, Red Hat's next-generation build and release platform.  Working in your own tenant workspace on a shared OpenShift cluster, you'll onboard a real application from a GitLab repository, trigger automated builds via Pipelines-as-Code, and watch Konflux generate SBOMs, sign your artifacts with **Trusted Artifact Signer**, and produce SLSA Level 3 provenance attestations — all without writing a single pipeline. You'll then verify your supply chain integrity using **Conforma** policy checks and promote your application through a controlled release pipeline to a production namespace, with images pushed to a self-hosted **Quay** registry.  By the end of this lab, you'll understand how Konflux connects build, sign, scan, and release into a single automated workflow — and how your organization can adopt it to meet increasingly strict software supply chain security requirements.  **Products:** Konflux, Red Hat Trusted Artifact Signer, Red Hat Quay, OpenShift Pipelines, GitLab "
   # content_reviewer_email and infra_reviewer_email are assigned by the RHDP team — not set by the author
   jira_ticket: "RHDPCD-1039"
   workflow_id: "6fbed8db-46a2-4303-bc59-77e12490c2f4"
@@ -31,27 +31,27 @@ spec:
   modules:
   - id: module-01
     title: "Orientation"
-    duration_min: 10
+    duration_min: 15
     status: not_started
   - id: module-02
     title: "Onboard Your Application"
-    duration_min: 15
+    duration_min: 20
     status: not_started
   - id: module-03
     title: "Build and Scan"
-    duration_min: 20
+    duration_min: 25
     status: not_started
   - id: module-04
     title: "Signing and Provenance"
-    duration_min: 15
+    duration_min: 20
     status: not_started
   - id: module-05
     title: "Integration Testing and Policy"
-    duration_min: 15
+    duration_min: 20
     status: not_started
   - id: module-06
     title: "Release to Production"
-    duration_min: 15
+    duration_min: 20
     status: not_started
   environment:
     platform: "ocp"            # ocp | rhel-vms — determines which sizing fields apply
@@ -88,7 +88,7 @@ spec:
       - "github.com"                   # Konflux release artifacts
     gpu_nodes: 0
     gpu_type: ""
-  duration_hours: 1.5
+  duration_hours: 2.0
   audience: "intermediate"   # beginner | intermediate | advanced
 
 development:
@@ -115,7 +115,7 @@ approval_checklist:
     prerequisites_verifiable: false
     assessment_strategy: ""
     catalog_gap: ""
-    design_overview: "This lab teaches developers and platform engineers how modern software supply chains enforce provenance, signing, and policy-gated releases using Konflux and Red Hat's supply chain security tooling. Participants work in isolated tenant namespaces on a shared cluster, onboarding a real application into Konflux, building and scanning images, verifying SLSA Level 3 signatures and attestations, gating releases with Conforma policy checks, and promoting a signed artifact to a production Quay registry — completing the full secure software lifecycle in 90 minutes at an intermediate level."
+    design_overview: "This lab teaches developers and platform engineers how modern software supply chains enforce provenance, signing, and policy-gated releases using Konflux and Red Hat's supply chain security tooling. Participants work in isolated tenant namespaces on a shared cluster, onboarding a real application into Konflux, building and scanning images, verifying SLSA Level 3 signatures and attestations, gating releases with Conforma policy checks, and promoting a signed artifact to a production Quay registry — completing the full secure software lifecycle in 2 hours at an intermediate level."
     module_summaries:
       - title: "Orientation"
         overview: "Participants tour the pre-provisioned environment and confirm access to their GitLab repository, Quay organization, and Konflux workspace. The module frames the supply chain security problem and explains the role each tool plays before any hands-on steps begin."
