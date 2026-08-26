@@ -16,10 +16,76 @@
   ansible.builtin.set_fact:
     _cluster_domain: "{{ r_cluster_ingress.resources[0].spec.domain }}"
 
-- name: Create Keycloak OIDC client for OpenShift
-  kubernetes.core.k8s:
-    state: present
-    template: keycloak-client.yml.j2
+- name: Get Keycloak admin credentials
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: keycloak-initial-admin
+    namespace: "{{ ocp4_workload_konflux_tssc_cluster_keycloak_namespace }}"
+  register: r_keycloak_admin_secret
+
+- name: Set Keycloak admin credentials
+  ansible.builtin.set_fact:
+    _keycloak_admin_user: "{{ r_keycloak_admin_secret.resources[0].data.username | b64decode }}"
+    _keycloak_admin_password: "{{ r_keycloak_admin_secret.resources[0].data.password | b64decode }}"
+
+- name: Get Keycloak admin token
+  ansible.builtin.uri:
+    url: "{{ _keycloak_url }}/realms/master/protocol/openid-connect/token"
+    method: POST
+    body_format: form-urlencoded
+    body:
+      username: "{{ _keycloak_admin_user }}"
+      password: "{{ _keycloak_admin_password }}"
+      grant_type: password
+      client_id: admin-cli
+    validate_certs: false
+    status_code: 200
+  register: r_keycloak_token
+
+- name: Check if OpenShift Console client exists
+  ansible.builtin.uri:
+    url: "{{ _keycloak_url }}/admin/realms/{{ ocp4_workload_konflux_tssc_cluster_keycloak_realm }}/clients?clientId={{ ocp4_workload_konflux_tssc_cluster_keycloak_client_id }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ r_keycloak_token.json.access_token }}"
+    validate_certs: false
+    status_code: [200, 404]
+  register: r_existing_client
+
+- name: Create OpenShift Console client in Keycloak
+  when: r_existing_client.json | length == 0
+  ansible.builtin.uri:
+    url: "{{ _keycloak_url }}/admin/realms/{{ ocp4_workload_konflux_tssc_cluster_keycloak_realm }}/clients"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ r_keycloak_token.json.access_token }}"
+      Content-Type: application/json
+    body_format: json
+    body:
+      clientId: "{{ ocp4_workload_konflux_tssc_cluster_keycloak_client_id }}"
+      name: "OpenShift Console OAuth"
+      description: "OAuth client for OpenShift Console authentication via Keycloak"
+      enabled: true
+      clientAuthenticatorType: client-secret
+      secret: "{{ _oauth_client_secret }}"
+      redirectUris:
+        - "https://oauth-openshift.{{ _cluster_domain }}/oauth2callback/{{ ocp4_workload_konflux_tssc_cluster_oauth_idp_name }}"
+      webOrigins:
+        - "https://oauth-openshift.{{ _cluster_domain }}"
+        - "https://console-openshift-console.{{ _cluster_domain }}"
+      protocol: openid-connect
+      publicClient: false
+      standardFlowEnabled: true
+      implicitFlowEnabled: false
+      directAccessGrantsEnabled: true
+      serviceAccountsEnabled: false
+      attributes:
+        "access.token.lifespan": "300"
+        "client.session.idle.timeout": "1800"
+        "client.session.max.lifespan": "36000"
+    validate_certs: false
+    status_code: 201
 
 - name: Create OAuth client secret in openshift-config namespace
   kubernetes.core.k8s:
