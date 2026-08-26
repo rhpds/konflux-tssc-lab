@@ -9,3 +9,4 @@ Welcome to the project spec. Use the navigation to browse the design and module 
 - [Module 4 - Signing Provenance](modules/module-04-signing-provenance.md)
 - [Module 5 - Integration Testing Policy](modules/module-05-integration-testing-policy.md)
 - [Module 6 - Release Production](modules/module-06-release-production.md)
+- [Module 7 - Incident Response](modules/module-07-incident-response.md)
