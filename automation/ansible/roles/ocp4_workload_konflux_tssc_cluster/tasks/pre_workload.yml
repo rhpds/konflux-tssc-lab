@@ -24,16 +24,4 @@
 
 - name: Display Keycloak configuration
   ansible.builtin.debug:
-    msg: "Keycloak URL: {{ _keycloak_url }}/realms/{{ ocp4_workload_konflux_tssc_cluster_keycloak_realm }}"
-
-- name: Wait for Keycloak Operator CRDs to be available
-  kubernetes.core.k8s_info:
-    api_version: apiextensions.k8s.io/v1
-    kind: CustomResourceDefinition
-    name: keycloakclients.k8s.keycloak.org
-  register: r_keycloakclient_crd
-  retries: 30
-  delay: 10
-  until:
-    - r_keycloakclient_crd.resources | length > 0
-    - r_keycloakclient_crd.resources[0].status.conditions | selectattr('type', 'equalto', 'Established') | selectattr('status', 'equalto', 'True') | list | length > 0
+    msg: "Keycloak URL: {{ _keycloak_url}}/realms/{{ ocp4_workload_konflux_tssc_cluster_keycloak_realm }}"
