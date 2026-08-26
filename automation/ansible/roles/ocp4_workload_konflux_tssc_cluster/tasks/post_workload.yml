@@ -26,3 +26,15 @@
       - "Users can now log in to the OpenShift console using Keycloak credentials"
       - "Keycloak URL: {{ _keycloak_url }}"
       - "Realm: {{ ocp4_workload_konflux_tssc_cluster_keycloak_realm }}"
+
+- name: Build cluster access user data
+  ansible.builtin.set_fact:
+    _cluster_user_data:
+      openshift_cluster_console_url: "https://console-openshift-console.{{ _cluster_domain }}"
+      openshift_cluster_admin_username: kubeadmin
+      openshift_cluster_admin_password: "{{ hostvars['localhost']['openshift_cluster_admin_password'] | default('See cluster provisioning output') }}"
+      openshift_api_server_url: "{{ hostvars['localhost']['openshift_api_url'] | default('https://api.' + _cluster_domain + ':6443') }}"
+
+- name: Save cluster access information to user data
+  agnosticd.core.agnosticd_user_info:
+    data: "{{ _cluster_user_data }}"
