@@ -1,0 +1,28 @@
+---
+# Post-workload tasks - verification
+
+- name: Verify Keycloak identity provider is configured
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: OAuth
+    name: cluster
+  register: r_oauth_final
+
+- name: Check Keycloak IdP exists in configuration
+  ansible.builtin.set_fact:
+    _idp_configured: "{{ r_oauth_final.resources[0].spec.identityProviders | selectattr('name', 'equalto', ocp4_workload_konflux_tssc_cluster_oauth_idp_name) | list | length > 0 }}"
+
+- name: Verify OAuth configuration
+  ansible.builtin.assert:
+    that:
+      - _idp_configured
+    fail_msg: "Keycloak identity provider not found in OAuth configuration"
+    success_msg: "Keycloak identity provider successfully configured"
+
+- name: Display OAuth login information
+  ansible.builtin.debug:
+    msg:
+      - "OpenShift OAuth configured with Keycloak identity provider"
+      - "Users can now log in to the OpenShift console using Keycloak credentials"
+      - "Keycloak URL: {{ _keycloak_url }}"
+      - "Realm: {{ ocp4_workload_konflux_tssc_cluster_keycloak_realm }}"

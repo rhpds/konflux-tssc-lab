@@ -1,0 +1,101 @@
+---
+# Workload tasks - Configure OpenShift OAuth with Keycloak
+
+- name: Generate OAuth client secret
+  ansible.builtin.set_fact:
+    _oauth_client_secret: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
+
+- name: Get OpenShift cluster ingress domain
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: r_cluster_ingress
+
+- name: Set cluster ingress domain fact
+  ansible.builtin.set_fact:
+    _cluster_domain: "{{ r_cluster_ingress.resources[0].spec.domain }}"
+
+- name: Create Keycloak OIDC client for OpenShift
+  kubernetes.core.k8s:
+    state: present
+    template: keycloak-client.yml.j2
+
+- name: Create OAuth client secret in openshift-config namespace
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ ocp4_workload_konflux_tssc_cluster_keycloak_client_secret_name }}"
+        namespace: openshift-config
+      type: Opaque
+      stringData:
+        clientSecret: "{{ _oauth_client_secret }}"
+
+- name: Get current OAuth configuration
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: OAuth
+    name: cluster
+  register: r_oauth_current
+
+- name: Build identity provider configuration
+  ansible.builtin.set_fact:
+    _keycloak_idp:
+      name: "{{ ocp4_workload_konflux_tssc_cluster_oauth_idp_name }}"
+      type: OpenID
+      mappingMethod: claim
+      openID:
+        issuer: "{{ _keycloak_url }}/realms/{{ ocp4_workload_konflux_tssc_cluster_keycloak_realm }}"
+        clientID: "{{ ocp4_workload_konflux_tssc_cluster_keycloak_client_id }}"
+        clientSecret:
+          name: "{{ ocp4_workload_konflux_tssc_cluster_keycloak_client_secret_name }}"
+        claims:
+          preferredUsername:
+            - preferred_username
+          name:
+            - name
+          email:
+            - email
+
+- name: Get existing identity providers
+  ansible.builtin.set_fact:
+    _existing_idps: "{{ r_oauth_current.resources[0].spec.identityProviders | default([]) }}"
+
+- name: Check if Keycloak IdP already exists
+  ansible.builtin.set_fact:
+    _idp_exists: "{{ _existing_idps | selectattr('name', 'equalto', ocp4_workload_konflux_tssc_cluster_oauth_idp_name) | list | length > 0 }}"
+
+- name: Add Keycloak to identity providers list
+  ansible.builtin.set_fact:
+    _updated_idps: "{{ _existing_idps + [_keycloak_idp] }}"
+  when: not _idp_exists
+
+- name: Update OAuth configuration with Keycloak identity provider
+  when: not _idp_exists
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: config.openshift.io/v1
+      kind: OAuth
+      metadata:
+        name: cluster
+      spec:
+        identityProviders: "{{ _updated_idps }}"
+
+- name: Wait for OAuth pods to restart
+  when: not _idp_exists
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: openshift-authentication
+    label_selectors:
+      - app=oauth-openshift
+  register: r_oauth_pods
+  retries: 30
+  delay: 10
+  until:
+    - r_oauth_pods.resources | length > 0
+    - r_oauth_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length > 0

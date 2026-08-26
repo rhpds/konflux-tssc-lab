@@ -1,0 +1,19 @@
+---
+# ocp4_workload_konflux_tssc_cluster main tasks
+
+- name: Setting up Konflux TSSC cluster configuration
+  ansible.builtin.debug:
+    msg: "Configuring cluster {{ ocp4_workload_konflux_tssc_cluster_name }} with Keycloak OAuth"
+
+- name: Run pre-workload tasks
+  ansible.builtin.include_tasks: pre_workload.yml
+
+- name: Run workload tasks
+  ansible.builtin.include_tasks: workload.yml
+
+- name: Run post-workload tasks
+  ansible.builtin.include_tasks: post_workload.yml
+
+- name: Workload deployment successful
+  ansible.builtin.debug:
+    msg: "Konflux TSSC cluster configuration completed successfully"

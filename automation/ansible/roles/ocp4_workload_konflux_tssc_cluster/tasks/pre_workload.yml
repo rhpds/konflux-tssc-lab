@@ -1,0 +1,27 @@
+---
+# Pre-workload tasks - validation
+
+- name: Verify Keycloak namespace exists
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ ocp4_workload_konflux_tssc_cluster_keycloak_namespace }}"
+  register: r_keycloak_namespace
+  failed_when: r_keycloak_namespace.resources | length == 0
+
+- name: Get Keycloak route
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: keycloak
+    namespace: "{{ ocp4_workload_konflux_tssc_cluster_keycloak_namespace }}"
+  register: r_keycloak_route
+  failed_when: r_keycloak_route.resources | length == 0
+
+- name: Set Keycloak URL fact
+  ansible.builtin.set_fact:
+    _keycloak_url: "https://{{ r_keycloak_route.resources[0].spec.host }}"
+
+- name: Display Keycloak configuration
+  ansible.builtin.debug:
+    msg: "Keycloak URL: {{ _keycloak_url }}/realms/{{ ocp4_workload_konflux_tssc_cluster_keycloak_realm }}"

@@ -1,0 +1,16 @@
+---
+# Cluster configuration
+ocp4_workload_konflux_tssc_cluster_name: "{{ guid }}"
+
+# Keycloak OAuth configuration
+ocp4_workload_konflux_tssc_cluster_keycloak_namespace: tsf-keycloak
+ocp4_workload_konflux_tssc_cluster_keycloak_realm: tsf-iam
+ocp4_workload_konflux_tssc_cluster_keycloak_client_id: openshift-console
+ocp4_workload_konflux_tssc_cluster_keycloak_client_secret_name: openshift-oauth-client-secret
+
+# OAuth Identity Provider name
+ocp4_workload_konflux_tssc_cluster_oauth_idp_name: keycloak
+
+# Workload control
+ocp4_workload_konflux_tssc_cluster_become_override: false
+ocp4_workload_konflux_tssc_cluster_silent: false
