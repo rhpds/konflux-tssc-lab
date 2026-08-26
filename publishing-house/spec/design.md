@@ -77,7 +77,7 @@ Intermediate
 
 - **Cloud provider:** CNV (default)
 - **Cluster type:** Multinode
-- **OCP version:** 4.20 (minimum)
+- **OCP version:** 4.21 (minimum)
 - **Topology:** Shared cluster
 - **Sizing:** 3 control plane (16 vCPU, 64GB RAM); 6 workers (16 vCPU, 64GB RAM, 200GB disk)
 - **Automation approach:** Ansible

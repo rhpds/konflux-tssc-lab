@@ -79,7 +79,7 @@ spec:
     topology: shared-cluster
     cloud_provider: cnv
     max_concurrent_users: 20
-    ocp_version: '4.20'
+    ocp_version: '4.21'
     cluster_type: multinode
     control_plane_instance_count: 3
     control_plane_cpu: 16
