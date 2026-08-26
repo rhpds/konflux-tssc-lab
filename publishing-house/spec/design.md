@@ -30,6 +30,7 @@ Participants onboard a real application from a pre-provisioned GitLab repository
 4. Analyze Conforma policy checks and observe how failed checks block artifact promotion between environments
 5. Deploy a policy-verified, signed artifact through a controlled release pipeline to a production Quay registry
 6. Verify end-to-end supply chain integrity from source commit to signed, provenance-attested production release
+7. Diagnose supply chain failures — unsigned hotfix, CVE policy breach, and config drift — using Conforma policy output and cosign to identify which control blocked each incident
 
 ## Content Type
 
@@ -56,12 +57,11 @@ Upstream projects (not GA Red Hat products):
 | 1 | Orientation | 10 min |
 | 2 | Onboard Your Application | 15 min |
 | 3 | Build and Scan | 20 min |
-| 4 | Signing and Provenance | 15 min |
+| 4 | Signing and Provenance | 20 min |
 | 5 | Integration Testing and Policy | 15 min |
 | 6 | Release to Production | 15 min |
-| — | **Total hands-on** | **90 min** |
-| — | Intro / presentation | ~0 min (self-guided) |
-| — | **Total lab** | **~90 min** |
+| 7 | Real-World Incident Response | 25 min |
+| — | **Total** | **120 min (2 hours)** |
 
 ## Difficulty Level
 

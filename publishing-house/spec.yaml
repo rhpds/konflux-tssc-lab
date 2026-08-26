@@ -42,18 +42,21 @@ spec:
     to a production Quay registry
   - Verify end-to-end supply chain integrity from source commit to signed, provenance-attested
     production release
+  - Diagnose supply chain failures — unsigned hotfix, CVE policy breach, and config
+    drift — using Conforma policy output and cosign to identify the specific control
+    that blocked each incident
   modules:
   - id: module-01
     title: Orientation
-    duration_min: 15
+    duration_min: 10
     status: not_started
   - id: module-02
     title: Onboard Your Application
-    duration_min: 20
+    duration_min: 15
     status: not_started
   - id: module-03
     title: Build and Scan
-    duration_min: 25
+    duration_min: 20
     status: not_started
   - id: module-04
     title: Signing and Provenance
@@ -61,11 +64,15 @@ spec:
     status: not_started
   - id: module-05
     title: Integration Testing and Policy
-    duration_min: 20
+    duration_min: 15
     status: not_started
   - id: module-06
     title: Release to Production
-    duration_min: 20
+    duration_min: 15
+    status: not_started
+  - id: module-07
+    title: Real-World Incident Response
+    duration_min: 25
     status: not_started
   environment:
     platform: ocp
@@ -161,6 +168,13 @@ approval_checklist:
         the release pipeline completes. The module closes by tracing the full artifact
         lifecycle from source commit to production-ready, policy-verified, signed
         release.
+    - title: Real-World Incident Response
+      overview: Participants intentionally break three trust mechanisms established
+        in earlier modules — an unsigned hotfix pushed outside Konflux, a dependency
+        CVE that triggers a policy block, and a config drift scenario where a signing
+        key mismatch causes signature verification to fail. Each scenario is diagnosed
+        using Conforma CLI output and cosign, reinforcing how the supply chain catches
+        real-world failures and what remediation looks like.
     rcars_overlap_pct: 98
     rcars_top_matches:
     - title: 'Product Enablement: Red Hat Advanced Developer Suite (TL3)'
@@ -193,13 +207,13 @@ approval_checklist:
     - id: f69c9ebd-7731-4df3-bde7-a96c2daf0793
       text: RH1 labs are 2 hours, this is only 90 minutes; please update to fill the
         allotted time.
-      resolved: false
+      resolved: true
       reviewer: nstephan@redhat.com
       timestamp: '2026-08-20T11:54:23.130575+00:00'
     - id: 10adabf5-1e68-42a4-afc3-bfbf6b4040fb
       text: See message about runner up submission; I'd like you see you merge with
         what Jason is proposing to freshen up how this stuff is taught/shown.
-      resolved: false
+      resolved: true
       reviewer: nstephan@redhat.com
       timestamp: '2026-08-20T11:54:23.130575+00:00'
   infra:
