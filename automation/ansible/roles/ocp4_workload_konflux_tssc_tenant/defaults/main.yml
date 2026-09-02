@@ -5,9 +5,6 @@ ocp4_workload_konflux_tssc_tenant_user: "user-{{ guid }}"
 # Namespace where the user's Konflux tenant resources live
 ocp4_workload_konflux_tssc_tenant_namespace: "{{ ocp4_workload_konflux_tssc_tenant_user }}"
 
-# Name of the RoleBinding
-ocp4_workload_konflux_tssc_tenant_rolebinding_name: "konflux-contributor-{{ ocp4_workload_konflux_tssc_tenant_user }}"
-
 # Workload control
 ocp4_workload_konflux_tssc_tenant_become_override: false
 ocp4_workload_konflux_tssc_tenant_silent: false
