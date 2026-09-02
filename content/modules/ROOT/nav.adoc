@@ -1,0 +1,8 @@
+* xref:index.adoc[Lab Overview]
+* xref:module-01-orientation.adoc[Orientation]
+* xref:module-02-onboard-application.adoc[Onboard Your Application]
+* xref:module-03-build-and-scan.adoc[Build and Scan]
+* xref:module-04-signing-provenance.adoc[Signing and Provenance]
+* xref:module-05-integration-testing-policy.adoc[Integration Testing and Policy]
+* xref:module-06-release-production.adoc[Release to Production]
+* xref:module-07-incident-response.adoc[Real-World Incident Response]
