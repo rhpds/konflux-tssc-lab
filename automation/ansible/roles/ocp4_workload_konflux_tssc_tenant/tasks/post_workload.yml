@@ -1,9 +1,9 @@
 ---
-- name: Verify contributor RoleBinding exists
+- name: Verify admin RoleBinding exists
   kubernetes.core.k8s_info:
     api_version: rbac.authorization.k8s.io/v1
     kind: RoleBinding
-    name: konflux-contributor
+    name: konflux-admin
     namespace: "{{ ocp4_workload_konflux_tssc_tenant_namespace }}"
   register: r_rolebinding
   failed_when: r_rolebinding.resources | length == 0

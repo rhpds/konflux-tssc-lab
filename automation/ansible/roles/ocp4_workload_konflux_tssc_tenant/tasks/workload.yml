@@ -1,5 +1,5 @@
 ---
-- name: Bind lab user to konflux-contributor-user-actions in tenant namespace
+- name: Bind lab user to konflux-admin-user-actions in tenant namespace
   kubernetes.core.k8s:
     state: present
-    template: rolebinding-contributor.yaml.j2
+    template: rolebinding-admin.yaml.j2
