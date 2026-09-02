@@ -2,17 +2,4 @@
 - name: Bind lab user to konflux-contributor-user-actions in tenant namespace
   kubernetes.core.k8s:
     state: present
-    definition:
-      apiVersion: rbac.authorization.k8s.io/v1
-      kind: RoleBinding
-      metadata:
-        name: konflux-contributor
-        namespace: "{{ ocp4_workload_konflux_tssc_tenant_namespace }}"
-      roleRef:
-        apiGroup: rbac.authorization.k8s.io
-        kind: ClusterRole
-        name: konflux-contributor-user-actions
-      subjects:
-        - apiGroup: rbac.authorization.k8s.io
-          kind: User
-          name: "{{ ocp4_workload_konflux_tssc_tenant_user }}"
+    template: rolebinding-contributor.yaml.j2
