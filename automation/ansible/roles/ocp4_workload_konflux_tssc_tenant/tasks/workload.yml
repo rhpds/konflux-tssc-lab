@@ -1,43 +1,5 @@
 ---
-# Grant the lab user the Konflux API permissions they need to create RoleBindings
-# in their own namespace without hitting RBAC escalation errors.
-#
-# Kubernetes prevents users from granting permissions they don't currently hold.
-# The user's RoleBinding setup task includes appstudio.redhat.com and projctl.konflux.dev
-# resources — this role grants those permissions first so the escalation check passes.
-
-- name: Create Konflux tenant reader Role
-  kubernetes.core.k8s:
-    state: present
-    definition:
-      apiVersion: rbac.authorization.k8s.io/v1
-      kind: Role
-      metadata:
-        name: "{{ ocp4_workload_konflux_tssc_tenant_role_name }}"
-        namespace: "{{ ocp4_workload_konflux_tssc_tenant_namespace }}"
-      rules:
-        - apiGroups:
-            - appstudio.redhat.com
-          resources:
-            - imagerepositories
-            - integrationtestscenarios
-            - snapshots
-          verbs:
-            - get
-            - list
-            - watch
-        - apiGroups:
-            - projctl.konflux.dev
-          resources:
-            - projectdevelopmentstreams
-            - projectdevelopmentstreamtemplates
-            - projects
-          verbs:
-            - get
-            - list
-            - watch
-
-- name: Bind Konflux tenant reader Role to lab user
+- name: Bind lab user to konflux-contributor-user-actions in tenant namespace
   kubernetes.core.k8s:
     state: present
     definition:
@@ -48,8 +10,8 @@
         namespace: "{{ ocp4_workload_konflux_tssc_tenant_namespace }}"
       roleRef:
         apiGroup: rbac.authorization.k8s.io
-        kind: Role
-        name: "{{ ocp4_workload_konflux_tssc_tenant_role_name }}"
+        kind: ClusterRole
+        name: konflux-contributor-user-actions
       subjects:
         - apiGroup: rbac.authorization.k8s.io
           kind: User
