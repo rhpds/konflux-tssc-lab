@@ -1,0 +1,19 @@
+---
+# ocp4_workload_konflux_tssc_tenant main tasks
+
+- name: Setting up Konflux TSSC tenant configuration
+  ansible.builtin.debug:
+    msg: "Configuring Konflux tenant for user {{ ocp4_workload_konflux_tssc_tenant_user }}"
+
+- name: Run pre-workload tasks
+  ansible.builtin.include_tasks: pre_workload.yml
+
+- name: Run workload tasks
+  ansible.builtin.include_tasks: workload.yml
+
+- name: Run post-workload tasks
+  ansible.builtin.include_tasks: post_workload.yml
+
+- name: Workload deployment successful
+  ansible.builtin.debug:
+    msg: "Konflux TSSC tenant configuration completed for {{ ocp4_workload_konflux_tssc_tenant_user }}"

@@ -1,0 +1,16 @@
+---
+# Lab user identifier (e.g. user-abc12)
+ocp4_workload_konflux_tssc_tenant_user: "user-{{ guid }}"
+
+# Namespace where the user's Konflux tenant resources live
+ocp4_workload_konflux_tssc_tenant_namespace: "{{ ocp4_workload_konflux_tssc_tenant_user }}"
+
+# Name of the Role granting Konflux API read access
+ocp4_workload_konflux_tssc_tenant_role_name: "konflux-tenant-reader"
+
+# Name of the RoleBinding
+ocp4_workload_konflux_tssc_tenant_rolebinding_name: "konflux-tenant-reader-{{ ocp4_workload_konflux_tssc_tenant_user }}"
+
+# Workload control
+ocp4_workload_konflux_tssc_tenant_become_override: false
+ocp4_workload_konflux_tssc_tenant_silent: false

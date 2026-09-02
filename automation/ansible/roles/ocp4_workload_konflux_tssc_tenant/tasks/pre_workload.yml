@@ -1,0 +1,17 @@
+---
+# Pre-workload tasks — verify namespace exists before configuring RBAC
+
+- name: Check that tenant namespace exists
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ ocp4_workload_konflux_tssc_tenant_namespace }}"
+  register: r_tenant_namespace
+  retries: 12
+  delay: 10
+  until: r_tenant_namespace.resources | length > 0
+
+- name: Fail if tenant namespace is missing
+  ansible.builtin.fail:
+    msg: "Namespace {{ ocp4_workload_konflux_tssc_tenant_namespace }} does not exist. Konflux tenant provisioning may not have completed."
+  when: r_tenant_namespace.resources | length == 0
