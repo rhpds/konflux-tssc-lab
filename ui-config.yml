@@ -13,5 +13,6 @@ tabs:
     url: 'https://console-openshift-console.${DOMAIN}'
   - name: ">_ terminal"
     path: /wetty
+    port: 443
   - name: Placeholder
     url: /placeholder
