@@ -2,7 +2,7 @@
 
 # Build, Sign, and Ship: Securing the Software Supply Chain with Konflux
 
-Modern software supply chains demand more than just building and deploying code — they require cryptographic proof of provenance, automated vulnerability scanning, and policy-enforced releases. In this 90-minute hands-on lab, you'll experience the complete secure software lifecycle using **Konflux**, Red Hat's next-generation build and release platform.
+Modern software supply chains demand more than just building and deploying code — they require cryptographic proof of provenance, automated vulnerability scanning, and policy-enforced releases. In this 2-hour hands-on lab, you'll experience the complete secure software lifecycle using **Konflux**, Red Hat's next-generation build and release platform.
 
 Working in your own tenant workspace on a shared OpenShift cluster, you'll onboard a real application from a GitLab repository, trigger automated builds via Pipelines-as-Code, and watch Konflux generate SBOMs, sign your artifacts with **Trusted Artifact Signer**, and produce SLSA Level 3 provenance attestations — all without writing a single pipeline. You'll then verify your supply chain integrity using **Enterprise Contract** policy checks and promote your application through a controlled release pipeline to a production namespace, with images pushed to a self-hosted **Quay** registry.
 
