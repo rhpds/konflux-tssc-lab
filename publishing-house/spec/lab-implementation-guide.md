@@ -197,13 +197,16 @@ Using project "user-{guid}-tenant".
 # Confirm current namespace
 oc project user-{guid}-tenant
 
-# List namespaces you have access to
-oc get namespaces | grep user-{guid}
+# List projects you have access to
+oc get projects | grep user-{guid}
 
 Expected output:
 user-{guid}-managed     Active   5m
 user-{guid}-showroom    Active   5m
 user-{guid}-tenant      Active   5m
+
+Note: Use 'oc get projects' instead of 'oc get namespaces' 
+(tenant users don't have cluster-wide namespace list permissions)
 
 # Check Konflux permissions
 oc auth can-i create applications.appstudio.redhat.com -n user-{guid}-tenant
