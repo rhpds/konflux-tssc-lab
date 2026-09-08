@@ -282,12 +282,14 @@ oc describe clusterrole konflux-admin-user-actions | grep -A 2 "tekton.dev"
 **Step 1: Navigate to Applications**
 
 ```
-1. In the Konflux UI, ensure you are in your workspace (top-left shows user-{guid}-tenant)
-2. Click "Applications" in the left sidebar
-3. You should see an empty Applications list with a "Create application" button
+1. In the Konflux UI, you should be on the Namespaces page
+2. Click on your namespace: "user-{guid}-tenant" (click the row in the table)
+3. The namespace view will open and "Applications" in the sidebar will become enabled
+4. Click "Applications" in the left sidebar
+5. You should see an empty Applications list with a "Create application" button
 ```
 
-**Expected**: Empty application list displayed
+**Expected**: Empty application list displayed within your namespace
 
 ---
 
