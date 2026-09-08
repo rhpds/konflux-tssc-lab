@@ -182,12 +182,11 @@ Expected output:
 Login successful.
 You have access to the following projects and can switch between them with 'oc project <projectname>':
   * user-{guid}-managed
-  * user-{guid}-showroom
   * user-{guid}-tenant
 Using project "user-{guid}-tenant".
 ```
 
-**Expected**: CLI login succeeds, 3 namespaces are visible
+**Expected**: CLI login succeeds, 2 namespaces are visible (tenant and managed)
 
 ---
 
@@ -202,11 +201,10 @@ oc get projects | grep user-{guid}
 
 Expected output:
 user-{guid}-managed     Active   5m
-user-{guid}-showroom    Active   5m
 user-{guid}-tenant      Active   5m
 
-Note: Use 'oc get projects' instead of 'oc get namespaces' 
-(tenant users don't have cluster-wide namespace list permissions)
+Note: You should see 2 namespaces. The showroom namespace (where this 
+lab guide runs) is not accessible to your user account.
 
 # Check Konflux permissions
 oc auth can-i create applications.appstudio.redhat.com -n user-{guid}-tenant
