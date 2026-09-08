@@ -339,6 +339,7 @@ GitLab API operations require a Personal Access Token (PAT), not just a password
    - Token name: konflux-pac
    - Expiration date: (leave default or set far in future)
    - Select scopes: Check the following boxes:
+     ✓ read_repository (Grants read-only access to repositories)
      ✓ write_repository (Grants read-write access to repositories)
      ✓ api (Grants complete read/write access to the API)
 
