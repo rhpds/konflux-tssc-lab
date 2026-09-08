@@ -345,8 +345,10 @@ GitLab API operations require a Personal Access Token (PAT), not just a password
 6. Click the "Generate token" button at the bottom of the form
 
 7. IMPORTANT: Copy the token that appears at the top of the page
-   (It looks like: glft-xxxxxxxxxxxxxxxxxxxx)
+   (It looks like: glpat-xxxxxxxxxxxxxxxxxxxx)
    You will only see this token once!
+   
+   Note: Do not confuse this with the "Feed token" shown below (which starts with glft-)
 
 8. Keep this token ready - you'll use it in the next step
 ```
