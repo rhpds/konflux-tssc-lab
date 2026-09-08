@@ -3,7 +3,7 @@
 
 - name: Setting up Konflux TSSC cluster configuration
   ansible.builtin.debug:
-    msg: "Configuring cluster {{ ocp4_workload_konflux_tssc_cluster_name }} with Keycloak OAuth"
+    msg: "Configuring cluster {{ ocp4_workload_konflux_tssc_cluster_name }} - Quay team setup and lab pipeline configuration"
 
 - name: Run pre-workload tasks
   ansible.builtin.include_tasks: pre_workload.yml
