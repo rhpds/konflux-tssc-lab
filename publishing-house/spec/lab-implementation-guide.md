@@ -414,7 +414,7 @@ in your GitLab repository to add Pipelines-as-Code configuration files.
 
 2. Navigate to your "sample-component-golang" repository
 
-3. Click "Merge requests" in the left sidebar
+3. Click "Code" in the left sidebar, then click "Merge requests"
 
 4. You should see Merge Request #1 (created by Konflux/automation)
    - Title may be: "Pipelines as Code configuration proposal"
