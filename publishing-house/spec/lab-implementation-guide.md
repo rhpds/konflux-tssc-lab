@@ -234,14 +234,19 @@ Expected output:
 konflux-admin   ClusterRole/konflux-admin-user-actions   5m
 
 # Describe the ClusterRole to see permissions
-oc describe clusterrole konflux-admin-user-actions | head -30
+oc describe clusterrole konflux-admin-user-actions | head -60
 
 Expected: You should see permissions for:
 - applications.appstudio.redhat.com
 - components.appstudio.redhat.com
 - releaseplans.appstudio.redhat.com
 - integrationtestscenarios.appstudio.redhat.com
-- tekton.dev resources
+- pipelineruns.tekton.dev, pipelines.tekton.dev, taskruns.tekton.dev
+- serviceaccounts, secrets, configmaps
+- pods, pods/log
+
+# Verify Tekton permissions specifically
+oc describe clusterrole konflux-admin-user-actions | grep -A 2 "tekton.dev"
 ```
 
 **Expected**: ClusterRole grants full Konflux resource management
