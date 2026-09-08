@@ -296,21 +296,21 @@ oc describe clusterrole konflux-admin-user-actions | grep -A 2 "tekton.dev"
 **Step 2: Create Application**
 
 ```
-1. Click "Create application" (or "+ Create" button)
+1. Click "Create application" button
 
 2. In the form that appears:
    - Application name: my-sample-app
    - Display name: My Sample Application
    - Description: (optional) Sample application for supply chain security lab
 
-3. Click "Create" (or "Next" depending on UI version)
+3. Click "Create application" button at the bottom of the form
 
 4. Wait for the Application to be created (should take 2-5 seconds)
 
-5. Verify the Application appears in the list with status "No components yet"
+5. You will be redirected to the Application detail page
 ```
 
-**Expected**: Application created, appears in Applications list
+**Expected**: Application created, redirected to Application detail page
 
 ---
 
@@ -319,14 +319,15 @@ oc describe clusterrole konflux-admin-user-actions | grep -A 2 "tekton.dev"
 **Step 3: Add Component to Application**
 
 ```
-1. Click on your newly created Application ("my-sample-app")
+1. You should now be on the Application detail page for "my-sample-app"
 
-2. You should see the Application detail page with:
-   - Application name at the top
-   - "Components" section (empty)
-   - "Add component" button
+2. You'll see a "What's next?" section with several cards including:
+   - "Grow your application" - with an "Add component" button
+   - "Add integration tests"
+   - "Create a release plan"
+   - And other setup options
 
-3. Click "Add component"
+3. Click the "Add component" button in the "Grow your application" card
 ```
 
 **Expected**: Component creation form opens
