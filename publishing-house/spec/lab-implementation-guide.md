@@ -138,13 +138,15 @@ Modern supply chain security solves this by requiring:
    - Username: user-{guid}
    - Password: {same as OpenShift password}
 
-4. Verify you land on the Quay dashboard
-5. Note: You may not have any repositories yet (this is normal)
-6. Navigate to Account Settings → User Settings
-   - Confirm your username appears
+4. Verify you land on the Organizations page
+   - Your username should appear in the top-right corner (user-{guid})
+   - You should see one organization: "user-{guid}" with 0 repos
+
+5. Click "Repositories" in the left sidebar
+   - Confirm the page is empty (no repositories yet - this is normal)
 ```
 
-**Expected**: Quay loads, user is authenticated
+**Expected**: Quay loads, user is authenticated, organization created
 
 ---
 
