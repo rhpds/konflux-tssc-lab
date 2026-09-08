@@ -334,52 +334,29 @@ oc describe clusterrole konflux-admin-user-actions | grep -A 2 "tekton.dev"
 
 ---
 
-**Step 4: Configure Component Source**
+**Step 4: Fill Out Component Creation Form**
 
 ```
-1. In the "Source" section:
-   - Source type: Git repository
-   - Repository URL: Paste your GitLab repository URL from Module 01
-     Example: https://gitlab-gitlab.apps.cluster-{guid}.{domain}/user-{guid}/sample-component-golang.git
+You should see the "Create a Component" form with the following fields:
 
-2. If prompted for authentication:
-   - Authentication type: Personal Access Token (or "Use credentials")
-   - Token/Password: {your GitLab password or PAT if created}
+1. Application name: (pre-filled with "my-sample-app" - read-only)
 
-3. Click "Validate" or "Next"
+2. Git repository url: Paste your GitLab repository URL from Module 01
+   Example: https://gitlab-gitlab.apps.cluster-{guid}.{domain}/user-{guid}/sample-component-golang.git
 
-4. Konflux will inspect the repository:
-   - It should detect the Dockerfile in the repository root
-   - Build strategy: Dockerfile
-   - Dockerfile path: ./Dockerfile (auto-detected)
+3. Docker file: Leave as default "./Dockerfile" (or enter if empty)
+
+4. Component name: Enter "sample-component-golang"
+   (Must be unique within your tenant namespace)
+
+5. Pipeline: Leave as default "docker-build-oci-ta-min"
+
+6. Build time secret: Leave empty (no additional secrets needed for this lab)
+
+7. Scroll down and click "Create component" button
 ```
 
-**Expected**: Repository is validated, Dockerfile detected
-
----
-
-**Step 5: Configure Component Build**
-
-```
-1. In the "Component details" section:
-   - Component name: sample-app (or accept auto-generated name)
-   - Display name: Sample Component
-
-2. In the "Target image" section:
-   - Registry: {Quay URL from credentials}
-   - Organization: user-{guid}
-   - Repository name: sample-component-golang
-   
-   Full image path will be:
-   quay-{cluster}.apps.cluster-{guid}.{domain}/user-{guid}/sample-component-golang
-
-3. Build context: . (root directory)
-4. Branch: main (or default branch)
-
-5. Review the configuration and click "Create component"
-```
-
-**Expected**: Component creation begins
+**Expected**: Component creation begins, form submits
 
 ---
 
