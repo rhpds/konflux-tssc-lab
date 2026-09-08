@@ -402,39 +402,67 @@ You should see the "Create a Component" form with the following fields:
 
 ---
 
-### Section 3: Trigger and Monitor the First Build (5 min)
+### Section 4: Review and Merge Pipeline Configuration (5 min)
 
-**Step 5: Manually Trigger the First Build**
+**Step 6: Review GitLab Merge Request**
 
 ```
-Konflux requires you to manually start the first build.
+After adding the component, Konflux automatically creates a merge request 
+in your GitLab repository to add Pipelines-as-Code configuration files.
 
-1. In the Konflux UI, you should still be viewing the Components list
+1. Switch to your GitLab browser tab
 
-2. Find your component "sample-component-golang" in the list
-   - Status shows "Build not started"
+2. Navigate to your "sample-component-golang" repository
 
-3. Click the three-dot menu (⋮) on the right side of the component row
+3. Click "Merge requests" in the left sidebar
 
-4. Click "Start new build" from the dropdown menu
+4. You should see Merge Request #1 (created by Konflux/automation)
+   - Title may be: "Pipelines as Code configuration proposal"
 
-5. Wait a few seconds for the build to initialize
+5. Click on the merge request to open it
+
+6. Review the changes - you'll see a new `.tekton/` directory being added with:
+   - `.tekton/sample-component-golang-pull-request.yaml` (triggers on PRs)
+   - `.tekton/sample-component-golang-push.yaml` (triggers on push to main)
+
+7. These files define the build pipeline that will run automatically on code changes
 ```
 
-**Expected**: Build starts, status changes from "Build not started"
+**Expected**: Merge request is visible with `.tekton/` pipeline definitions
 
 ---
 
-**Step 6: Monitor the PipelineRun**
+**Step 7: Merge the Pipeline Configuration**
 
 ```
-1. After starting the build, the component status should update
+1. Review the pipeline YAML files to understand what they do
+   (they define build tasks: clone, build-container, scan, sign, etc.)
 
-2. Click on the component name "sample-component-golang" to open its detail page
+2. Click the "Merge" button to merge the MR into the main branch
 
-3. Click on the "Activity" tab
+3. Confirm the merge
 
-4. You should see a PipelineRun listed with status "Running" or "Pending"
+4. Wait 30-60 seconds for the merge event to trigger the first build
+```
+
+**Expected**: MR is merged, `.tekton/` directory now exists in main branch
+
+---
+
+### Section 5: Monitor the First PipelineRun (5 min)
+
+**Step 8: Watch the Build Start**
+
+```
+1. Switch back to the Konflux UI browser tab
+
+2. The component status should update from "Build not started" to "Building"
+
+3. Click on the component name "sample-component-golang" to open its detail page
+
+4. Click on the "Activity" tab
+
+5. You should see a PipelineRun listed with status "Running" or "Pending"
 
 5. Click on the PipelineRun name to open its detail view
 
