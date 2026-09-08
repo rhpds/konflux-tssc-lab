@@ -1,4 +1,6 @@
 ---
-- name: Workload placeholder
-  ansible.builtin.debug:
-    msg: "ocp4_workload_konflux_tssc_cluster workload — not yet implemented"
+- name: Create Quay members team for lab users
+  ansible.builtin.include_tasks: create-quay-members-team.yml
+
+- name: Add lab pipeline to Konflux build catalog
+  ansible.builtin.include_tasks: add-lab-pipeline-to-catalog.yml

@@ -1,0 +1,30 @@
+---
+- name: Add lab pipeline to Konflux buildService config
+  kubernetes.core.k8s:
+    state: patched
+    kind: Konflux
+    name: konflux
+    namespace: konflux-ui
+    definition:
+      spec:
+        buildService:
+          spec:
+            pipelineConfig:
+              removeDefaults: true
+              defaultPipelineName: docker-build-oci-ta-lab
+              pipelines:
+              - name: docker-build-oci-ta-lab
+                bundle: quay.io/rhpds/pipeline-docker-build-lab:1.0
+                description: Lab version with minimal resource requests for demos and testing
+
+- name: Wait for build-pipeline-config ConfigMap to be updated by operator
+  kubernetes.core.k8s_info:
+    kind: ConfigMap
+    name: build-pipeline-config
+    namespace: build-service
+  register: r_pipeline_config
+  until:
+  - r_pipeline_config.resources | length > 0
+  - r_pipeline_config.resources[0].data['config.yaml'] | from_yaml | json_query('pipelines[?name==`docker-build-oci-ta-lab`]') | length > 0
+  retries: 30
+  delay: 2

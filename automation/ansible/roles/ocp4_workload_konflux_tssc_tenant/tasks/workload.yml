@@ -3,3 +3,9 @@
   kubernetes.core.k8s:
     state: present
     template: rolebinding-admin.yaml.j2
+
+- name: Create integration service account for Enterprise Contract
+  ansible.builtin.include_tasks: create-integration-service-account.yml
+
+- name: Grant user access to Quay tsf organization
+  ansible.builtin.include_tasks: grant-quay-access.yml

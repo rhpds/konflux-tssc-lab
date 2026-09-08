@@ -1,0 +1,31 @@
+---
+- name: Get Quay API token
+  kubernetes.core.k8s_info:
+    kind: Secret
+    name: quaytoken
+    namespace: image-controller
+  register: r_quay_token_secret
+
+- name: Set Quay facts
+  ansible.builtin.set_fact:
+    quay_token: "{{ r_quay_token_secret.resources[0].data.quaytoken | b64decode }}"
+    quay_api_url: "{{ r_quay_token_secret.resources[0].data.quayapiurl | b64decode }}"
+    quay_org: "{{ r_quay_token_secret.resources[0].data.organization | b64decode }}"
+
+- name: Create "members" team in Quay organization
+  ansible.builtin.uri:
+    url: "{{ quay_api_url }}/organization/{{ quay_org }}/team/members"
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ quay_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      role: "member"
+      description: "Lab users"
+    status_code: [200, 201]
+  register: r_quay_team
+
+- name: Show Quay team creation result
+  ansible.builtin.debug:
+    msg: "Team 'members' created/updated in Quay org {{ quay_org }}"
