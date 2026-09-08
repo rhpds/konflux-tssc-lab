@@ -108,12 +108,16 @@ Modern supply chain security solves this by requiring:
    - Username: user-{guid}
    - Password: {same as OpenShift password}
 
-4. Navigate to Projects → Your projects
-5. Locate the "sample-component-golang" repository
-6. Click into the repository and note the repository URL
+4. Click "Projects" in the left sidebar
+
+5. Click the "Personal" tab (should show "1" indicating one personal project)
+
+6. Locate the "sample-component-golang" repository in the list
+
+7. Click into the repository and note the repository URL
    (you'll need this in Module 02)
 
-7. Browse the repository files:
+8. Browse the repository files:
    - main.go (the application code)
    - Dockerfile (container build definition)
    - go.mod (Go dependencies)
