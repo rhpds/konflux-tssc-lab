@@ -314,19 +314,52 @@ oc describe clusterrole konflux-admin-user-actions | grep -A 2 "tekton.dev"
 
 ---
 
-### Section 2: Configure GitLab Authentication for Konflux (3 min)
+### Section 2: Configure GitLab Authentication for Konflux (5 min)
 
-**Step 3: Create GitLab Authentication Secret**
+**Step 3: Create GitLab Personal Access Token**
 
 ```
-Konflux needs credentials to access your private GitLab repository to:
+Konflux needs API access to your GitLab repository to:
 - Clone the source code
-- Create merge requests with pipeline definitions  
+- Create merge requests with pipeline definitions
 - Set up Pipelines-as-Code webhooks
+- Update commit statuses
 
-Without this secret, component builds will fail with "Build not started" status.
+GitLab API operations require a Personal Access Token (PAT), not just a password.
 
-In the Showroom terminal, create the authentication secret:
+1. In your GitLab browser tab, click your user avatar (top-right corner)
+
+2. Click "Preferences" from the dropdown menu
+
+3. In the left sidebar, click "Access Tokens"
+
+4. Fill out the "Add a personal access token" form:
+   - Token name: konflux-pac
+   - Expiration date: (leave blank or set far in future)
+   - Select scopes: Check the following boxes:
+     ✓ api (Access the authenticated user's API)
+     ✓ write_repository (Allows read-write access to the repository)
+
+5. Click "Create personal access token" button
+
+6. IMPORTANT: Copy the token that appears at the top of the page
+   (It looks like: glpat-xxxxxxxxxxxxxxxxxxxx)
+   You will only see this token once!
+
+7. Keep this token ready - you'll use it in the next step
+```
+
+**Expected**: Personal access token created and copied
+
+---
+
+**Step 4: Create GitLab Authentication Secret**
+
+```
+Now create the Kubernetes secret with your GitLab credentials.
+
+In the Showroom terminal, run this command, replacing {your-token} with 
+the Personal Access Token you just copied:
 
 cat <<EOF | oc apply -f -
 apiVersion: v1
@@ -340,8 +373,11 @@ metadata:
 type: kubernetes.io/basic-auth
 stringData:
   username: user-{guid}
-  password: {your-password}
+  password: {your-token}
 EOF
+
+Example format (replace YOUR_COPIED_TOKEN with your actual token):
+password: YOUR_COPIED_TOKEN
 
 Verify the secret was created:
 
@@ -352,13 +388,13 @@ NAME                  TYPE                       DATA   AGE
 gitlab-auth-secret    kubernetes.io/basic-auth   2      5s
 ```
 
-**Expected**: Secret created successfully, Konflux can now authenticate to GitLab
+**Expected**: Secret created successfully with GitLab PAT, Konflux can now authenticate to GitLab API
 
 ---
 
 ### Section 3: Add the Component and Connect GitLab (6 min)
 
-**Step 4: Add Component to Application**
+**Step 5: Add Component to Application**
 
 ```
 1. You should now be on the Application detail page for "my-sample-app"
@@ -376,7 +412,7 @@ gitlab-auth-secret    kubernetes.io/basic-auth   2      5s
 
 ---
 
-**Step 5: Fill Out Add Component Form**
+**Step 6: Fill Out Add Component Form**
 
 ```
 You should see the "Create a Component" form with the following fields:
@@ -404,7 +440,7 @@ You should see the "Create a Component" form with the following fields:
 
 ### Section 4: Review and Merge Pipeline Configuration (5 min)
 
-**Step 6: Review GitLab Merge Request**
+**Step 7: Review GitLab Merge Request**
 
 ```
 After adding the component, Konflux automatically creates a merge request 
@@ -432,7 +468,7 @@ in your GitLab repository to add Pipelines-as-Code configuration files.
 
 ---
 
-**Step 7: Merge the Pipeline Configuration**
+**Step 8: Merge the Pipeline Configuration**
 
 ```
 1. Review the pipeline YAML files to understand what they do
@@ -451,7 +487,7 @@ in your GitLab repository to add Pipelines-as-Code configuration files.
 
 ### Section 5: Monitor the First PipelineRun (5 min)
 
-**Step 8: Watch the Build Start**
+**Step 9: Watch the Build Start**
 
 ```
 1. Switch back to the Konflux UI browser tab
