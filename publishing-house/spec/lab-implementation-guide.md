@@ -331,7 +331,7 @@ GitLab API operations require a Personal Access Token (PAT), not just a password
 
 2. Click "Preferences" from the dropdown menu
 
-3. In the left sidebar, click "Access Tokens"
+3. In the left sidebar, click "Access" → "Personal access tokens"
 
 4. Fill out the "Add a personal access token" form:
    - Token name: konflux-pac
