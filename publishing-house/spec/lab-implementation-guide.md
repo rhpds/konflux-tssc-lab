@@ -333,20 +333,22 @@ GitLab API operations require a Personal Access Token (PAT), not just a password
 
 3. In the left sidebar, click "Access" → "Personal access tokens"
 
-4. Fill out the "Add a personal access token" form:
+4. Click the "Add new token" button (top-right corner)
+
+5. Fill out the token creation form:
    - Token name: konflux-pac
-   - Expiration date: (leave blank or set far in future)
+   - Expiration date: (leave default or set far in future)
    - Select scopes: Check the following boxes:
-     ✓ api (Access the authenticated user's API)
-     ✓ write_repository (Allows read-write access to the repository)
+     ✓ write_repository (Grants read-write access to repositories)
+     ✓ api (Grants complete read/write access to the API)
 
-5. Click "Create personal access token" button
+6. Click the "Generate token" button at the bottom of the form
 
-6. IMPORTANT: Copy the token that appears at the top of the page
+7. IMPORTANT: Copy the token that appears at the top of the page
    (It looks like: glpat-xxxxxxxxxxxxxxxxxxxx)
    You will only see this token once!
 
-7. Keep this token ready - you'll use it in the next step
+8. Keep this token ready - you'll use it in the next step
 ```
 
 **Expected**: Personal access token created and copied
