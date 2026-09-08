@@ -86,11 +86,14 @@ Modern supply chain security solves this by requiring:
    - Username: user-{guid}
    - Password: {provided in credentials}
 
-4. After login, verify you see the Konflux dashboard
-5. Confirm the workspace selector (top-left) shows "user-{guid}-tenant"
+4. After login, verify you see the Konflux Overview page with "Get started with Konflux"
+
+5. Click "Namespaces" in the left sidebar (or click the "View my namespaces" button)
+
+6. Verify you see "user-{guid}-tenant" in the namespace list
 ```
 
-**Expected**: Konflux UI loads, user is authenticated, correct workspace is selected
+**Expected**: Konflux UI loads, user is authenticated, namespace is accessible
 
 ---
 
