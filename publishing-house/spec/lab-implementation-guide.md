@@ -314,9 +314,51 @@ oc describe clusterrole konflux-admin-user-actions | grep -A 2 "tekton.dev"
 
 ---
 
-### Section 2: Add the Component and Connect GitLab (6 min)
+### Section 2: Configure GitLab Authentication for Konflux (3 min)
 
-**Step 3: Add Component to Application**
+**Step 3: Create GitLab Authentication Secret**
+
+```
+Konflux needs credentials to access your private GitLab repository to:
+- Clone the source code
+- Create merge requests with pipeline definitions  
+- Set up Pipelines-as-Code webhooks
+
+Without this secret, component builds will fail with "Build not started" status.
+
+In the Showroom terminal, create the authentication secret:
+
+cat <<EOF | oc apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gitlab-auth-secret
+  namespace: user-{guid}-tenant
+  labels:
+    appstudio.redhat.com/credentials: scm
+    appstudio.redhat.com/scm.host: gitlab-gitlab.apps.cluster-{guid}.{domain}
+type: kubernetes.io/basic-auth
+stringData:
+  username: user-{guid}
+  password: {your-password}
+EOF
+
+Verify the secret was created:
+
+oc get secret gitlab-auth-secret -n user-{guid}-tenant
+
+Expected output:
+NAME                  TYPE                       DATA   AGE
+gitlab-auth-secret    kubernetes.io/basic-auth   2      5s
+```
+
+**Expected**: Secret created successfully, Konflux can now authenticate to GitLab
+
+---
+
+### Section 3: Add the Component and Connect GitLab (6 min)
+
+**Step 4: Add Component to Application**
 
 ```
 1. You should now be on the Application detail page for "my-sample-app"
@@ -330,11 +372,11 @@ oc describe clusterrole konflux-admin-user-actions | grep -A 2 "tekton.dev"
 3. Click the "Add component" button in the "Grow your application" card
 ```
 
-**Expected**: Component creation form opens
+**Expected**: Add component form opens
 
 ---
 
-**Step 4: Fill Out Component Creation Form**
+**Step 5: Fill Out Add Component Form**
 
 ```
 You should see the "Create a Component" form with the following fields:
@@ -353,75 +395,46 @@ You should see the "Create a Component" form with the following fields:
 
 6. Build time secret: Leave empty (no additional secrets needed for this lab)
 
-7. Scroll down and click "Create component" button
+7. Scroll down and click "Add component" button
 ```
 
-**Expected**: Component creation begins, form submits
+**Expected**: Component is added to the application, form submits
 
 ---
 
-**Step 6: Wait for Konflux to Commit PipelineRun Manifests**
+### Section 3: Trigger and Monitor the First Build (5 min)
+
+**Step 5: Manually Trigger the First Build**
 
 ```
-Konflux will now:
-1. Create a merge request (MR) in your GitLab repository
-2. The MR adds a .tekton/ directory with PipelineRun definitions
+Konflux requires you to manually start the first build.
 
-This may take 30-60 seconds.
+1. In the Konflux UI, you should still be viewing the Components list
 
-Watch the Konflux UI for status updates.
+2. Find your component "sample-component-golang" in the list
+   - Status shows "Build not started"
+
+3. Click the three-dot menu (⋮) on the right side of the component row
+
+4. Click "Start new build" from the dropdown menu
+
+5. Wait a few seconds for the build to initialize
 ```
 
-**Expected**: Component creation completes, status shows "Pipeline configuration pending"
+**Expected**: Build starts, status changes from "Build not started"
 
 ---
 
-**Step 7: Review and Merge the GitLab Merge Request**
+**Step 6: Monitor the PipelineRun**
 
 ```
-1. Switch to your GitLab browser tab
+1. After starting the build, the component status should update
 
-2. Navigate to your "sample-component-golang" repository
+2. Click on the component name "sample-component-golang" to open its detail page
 
-3. Click "Merge requests" in the left sidebar
+3. Click on the "Activity" tab
 
-4. You should see a merge request titled something like:
-   "Konflux — initial PipelineRun configuration"
-   or
-   "Add Konflux pipeline configuration"
-
-5. Click on the merge request to open it
-
-6. Review the changes:
-   - New directory: .tekton/
-   - Files added: 
-     - .tekton/sample-app-on-pull-request.yaml
-     - .tekton/sample-app-on-push.yaml
-   - These define when pipelines trigger
-
-7. Click "Merge" to merge the MR into the main branch
-
-8. Confirm the merge
-```
-
-**Expected**: MR is merged, .tekton/ directory now exists in main branch
-
----
-
-### Section 3: Trigger and Verify the First PipelineRun (5 min)
-
-**Step 8: Return to Konflux UI and Monitor**
-
-```
-1. Switch back to the Konflux UI browser tab
-
-2. Navigate to your Application → Components → sample-app
-
-3. Click on "Activity" or "Pipelines" tab
-
-4. Within 30-60 seconds of merging the MR, you should see:
-   - A new PipelineRun appears (automatically triggered by the merge event)
-   - Status: "Running" or "Pending"
+4. You should see a PipelineRun listed with status "Running" or "Pending"
 
 5. Click on the PipelineRun name to open its detail view
 
@@ -442,7 +455,7 @@ Watch the Konflux UI for status updates.
 
 ---
 
-**Step 9: Verify PipelineRun in CLI**
+**Step 7: Verify PipelineRun in CLI**
 
 ```
 In the Showroom terminal:
@@ -464,7 +477,7 @@ Expected: You should see task statuses (some Running, some Pending)
 
 ---
 
-**Step 10: Verify Component Status**
+**Step 8: Verify Component Status**
 
 ```
 1. In Konflux UI, return to Application → Components → sample-app
