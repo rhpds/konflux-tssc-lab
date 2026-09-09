@@ -2,6 +2,7 @@
 - name: Add lab pipeline to Konflux buildService config
   kubernetes.core.k8s:
     state: patched
+    api_version: konflux.konflux-ci.dev/v1alpha1
     kind: Konflux
     name: konflux
     namespace: konflux-ui
