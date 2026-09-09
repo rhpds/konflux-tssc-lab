@@ -13,7 +13,7 @@ tabs:
     url: 'https://console-openshift-console.${DOMAIN}'
   - name: ">_ Terminal"
     port: 443
-    path: /tty1
+    path: /showroom
     user: root
   - name: Placeholder
     url: /placeholder
