@@ -2,13 +2,6 @@
 # Cluster identifier derived from GUID
 ocp4_workload_konflux_tssc_cluster_name: "cluster-{{ guid }}"
 
-# Quay organization for lab images
-ocp4_workload_konflux_tssc_quay_org: "tsf"
-
-# Custom pipeline bundle details
-ocp4_workload_konflux_tssc_pipeline_name: "docker-build-oci-ta-lab"
-ocp4_workload_konflux_tssc_pipeline_bundle: "quay.io/rhpds/pipeline-docker-build-lab:1.0"
-
 # Workload control
 ocp4_workload_konflux_tssc_cluster_become_override: false
 ocp4_workload_konflux_tssc_cluster_silent: false
