@@ -19,9 +19,9 @@
     headers:
       Authorization: "Bearer {{ quay_token }}"
       Content-Type: "application/json"
-    status_code: [200, 201]
+    status_code: [200, 201, 400]
   register: r_quay_member
 
 - name: Show Quay membership result
   ansible.builtin.debug:
-    msg: "User {{ ocp4_workload_konflux_tssc_tenant_user }} added to Quay org {{ quay_org }} members team"
+    msg: "User {{ ocp4_workload_konflux_tssc_tenant_user }} added to Quay org {{ quay_org }} members team (or already exists)"
