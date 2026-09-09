@@ -300,8 +300,6 @@ oc describe clusterrole konflux-admin-user-actions | grep -A 2 "tekton.dev"
 
 2. In the form that appears:
    - Application name: my-sample-app
-   - Display name: My Sample Application
-   - Description: (optional) Sample application for supply chain security lab
 
 3. Click "Create application" button at the bottom of the form
 
@@ -432,7 +430,7 @@ You should see the "Create a Component" form with the following fields:
 4. Component name: Enter "sample-component-golang"
    (Must be unique within your tenant namespace)
 
-5. Pipeline: Leave as default "docker-build-oci-ta-min"
+5. Pipeline: Select "ta-lab"
 
 6. Build time secret: Leave empty (no additional secrets needed for this lab)
 
