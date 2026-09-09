@@ -12,6 +12,7 @@ tabs:
   - name: OCP Console
     url: 'https://console-openshift-console.${DOMAIN}'
   - name: ">_ terminal"
-    path: /showroom
+    url: /showroom
+    port: 443
   - name: Placeholder
     url: /placeholder
