@@ -373,9 +373,11 @@ metadata:
     appstudio.redhat.com/scm.host: gitlab-gitlab.apps.cluster-{guid}.{domain}
 type: kubernetes.io/basic-auth
 stringData:
-  username: user-{guid}
+  username: ""
   password: {your-token}
 EOF
+
+IMPORTANT: The username field MUST be an empty string when using a Personal Access Token.
 
 Example (replace the glpat-xxx with your actual token):
 password: glpat-uySoCmr_c5IajdNFIUsObm86MQp1OjcH
@@ -428,7 +430,9 @@ You should see the "Create a Component" form with the following fields:
 4. Component name: Enter "sample-component-golang"
    (Must be unique within your tenant namespace)
 
-5. Pipeline: Select "ta-lab"
+5. Pipeline: Select "docker-build-oci-ta-min"
+   (This is the default Konflux pipeline with minimal resource requests,
+   optimized for shared environments)
 
 6. UNCHECK "Mark image as private in Quay"
    (This allows the image to be public for easier sharing and testing)
