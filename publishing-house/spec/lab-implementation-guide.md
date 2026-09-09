@@ -312,19 +312,55 @@ oc describe clusterrole konflux-admin-user-actions | grep -A 2 "tekton.dev"
 
 ---
 
-### Section 2: Configure GitLab Authentication for Konflux (3 min)
+### Section 2: Configure GitLab Authentication for Konflux (5 min)
 
-**Step 3: Create GitLab Authentication Secret**
+**Step 3: Create GitLab Personal Access Token**
 
 ```
-Konflux uses Pipelines-as-Code (PaC) to integrate with GitLab. PaC needs your 
-GitLab credentials to:
+Konflux uses Pipelines-as-Code (PaC) to integrate with GitLab. PaC needs a 
+Personal Access Token (PAT) to:
 - Clone the source code
 - Create merge requests with pipeline definitions
 - Set up webhooks
 - Update commit statuses
+- Read pipeline definitions from .tekton/ directory
 
-In the Showroom terminal, run this command to create the authentication secret:
+1. In your GitLab browser tab, click your user avatar (top-right corner)
+
+2. Click "Preferences" from the dropdown menu
+
+3. In the left sidebar, click "Access Tokens" (or "Access" → "Personal access tokens")
+
+4. Click the "Add new token" button (top-right corner)
+
+5. Fill out the token creation form:
+   - Token name: konflux-pac
+   - Expiration date: (leave default or set far in future)
+   - Select scopes: Check the following boxes:
+     ✓ api (Grants complete read/write access to the API)
+     ✓ read_repository (Grants read-only access to repositories)
+     ✓ write_repository (Grants read-write access to repositories)
+
+6. Click the "Create personal access token" button at the bottom of the form
+
+7. IMPORTANT: Copy the token that appears at the top of the page
+   (It looks like: glpat-xxxxxxxxxxxxxxxxxxxx)
+   You will only see this token once!
+
+8. Keep this token ready - you'll use it in the next step
+```
+
+**Expected**: Personal access token created and copied
+
+---
+
+**Step 4: Create GitLab Authentication Secret**
+
+```
+Now create the Kubernetes secret with your GitLab Personal Access Token.
+
+In the Showroom terminal, run this command, replacing {your-token} with 
+the Personal Access Token you just copied:
 
 cat <<EOF | oc apply -f -
 apiVersion: v1
@@ -338,11 +374,11 @@ metadata:
 type: kubernetes.io/basic-auth
 stringData:
   username: user-{guid}
-  password: {your-password}
+  password: {your-token}
 EOF
 
-Replace {your-password} with your GitLab password (the same password you use 
-to log into GitLab).
+Example (replace the glpat-xxx with your actual token):
+password: glpat-uySoCmr_c5IajdNFIUsObm86MQp1OjcH
 
 Verify the secret was created:
 
@@ -353,7 +389,7 @@ NAME                  TYPE                       DATA   AGE
 gitlab-auth-secret    kubernetes.io/basic-auth   2      5s
 ```
 
-**Expected**: Secret created successfully, Konflux can now authenticate to GitLab
+**Expected**: Secret created successfully with GitLab PAT, Konflux can now authenticate to GitLab
 
 ---
 
