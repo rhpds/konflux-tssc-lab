@@ -40,11 +40,11 @@
     namespace: "{{ ocp4_workload_konflux_tssc_tenant_namespace }}"
     state: absent
 
-- name: Delete integration service account secret link job
+- name: Delete integration setup job
   kubernetes.core.k8s:
     api_version: batch/v1
     kind: Job
-    name: link-integration-sa-secret
+    name: setup-konflux-integration
     namespace: "{{ ocp4_workload_konflux_tssc_tenant_namespace }}"
     state: absent
 
