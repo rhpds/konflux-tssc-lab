@@ -2,18 +2,29 @@
 # ocp4_workload_konflux_tssc_tenant main tasks
 
 - name: Setting up Konflux TSSC tenant configuration
+  when: ACTION == "provision" or ACTION == "create"
   ansible.builtin.debug:
     msg: "Configuring Konflux tenant for user {{ ocp4_workload_konflux_tssc_tenant_user }}"
 
-- name: Run pre-workload tasks
-  ansible.builtin.include_tasks: pre_workload.yml
-
 - name: Run workload tasks
+  when: ACTION == "provision" or ACTION == "create"
   ansible.builtin.include_tasks: workload.yml
 
-- name: Run post-workload tasks
-  ansible.builtin.include_tasks: post_workload.yml
-
 - name: Workload deployment successful
+  when: ACTION == "provision" or ACTION == "create"
   ansible.builtin.debug:
     msg: "Konflux TSSC tenant configuration completed for {{ ocp4_workload_konflux_tssc_tenant_user }}"
+
+- name: Removing Konflux TSSC tenant configuration
+  when: ACTION == "destroy" or ACTION == "stop" or ACTION == "remove"
+  ansible.builtin.debug:
+    msg: "Removing Konflux tenant for user {{ ocp4_workload_konflux_tssc_tenant_user }}"
+
+- name: Run remove workload tasks
+  when: ACTION == "destroy" or ACTION == "stop" or ACTION == "remove"
+  ansible.builtin.include_tasks: remove_workload.yml
+
+- name: Workload removal successful
+  when: ACTION == "destroy" or ACTION == "stop" or ACTION == "remove"
+  ansible.builtin.debug:
+    msg: "Konflux TSSC tenant removal completed for {{ ocp4_workload_konflux_tssc_tenant_user }}"

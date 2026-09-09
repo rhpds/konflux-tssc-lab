@@ -1,0 +1,53 @@
+---
+# Remove tenant-specific resources created during provisioning
+
+- name: Remove user from Quay organization members team
+  block:
+  - name: Get Quay API token
+    kubernetes.core.k8s_info:
+      kind: Secret
+      name: quaytoken
+      namespace: image-controller
+    register: r_quay_token_secret
+
+  - name: Set Quay facts
+    ansible.builtin.set_fact:
+      quay_token: "{{ r_quay_token_secret.resources[0].data.quaytoken | b64decode }}"
+      quay_api_url: "{{ r_quay_token_secret.resources[0].data.quayapiurl | b64decode }}"
+      quay_org: "{{ r_quay_token_secret.resources[0].data.organization | b64decode }}"
+    when:
+    - r_quay_token_secret.resources is defined
+    - r_quay_token_secret.resources | length > 0
+
+  - name: Remove user from Quay team
+    ansible.builtin.uri:
+      url: "{{ quay_api_url }}/organization/{{ quay_org }}/team/members/members/{{ ocp4_workload_konflux_tssc_tenant_user }}"
+      method: DELETE
+      headers:
+        Authorization: "Bearer {{ quay_token }}"
+      status_code: [200, 204, 400, 404]
+    when: quay_token is defined
+  rescue:
+  - name: Quay cleanup failed
+    ansible.builtin.debug:
+      msg: "Failed to remove user from Quay team (may not exist)"
+
+- name: Delete Konflux integration service account
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: ServiceAccount
+    name: konflux-integration-runner
+    namespace: "{{ ocp4_workload_konflux_tssc_tenant_namespace }}"
+    state: absent
+
+- name: Delete integration service account secret link job
+  kubernetes.core.k8s:
+    api_version: batch/v1
+    kind: Job
+    name: link-integration-sa-secret
+    namespace: "{{ ocp4_workload_konflux_tssc_tenant_namespace }}"
+    state: absent
+
+- name: Tenant cleanup completed
+  ansible.builtin.debug:
+    msg: "Cleanup completed for tenant {{ ocp4_workload_konflux_tssc_tenant_user }}"
