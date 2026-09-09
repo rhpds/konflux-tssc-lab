@@ -11,8 +11,9 @@ view_switcher:
 tabs:
   - name: OCP Console
     url: 'https://console-openshift-console.${DOMAIN}'
-  - name: ">_ terminal"
-    url: /showroom
+  - name: ">_ Terminal"
     port: 443
+    path: /tty1
+    user: root
   - name: Placeholder
     url: /placeholder
