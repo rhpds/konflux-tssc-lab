@@ -176,6 +176,7 @@ spec:
     computeResources:
       limits:
         memory: 256Mi
+        cpu: 200m
       requests:
         cpu: 100m
         memory: 256Mi
@@ -192,6 +193,7 @@ spec:
     computeResources:
       limits:
         memory: 256Mi
+        cpu: 200m
       requests:
         cpu: 100m
         memory: 256Mi
@@ -215,6 +217,7 @@ spec:
     computeResources:
       limits:
         memory: 256Mi
+        cpu: 200m
       requests:
         cpu: 100m
         memory: 256Mi
@@ -297,6 +300,7 @@ spec:
     computeResources:
       limits:
         memory: 256Mi
+        cpu: 200m
       requests:
         cpu: 100m
         memory: 256Mi
@@ -312,6 +316,7 @@ spec:
     computeResources:
       limits:
         memory: 256Mi
+        cpu: 200m
       requests:
         cpu: 100m
         memory: 256Mi
@@ -326,6 +331,7 @@ spec:
     computeResources:
       limits:
         memory: 256Mi
+        cpu: 200m
       requests:
         cpu: 100m
         memory: 256Mi
@@ -340,6 +346,7 @@ spec:
     computeResources:
       limits:
         memory: 256Mi
+        cpu: 200m
       requests:
         cpu: 100m
         memory: 256Mi
@@ -354,6 +361,11 @@ spec:
     imagePullPolicy: IfNotPresent
     name: detailed-report
     onError: continue
+    computeResources:
+      limits:
+        cpu: 200m
+      requests:
+        cpu: 100m
   - args:
     - --argjson
     - strict
@@ -368,6 +380,7 @@ spec:
     computeResources:
       limits:
         memory: 256Mi
+        cpu: 200m
       requests:
         cpu: 100m
         memory: 256Mi
