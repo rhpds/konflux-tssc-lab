@@ -312,9 +312,59 @@ oc describe clusterrole konflux-admin-user-actions | grep -A 2 "tekton.dev"
 
 ---
 
+**Step 3: Configure Integration Test Pipeline**
+
+```
+When Konflux creates an Application, it automatically creates an 
+IntegrationTestScenario that runs Enterprise Contract policy checks.
+Because we have limited resources in this lab environment, we need
+to reduce resource requests and limits from the default Konflux
+settings which require very high CPU.
+
+In the Showroom terminal, run this command to patch the 
+IntegrationTestScenario to use a low-resource version:
+
+oc patch integrationtestscenario my-sample-app-enterprise-contract \
+  -n user-{guid}-tenant \
+  --type='json' \
+  -p='[
+  {
+    "op": "replace",
+    "path": "/spec/resolverRef/params/0/value",
+    "value": "https://github.com/rhpds/konflux-tssc-lab"
+  },
+  {
+    "op": "replace",
+    "path": "/spec/resolverRef/params/2/value",
+    "value": "pipelines/enterprise-contract-low-resources.yaml"
+  }
+]'
+
+Expected output:
+integrationtestscenario.appstudio.redhat.com/my-sample-app-enterprise-contract patched
+
+Verify the patch was applied:
+
+oc get integrationtestscenario my-sample-app-enterprise-contract \
+  -n user-{guid}-tenant \
+  -o jsonpath='{.spec.resolverRef.params[*]}' | jq
+
+Expected output should show:
+- url: https://github.com/rhpds/konflux-tssc-lab
+- pathInRepo: pipelines/enterprise-contract-low-resources.yaml
+```
+
+**Expected**: IntegrationTestScenario configured to use low-resource Enterprise Contract pipeline from the lab's GitHub repository
+
+**Why This Matters**: The default Konflux Enterprise Contract pipeline requires
+very high CPU resources. The low-resource version reduces these requirements to
+fit within our lab environment's resource constraints.
+
+---
+
 ### Section 2: Configure GitLab Authentication for Konflux (5 min)
 
-**Step 3: Create GitLab Personal Access Token**
+**Step 4: Create GitLab Personal Access Token**
 
 ```
 Konflux uses Pipelines-as-Code (PaC) to integrate with GitLab. PaC needs a 
@@ -354,7 +404,7 @@ Personal Access Token (PAT) to:
 
 ---
 
-**Step 4: Create GitLab Authentication Secret**
+**Step 5: Create GitLab Authentication Secret**
 
 ```
 Now create the Kubernetes secret with your GitLab Personal Access Token.
@@ -397,7 +447,7 @@ gitlab-auth-secret    kubernetes.io/basic-auth   2      5s
 
 ### Section 3: Add the Component and Connect GitLab (6 min)
 
-**Step 5: Add Component to Application**
+**Step 6: Add Component to Application**
 
 ```
 1. You should now be on the Application detail page for "my-sample-app"
@@ -415,7 +465,7 @@ gitlab-auth-secret    kubernetes.io/basic-auth   2      5s
 
 ---
 
-**Step 6: Fill Out Add Component Form**
+**Step 7: Fill Out Add Component Form**
 
 ```
 You should see the "Create a Component" form with the following fields:
@@ -448,7 +498,7 @@ You should see the "Create a Component" form with the following fields:
 
 ### Section 4: Review and Merge Pipeline Configuration (5 min)
 
-**Step 7: Review GitLab Merge Request and Initial Pipeline**
+**Step 8: Review GitLab Merge Request and Initial Pipeline**
 
 ```
 After adding the component, Konflux automatically creates a merge request 
@@ -484,7 +534,7 @@ pipeline to run BEFORE you merge. This validates the pipeline configuration.
 
 ---
 
-**Step 8: Check Pull-Request Pipeline Status**
+**Step 9: Check Pull-Request Pipeline Status**
 
 ```
 Before merging, verify the pull-request pipeline succeeded:
@@ -493,11 +543,11 @@ Before merging, verify the pull-request pipeline succeeded:
 
 2. If status shows "Passed" (green checkmark):
    - The pipeline configuration is valid
-   - Proceed to Step 9 to merge the MR
+   - Proceed to Step 10 to merge the MR
 
 3. If status shows "Failed" or "Cancelled":
    - DO NOT merge yet
-   - Continue to Step 8a to restart the pipeline
+   - Continue to Step 9a to restart the pipeline
    - Wait for the pipeline to succeed before merging
 
 4. Click the pipeline status badge to view the pipeline details in Konflux
@@ -507,7 +557,7 @@ Before merging, verify the pull-request pipeline succeeded:
 
 ---
 
-**Step 8a: Restart a Failed or Cancelled Pipeline (if needed)**
+**Step 9a: Restart a Failed or Cancelled Pipeline (if needed)**
 
 ```
 If the pull-request pipeline failed or was cancelled, restart it by adding 
@@ -523,7 +573,7 @@ Option 1: Add /retest comment in GitLab UI (Easiest)
 3. Click "Comment"
 4. Wait 30-60 seconds for a new PipelineRun to start
 5. Monitor the pipeline status in the MR view
-6. Once it shows "Passed", proceed to Step 9
+6. Once it shows "Passed", proceed to Step 10
 
 Option 2: Add /retest comment via git push (If Option 1 doesn't work)
 ----------------------------------------------------------------------
@@ -552,7 +602,7 @@ Option 2: Add /retest comment via git push (If Option 1 doesn't work)
 
 2. Wait 30-60 seconds for the new PipelineRun to start
 3. Monitor in GitLab MR view or Konflux Activity tab
-4. Once pipeline shows "Passed", proceed to Step 9
+4. Once pipeline shows "Passed", proceed to Step 10
 
 Expected output:
 - New PipelineRun created for the MR
@@ -564,7 +614,7 @@ Expected output:
 
 ---
 
-**Step 9: Merge the Pipeline Configuration**
+**Step 10: Merge the Pipeline Configuration**
 
 ```
 Once the pull-request pipeline shows "Passed":
