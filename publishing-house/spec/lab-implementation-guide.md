@@ -729,86 +729,48 @@ Expected: You should see task statuses (some Running, some Pending)
 
 ---
 
-## Module 03: Build and Scan (20 min)
+## Module 03: Build and Scan (15 min)
 
 **Learning Objectives**:
-- Trigger a build by pushing a code change
-- Trace the pipeline execution stages
+- Trace the completed pipeline execution stages
 - Inspect the automatically generated SBOM
 - Verify the built image and artifacts in Quay
+- Understand what artifacts the build pipeline produces
 
 **Prerequisites**:
 - Module 02 completed
-- First PipelineRun triggered (may still be running)
+- Push PipelineRun from Module 02 should be complete (or nearly complete)
+
+**What Happened in Module 02**:
+After merging the Konflux-generated MR in Module 02, a push pipeline was automatically triggered. This pipeline built your container image, scanned it for vulnerabilities, generated an SBOM, signed the artifacts, and pushed everything to Quay. In this module, we'll examine what that pipeline produced.
 
 ---
 
-### Section 1: Trigger a Build with a Code Change (5 min)
+### Section 1: Verify Pipeline Completion (3 min)
 
-**Step 1: Navigate to GitLab Repository**
-
-```
-1. In GitLab, open your "sample-component-golang" repository
-
-2. Navigate to the repository file browser (main branch)
-
-3. Locate the README.md file in the repository root
-```
-
-**Expected**: README.md file is visible in the file list
-
----
-
-**Step 2: Edit README.md to Trigger a Build**
+**Step 1: Locate the Push PipelineRun**
 
 ```
-1. Click on README.md to open it
+1. In the Konflux UI, navigate to your Application → Activity (or Pipelines tab)
 
-2. Click "Edit" (or the pencil icon)
+2. Find the most recent PipelineRun:
+   - Name: sample-component-golang-on-push-{random-id}
+   - Triggered by: Push event from merging the MR in Module 02
+   - Status: Should be "Succeeded" (green checkmark)
 
-3. Scroll to the bottom of the file and add a new line:
-   
-   # Lab update - module 03
+3. If the pipeline is still running, wait for it to complete
+   (typical time: 8-15 minutes from the merge)
 
-4. In the "Commit message" field, enter:
-   chore: trigger module-03 build
-
-5. Ensure "Commit to main branch" is selected
-
-6. Click "Commit changes"
-
-7. Verify the commit appears in the repository's commit history
-   (click "Repository" → "Commits" to see the new commit)
+4. Click on the PipelineRun to open its detail view
 ```
 
-**Expected**: Commit is created, README.md updated
-
----
-
-**Step 3: Observe PipelineRun Trigger**
-
-```
-1. Switch to the Konflux UI browser tab
-
-2. Navigate to your Application → Activity (or Pipelines tab)
-
-3. Within 30-60 seconds, a NEW PipelineRun should appear:
-   - Name: sample-app-on-push-xyz456 (different from the first one)
-   - Status: Pending or Running
-   - Triggered by: Push event from your README.md commit
-
-4. Note the PipelineRun name — you'll inspect this build in detail
-
-5. Click on the PipelineRun to open its detail view
-```
-
-**Expected**: New PipelineRun triggered by the push event
+**Expected**: Push pipeline from Module 02 is visible and completed successfully
 
 ---
 
 ### Section 2: Trace the Pipeline Stages (7 min)
 
-**Step 4: Understand the Pipeline Tasks**
+**Step 2: Understand the Pipeline Tasks**
 
 ```
 In the PipelineRun detail view, identify each task and its purpose:
@@ -832,12 +794,12 @@ Note: Task names may vary slightly depending on Konflux version
 
 ---
 
-**Step 5: Wait for build-container Task to Complete**
+**Step 3: Examine the build-container Task**
 
 ```
-1. Watch the "build-container" task status
+1. In the pipeline task list, find the "build-container" task (should show "Succeeded")
 
-2. When it transitions to "Succeeded", click on the task name to expand it
+2. Click on the task name to expand it
 
 3. Click "Logs" to view the Buildah build output
 
@@ -847,43 +809,16 @@ Note: Task names may vary slightly depending on Konflux version
    Successfully pushed image to quay-...
    Digest: sha256:a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0
 
-5. Copy the full sha256 digest (you'll use this later)
+5. Copy the full sha256 digest (you'll need this later in this module)
 
-6. Optional: Expand other tasks to see their logs
+6. Optional: Expand other tasks (clair-scan, generate-sbom) to see their logs
 ```
 
 **Expected**: Image digest is obtained from build logs
 
 ---
 
-**Step 6: Monitor Pipeline Completion**
-
-```
-1. Return to the PipelineRun overview (click the back arrow or breadcrumb)
-
-2. Wait for all tasks to complete
-
-   Typical execution time:
-   - Fast cluster: 3-8 minutes
-   - Normal cluster: 8-12 minutes
-   - Slow cluster: 12-18 minutes
-
-3. Final status should be: "Succeeded" (green checkmark)
-
-4. If any task fails:
-   - Click on the failed task
-   - Read the error message in the logs
-   - Common issues:
-     - Image push failed: Check Quay credentials
-     - Scan failed: May be warnings only (check if pipeline continued)
-     - Clone failed: Check GitLab repository access
-```
-
-**Expected**: PipelineRun completes successfully
-
----
-
-**Step 7: Verify in CLI**
+**Step 4: Verify Pipeline Success in CLI**
 
 ```
 In the terminal:
@@ -891,23 +826,23 @@ In the terminal:
 # Check PipelineRun status
 oc get pipelineruns -n user-{guid}-tenant --sort-by=.metadata.creationTimestamp
 
-Expected output (most recent run):
-NAME                       SUCCEEDED   REASON      STARTTIME    COMPLETIONTIME
-sample-app-on-push-xyz456   True        Succeeded   8m           2m
+Expected output (most recent run should be the push pipeline):
+NAME                                            SUCCEEDED   REASON      STARTTIME    COMPLETIONTIME
+sample-component-golang-on-push-{random-id}     True        Succeeded   15m          3m
 
-# Get detailed status
-oc get pipelinerun sample-app-on-push-xyz456 -n user-{guid}-tenant -o yaml | grep -A 5 "conditions:"
+# Get detailed status of the most recent one
+oc get pipelinerun -n user-{guid}-tenant --sort-by=.metadata.creationTimestamp | tail -1
 
-Expected: Condition type "Succeeded" with status "True"
+Expected: Status shows "True" in SUCCEEDED column
 ```
 
-**Expected**: CLI confirms pipeline succeeded
+**Expected**: CLI confirms push pipeline succeeded
 
 ---
 
 ### Section 3: Inspect the SBOM (5 min)
 
-**Step 8: Download the SBOM Attestation**
+**Step 5: Download the SBOM Attestation**
 
 ```
 In the terminal, use cosign to download the SBOM:
@@ -926,7 +861,7 @@ cat sbom.json
 
 ---
 
-**Step 9: Analyze SBOM Contents**
+**Step 6: Analyze SBOM Contents**
 
 ```
 # Extract the subject (image reference) from the SBOM
