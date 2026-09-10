@@ -115,14 +115,14 @@ spec:
   tasks:
     - name: collect-keyless-params
       taskRef:
-        resolver: bundles
+        resolver: git
         params:
-          - name: bundle
-            value: quay.io/conforma/tekton-task:konflux@sha256:775cbfaa5361bd39d7cf8816c1c31b85c862609fb70ee76afa7d5a8b7d839517
-          - name: name
-            value: collect-keyless-params
-          - name: kind
-            value: task
+          - name: url
+            value: https://github.com/rhpds/konflux-tssc-lab
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: tekton/tasks/collect-keyless-params.yaml
     - name: verify
       runAfter:
         - collect-keyless-params
@@ -169,12 +169,12 @@ spec:
         - name: EFFECTIVE_TIME
           value: "$(params.EFFECTIVE_TIME)"
       taskRef:
-        resolver: bundles
+        resolver: git
         params:
-          - name: bundle
-            value: quay.io/conforma/tekton-task:konflux@sha256:775cbfaa5361bd39d7cf8816c1c31b85c862609fb70ee76afa7d5a8b7d839517
-          - name: name
-            value: verify-enterprise-contract
-          - name: kind
-            value: task
+          - name: url
+            value: https://github.com/rhpds/konflux-tssc-lab
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: tekton/tasks/verify-enterprise-contract-low-resources.yaml
       timeout: 4h

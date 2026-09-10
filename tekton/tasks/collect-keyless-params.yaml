@@ -1,0 +1,91 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  annotations:
+    tekton.dev/displayName: Collect Keyless Signing Parameters
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/tags: ec, keyless, signing, configuration
+  labels:
+    app.kubernetes.io/version: '0.1'
+  name: collect-keyless-params
+spec:
+  description: 'Tekton task to collect Konflux configuration parameters related to
+
+    keyless signing using cosign. The task attempts to read the "cluster-config"
+
+    ConfigMap in the "konflux-info" namespace to extract signing parameters.
+
+
+    In case the ConfigMap is not found, the task will output empty strings for all parameters,
+
+    allowing the pipeline to continue without signing parameters.
+
+    '
+  params:
+  - default: cluster-config
+    description: The name of the ConfigMap to read signing parameters from
+    name: configMapName
+    type: string
+  - default: konflux-info
+    description: The namespace where the ConfigMap is located
+    name: configMapNamespace
+    type: string
+  results:
+  - description: 'A flag indicating whether keyless signing is enabled based on the presence of signing parameters.
+
+      '
+    name: keylessSigningEnabled
+    type: string
+  - description: 'A default OIDC issuer URL to be used for signing.
+
+      '
+    name: defaultOIDCIssuer
+    type: string
+  - description: 'A regular expression to extract build identity from the OIDC token claims, if applicable.
+
+      '
+    name: buildIdentityRegexp
+    type: string
+  - description: 'The Tekton Chains identity from the OIDC token claims, if applicable.
+
+      '
+    name: tektonChainsIdentity
+    type: string
+  - description: 'The URL of the Fulcio certificate authority.
+
+      '
+    name: fulcioUrl
+    type: string
+  - description: 'The URL of the Rekor transparency log.
+
+      '
+    name: rekorUrl
+    type: string
+  - description: 'The URL of the TUF repository.
+
+      '
+    name: tufUrl
+    type: string
+  stepTemplate:
+    securityContext:
+      runAsUser: 1001
+  steps:
+  - computeResources:
+      limits:
+        cpu: 50m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 128Mi
+    env:
+    - name: configMapNamespace
+      value: $(params.configMapNamespace)
+    - name: configMapName
+      value: $(params.configMapName)
+    image: quay.io/conforma/cli@sha256:b87bab27cdbb6abdc9e41106629a5ae8c5d04c1e2d859d67bc4fc76c5f7f277a
+    imagePullPolicy: IfNotPresent
+    name: collect-signing-params
+    script: "#!/bin/bash\nset -euo pipefail\n\n# Default value is \"false\"\nkeylessSigningEnabled=\"false\"\n\n# Default values are empty strings\ndefaultOIDCIssuer=\"\"\nbuildIdentityRegexp=\"\"\ntektonChainsIdentity=\"\"\nfulcioUrl=\"\"\nrekorUrl=\"\"\ntufUrl=\"\"\n\n# Read from the ConfigMap\necho \"Reading ConfigMap ${configMapNamespace}/${configMapName}\"\nKFLX_CONFIG_PATH='/tmp/cluster-config.json'\n\nif kubectl get configmap \"${configMapName}\" -n \"${configMapNamespace}\" -o json --ignore-not-found > \"${KFLX_CONFIG_PATH}\"; then\n  if [ -s \"${KFLX_CONFIG_PATH}\" ]; then\n    echo \"ConfigMap found, extracting keyless signing parameters\"\n\n    # First we read \"keylessSigningEnabled\"\n    keylessSigningEnabled=$(jq -r '.data.enableKeylessSigning // \"false\"' \"$KFLX_CONFIG_PATH\")\n\n    if [ \"$keylessSigningEnabled\" = \"true\" ]; then\n      # If that is set to \"true\" then read the other values\n      defaultOIDCIssuer=$(jq -r '.data.defaultOIDCIssuer // \"\"' \"$KFLX_CONFIG_PATH\"\
+      )\n      buildIdentityRegexp=$(jq -r '.data.buildIdentityRegexp // \"\"' \"$KFLX_CONFIG_PATH\")\n      tektonChainsIdentity=$(jq -r '.data.tektonChainsIdentity // \"\"' \"$KFLX_CONFIG_PATH\")\n\n      # For each of these we prefer the internal url if its present\n      fulcioUrl=$(jq -r '.data.fulcioInternalUrl // \"\"' \"$KFLX_CONFIG_PATH\")\n      if [ -z \"$fulcioUrl\" ]; then\n        fulcioUrl=$(jq -r '.data.fulcioExternalUrl // \"\"' \"$KFLX_CONFIG_PATH\")\n      fi\n\n      rekorUrl=$(jq -r '.data.rekorInternalUrl // \"\"' \"$KFLX_CONFIG_PATH\")\n      if [ -z \"$rekorUrl\" ]; then\n        rekorUrl=$(jq -r '.data.rekorExternalUrl // \"\"' \"$KFLX_CONFIG_PATH\")\n      fi\n\n      tufUrl=$(jq -r '.data.tufInternalUrl // \"\"' \"$KFLX_CONFIG_PATH\")\n      if [ -z \"$tufUrl\" ]; then\n        tufUrl=$(jq -r '.data.tufExternalUrl // \"\"' \"$KFLX_CONFIG_PATH\")\n      fi\n\n    else\n      # Otherwise we ignore the rest of the ConfigMap\n      echo \"enableKeylessSigning is not\
+      \ set, using default empty values\"\n\n    fi\n  else\n    # Because we used --ignore-not-found this doesn't produce an error\n    echo \"ConfigMap not found, using default empty values\"\n\n  fi\n\nelse\n  # Some error other than \"not found\"\n  # (Stderr from kubectl should be visible in the task log.)\n  echo \"Problem reading ConfigMap, using default empty values\"\n\nfi\n\n# Write to task results\necho -n \"$keylessSigningEnabled\" > \"$(results.keylessSigningEnabled.path)\"\necho -n \"$defaultOIDCIssuer\" > \"$(results.defaultOIDCIssuer.path)\"\necho -n \"$buildIdentityRegexp\" > \"$(results.buildIdentityRegexp.path)\"\necho -n \"$tektonChainsIdentity\" > \"$(results.tektonChainsIdentity.path)\"\necho -n \"$fulcioUrl\" > \"$(results.fulcioUrl.path)\"\necho -n \"$rekorUrl\" > \"$(results.rekorUrl.path)\"\necho -n \"$tufUrl\" > \"$(results.tufUrl.path)\"\n\n# Output for troubleshooting/debugging\necho \"results.keylessSigningEnabled: $keylessSigningEnabled\"\necho \"results.defaultOIDCIssuer:\
+      \ $defaultOIDCIssuer\"\necho \"results.buildIdentityRegexp: $buildIdentityRegexp\"\necho \"results.tektonChainsIdentity: $tektonChainsIdentity\"\necho \"results.fulcioUrl: $fulcioUrl\"\necho \"results.rekorUrl: $rekorUrl\"\necho \"results.tufUrl: $tufUrl\"\n"

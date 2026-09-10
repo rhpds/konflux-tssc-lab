@@ -336,7 +336,7 @@ oc patch integrationtestscenario my-sample-app-enterprise-contract \
   {
     "op": "replace",
     "path": "/spec/resolverRef/params/2/value",
-    "value": "pipelines/enterprise-contract-low-resources.yaml"
+    "value": "tekton/pipelines/enterprise-contract-low-resources.yaml"
   }
 ]'
 
@@ -351,7 +351,7 @@ oc get integrationtestscenario my-sample-app-enterprise-contract \
 
 Expected output should show:
 - url: https://github.com/rhpds/konflux-tssc-lab
-- pathInRepo: pipelines/enterprise-contract-low-resources.yaml
+- pathInRepo: tekton/pipelines/enterprise-contract-low-resources.yaml
 ```
 
 **Expected**: IntegrationTestScenario configured to use low-resource Enterprise Contract pipeline from the lab's GitHub repository
