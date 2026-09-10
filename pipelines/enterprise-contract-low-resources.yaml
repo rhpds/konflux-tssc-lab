@@ -91,13 +91,27 @@ spec:
   results:
     - name: TEST_OUTPUT
       value: "$(tasks.verify.results.TEST_OUTPUT)"
-  # Resource-constrained task template
-  taskRunTemplate:
-    podTemplate:
-      securityContext:
-        fsGroup: 65532
-        runAsNonRoot: true
-        runAsUser: 65532
+  taskRunSpecs:
+    - pipelineTaskName: collect-keyless-params
+      stepSpecs:
+        - name: collect-params
+          computeResources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+    - pipelineTaskName: verify
+      stepSpecs:
+        - name: verify
+          computeResources:
+            requests:
+              cpu: 300m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
   tasks:
     - name: collect-keyless-params
       taskRef:
@@ -109,14 +123,6 @@ spec:
             value: collect-keyless-params
           - name: kind
             value: task
-      # Explicit resource limits for collect-keyless-params task
-      computeResources:
-        requests:
-          cpu: 100m
-          memory: 128Mi
-        limits:
-          cpu: 500m
-          memory: 512Mi
     - name: verify
       runAfter:
         - collect-keyless-params
@@ -171,14 +177,4 @@ spec:
             value: verify-enterprise-contract
           - name: kind
             value: task
-      # Explicit resource limits for verify task
-      # The EC task has multiple containers - these limits apply per container
-      # With LimitRange default of 500m CPU, we set explicit limits to fit quota
-      computeResources:
-        requests:
-          cpu: 300m
-          memory: 512Mi
-        limits:
-          cpu: 1000m   # Allow up to 1 CPU per container when available
-          memory: 1Gi
       timeout: 4h
