@@ -493,73 +493,74 @@ Before merging, verify the pull-request pipeline succeeded:
 
 2. If status shows "Passed" (green checkmark):
    - The pipeline configuration is valid
-   - Proceed to merge the MR
+   - Proceed to Step 9 to merge the MR
 
 3. If status shows "Failed" or "Cancelled":
    - DO NOT merge yet
-   - See "Troubleshooting: Restart a Failed Pipeline" below
+   - Continue to Step 8a to restart the pipeline
    - Wait for the pipeline to succeed before merging
 
 4. Click the pipeline status badge to view the pipeline details in Konflux
 ```
 
-**Expected**: Pull-request pipeline completes successfully before merging
+**Expected**: Pull-request pipeline status is visible
 
 ---
 
-**Step 8a: Troubleshooting: Restart a Failed Pipeline**
+**Step 8a: Restart a Failed or Cancelled Pipeline (if needed)**
 
 ```
-If the pull-request pipeline fails or gets cancelled, you need to restart it.
+If the pull-request pipeline failed or was cancelled, restart it by adding 
+a comment to the GitLab Merge Request.
 
-IMPORTANT: This script only works when the Merge Request is still OPEN 
-(not merged). Once merged, you cannot use /retest.
+IMPORTANT: You can only restart pipelines on OPEN Merge Requests. Once merged, 
+this method won't work.
 
-In the Showroom terminal, run this script to add a /retest comment to the MR:
+Option 1: Add /retest comment in GitLab UI (Easiest)
+--------------------------------------------------------
+1. In the GitLab MR view, scroll down to the comment section
+2. Type: /retest
+3. Click "Comment"
+4. Wait 30-60 seconds for a new PipelineRun to start
+5. Monitor the pipeline status in the MR view
+6. Once it shows "Passed", proceed to Step 9
 
-#!/bin/bash
-# Script to restart a failed pull-request pipeline
+Option 2: Add /retest comment via git push (If Option 1 doesn't work)
+----------------------------------------------------------------------
+1. In the Showroom terminal, clone the repository and add an empty commit:
 
-# Get values from cluster
-GITLAB_HOST=$(oc get route -A -o jsonpath='{.items[?(@.metadata.name=="gitlab")].spec.host}')
-TENANT_NS="user-{guid}-tenant"
-GITLAB_TOKEN=$(oc get secret gitlab-auth-secret -n ${TENANT_NS} -o jsonpath='{.data.password}' | base64 -d)
-MR_IID=$(oc get pipelinerun -n ${TENANT_NS} \
-  --sort-by=.metadata.creationTimestamp \
-  -o jsonpath='{.items[-1].metadata.labels.pipelinesascode\.tekton\.dev/pull-request}')
-ORG=$(oc get pipelinerun -n ${TENANT_NS} \
-  --sort-by=.metadata.creationTimestamp \
-  -o jsonpath='{.items[-1].metadata.labels.pipelinesascode\.tekton\.dev/url-org}')
-REPO=$(oc get pipelinerun -n ${TENANT_NS} \
-  --sort-by=.metadata.creationTimestamp \
-  -o jsonpath='{.items[-1].metadata.labels.pipelinesascode\.tekton\.dev/url-repository}')
-PROJECT="${ORG}/${REPO}"
+   # Get GitLab credentials
+   GITLAB_HOST="gitlab-gitlab.apps.cluster-{guid}.{domain}"
+   GITLAB_TOKEN=$(oc get secret gitlab-auth-secret -n user-{guid}-tenant -o jsonpath='{.data.password}' | base64 -d)
+   
+   # Clone the repository
+   git clone https://oauth2:${GITLAB_TOKEN}@${GITLAB_HOST}/user-{guid}/sample-component-golang.git /tmp/restart-pipeline
+   cd /tmp/restart-pipeline
+   
+   # Switch to the MR branch
+   git checkout konflux-sample-component-golang
+   
+   # Create an empty commit to trigger the pipeline
+   git commit --allow-empty -m "trigger pipeline retry"
+   
+   # Push the commit
+   git push
+   
+   # Clean up
+   cd -
+   rm -rf /tmp/restart-pipeline
 
-echo "GitLab: https://${GITLAB_HOST}"
-echo "Project: ${PROJECT}"
-echo "MR: ${MR_IID}"
-echo ""
-echo "Adding /retest comment to MR ${MR_IID}..."
-
-curl -k -X POST \
-  "https://${GITLAB_HOST}/api/v4/projects/$(echo ${PROJECT} | sed 's/\//%2F/g')/merge_requests/${MR_IID}/notes" \
-  -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d '{"body": "/retest"}'
-
-echo ""
-echo "Done! Watch for new PipelineRun:"
-echo "oc get pipelinerun -n ${TENANT_NS} --watch"
+2. Wait 30-60 seconds for the new PipelineRun to start
+3. Monitor in GitLab MR view or Konflux Activity tab
+4. Once pipeline shows "Passed", proceed to Step 9
 
 Expected output:
-- Comment added to GitLab MR
-- New PipelineRun created within 30-60 seconds
-- Pipeline status updates in GitLab MR view
-
-After the pipeline succeeds, return to Step 9 to merge the MR.
+- New PipelineRun created for the MR
+- Pipeline executes successfully
+- MR shows "Passed" status
 ```
 
-**Expected**: Failed pipeline is restarted and completes successfully
+**Expected**: Pipeline is restarted and completes successfully
 
 ---
 
