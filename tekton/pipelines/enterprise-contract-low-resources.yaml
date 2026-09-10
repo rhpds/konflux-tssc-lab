@@ -3,8 +3,9 @@
 #
 # Modifications for resource-constrained tenants:
 # - Reduced WORKERS from 2 to 1 to limit parallel processing
-# - Added taskRunTemplate with resource limits that fit within 4 CPU quota
-# - Configured for single-worker sequential execution
+# - Uses git resolver to reference custom verify-enterprise-contract task
+#   with reduced CPU limits (300m request, 1000m limit instead of 1800m/2000m)
+# - Tasks in tekton/tasks/ directory with modified computeResources
 apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
@@ -91,27 +92,6 @@ spec:
   results:
     - name: TEST_OUTPUT
       value: "$(tasks.verify.results.TEST_OUTPUT)"
-  taskRunSpecs:
-    - pipelineTaskName: collect-keyless-params
-      stepSpecs:
-        - name: collect-params
-          computeResources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi
-    - pipelineTaskName: verify
-      stepSpecs:
-        - name: verify
-          computeResources:
-            requests:
-              cpu: 300m
-              memory: 512Mi
-            limits:
-              cpu: 1000m
-              memory: 1Gi
   tasks:
     - name: collect-keyless-params
       taskRef:
