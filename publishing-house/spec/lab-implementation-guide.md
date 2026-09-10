@@ -448,11 +448,14 @@ You should see the "Create a Component" form with the following fields:
 
 ### Section 4: Review and Merge Pipeline Configuration (5 min)
 
-**Step 7: Review GitLab Merge Request**
+**Step 7: Review GitLab Merge Request and Initial Pipeline**
 
 ```
 After adding the component, Konflux automatically creates a merge request 
 in your GitLab repository to add Pipelines-as-Code configuration files.
+
+IMPORTANT: Creating the Merge Request automatically triggers the pull-request 
+pipeline to run BEFORE you merge. This validates the pipeline configuration.
 
 1. Switch to your GitLab browser tab
 
@@ -461,7 +464,7 @@ in your GitLab repository to add Pipelines-as-Code configuration files.
 3. Click "Code" in the left sidebar, then click "Merge requests"
 
 4. You should see Merge Request #1 (created by Konflux/automation)
-   - Title may be: "Pipelines as Code configuration proposal"
+   - Title may be: "Konflux update sample-component-golang"
 
 5. Click on the merge request to open it
 
@@ -470,15 +473,101 @@ in your GitLab repository to add Pipelines-as-Code configuration files.
    - `.tekton/sample-component-golang-push.yaml` (triggers on push to main)
 
 7. These files define the build pipeline that will run automatically on code changes
+
+8. IMPORTANT: Notice the pipeline status at the top of the MR:
+   - You should see a pipeline run triggered by the MR creation
+   - Status may show: "Running", "Pending", or "Passed"
+   - This is the pull-request pipeline validating the MR
 ```
 
-**Expected**: Merge request is visible with `.tekton/` pipeline definitions
+**Expected**: Merge request is visible with `.tekton/` pipeline definitions and an active pipeline run
 
 ---
 
-**Step 8: Merge the Pipeline Configuration**
+**Step 8: Check Pull-Request Pipeline Status**
 
 ```
+Before merging, verify the pull-request pipeline succeeded:
+
+1. In the GitLab MR view, look at the pipeline status
+
+2. If status shows "Passed" (green checkmark):
+   - The pipeline configuration is valid
+   - Proceed to merge the MR
+
+3. If status shows "Failed" or "Cancelled":
+   - DO NOT merge yet
+   - See "Troubleshooting: Restart a Failed Pipeline" below
+   - Wait for the pipeline to succeed before merging
+
+4. Click the pipeline status badge to view the pipeline details in Konflux
+```
+
+**Expected**: Pull-request pipeline completes successfully before merging
+
+---
+
+**Step 8a: Troubleshooting: Restart a Failed Pipeline**
+
+```
+If the pull-request pipeline fails or gets cancelled, you need to restart it.
+
+IMPORTANT: This script only works when the Merge Request is still OPEN 
+(not merged). Once merged, you cannot use /retest.
+
+In the Showroom terminal, run this script to add a /retest comment to the MR:
+
+#!/bin/bash
+# Script to restart a failed pull-request pipeline
+
+# Get values from cluster
+GITLAB_HOST=$(oc get route -A -o jsonpath='{.items[?(@.metadata.name=="gitlab")].spec.host}')
+TENANT_NS="user-{guid}-tenant"
+GITLAB_TOKEN=$(oc get secret gitlab-auth-secret -n ${TENANT_NS} -o jsonpath='{.data.password}' | base64 -d)
+MR_IID=$(oc get pipelinerun -n ${TENANT_NS} \
+  --sort-by=.metadata.creationTimestamp \
+  -o jsonpath='{.items[-1].metadata.labels.pipelinesascode\.tekton\.dev/pull-request}')
+ORG=$(oc get pipelinerun -n ${TENANT_NS} \
+  --sort-by=.metadata.creationTimestamp \
+  -o jsonpath='{.items[-1].metadata.labels.pipelinesascode\.tekton\.dev/url-org}')
+REPO=$(oc get pipelinerun -n ${TENANT_NS} \
+  --sort-by=.metadata.creationTimestamp \
+  -o jsonpath='{.items[-1].metadata.labels.pipelinesascode\.tekton\.dev/url-repository}')
+PROJECT="${ORG}/${REPO}"
+
+echo "GitLab: https://${GITLAB_HOST}"
+echo "Project: ${PROJECT}"
+echo "MR: ${MR_IID}"
+echo ""
+echo "Adding /retest comment to MR ${MR_IID}..."
+
+curl -k -X POST \
+  "https://${GITLAB_HOST}/api/v4/projects/$(echo ${PROJECT} | sed 's/\//%2F/g')/merge_requests/${MR_IID}/notes" \
+  -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"body": "/retest"}'
+
+echo ""
+echo "Done! Watch for new PipelineRun:"
+echo "oc get pipelinerun -n ${TENANT_NS} --watch"
+
+Expected output:
+- Comment added to GitLab MR
+- New PipelineRun created within 30-60 seconds
+- Pipeline status updates in GitLab MR view
+
+After the pipeline succeeds, return to Step 9 to merge the MR.
+```
+
+**Expected**: Failed pipeline is restarted and completes successfully
+
+---
+
+**Step 9: Merge the Pipeline Configuration**
+
+```
+Once the pull-request pipeline shows "Passed":
+
 1. Review the pipeline YAML files to understand what they do
    (they define build tasks: clone, build-container, scan, sign, etc.)
 
@@ -486,18 +575,21 @@ in your GitLab repository to add Pipelines-as-Code configuration files.
 
 3. Confirm the merge
 
-4. Wait 30-60 seconds for the merge event to trigger the first build
+4. Wait 30-60 seconds for the merge event to trigger the push pipeline
 ```
 
 **Expected**: MR is merged, `.tekton/` directory now exists in main branch
 
 ---
 
-### Section 5: Monitor the First PipelineRun (5 min)
+### Section 5: Monitor the Push PipelineRun (5 min)
 
-**Step 9: Watch the Build Start**
+**Step 10: Watch the Push Build Start**
 
 ```
+After merging the MR, a PUSH pipeline is triggered (different from the 
+pull-request pipeline that ran before the merge).
+
 1. Switch back to the Konflux UI browser tab
 
 2. The component status should update from "Build not started" to "Building"
@@ -506,11 +598,13 @@ in your GitLab repository to add Pipelines-as-Code configuration files.
 
 4. Click on the "Activity" tab
 
-5. You should see a PipelineRun listed with status "Running" or "Pending"
+5. You should see TWO PipelineRuns now:
+   - sample-component-golang-on-pull-request-xxxxx (from the MR creation)
+   - sample-component-golang-on-push-xxxxx (NEW - from the merge)
 
-5. Click on the PipelineRun name to open its detail view
+6. Click on the ON-PUSH PipelineRun name to open its detail view
 
-6. Observe the pipeline tasks listed:
+7. Observe the pipeline tasks listed:
    - init
    - clone-repository
    - build-container
@@ -520,14 +614,14 @@ in your GitLab repository to add Pipelines-as-Code configuration files.
    - push-dockerfile
    - apply-tags
 
-7. Note the PipelineRun name (e.g., sample-app-on-push-abc123)
+8. Note the PipelineRun name (e.g., sample-component-golang-on-push-abc123)
 ```
 
-**Expected**: PipelineRun is triggered and running
+**Expected**: Push PipelineRun is triggered and running after merge
 
 ---
 
-**Step 7: Verify PipelineRun in CLI**
+**Step 11: Verify PipelineRun in CLI**
 
 ```
 In the Showroom terminal:
@@ -536,28 +630,32 @@ In the Showroom terminal:
 oc get pipelineruns -n user-{guid}-tenant
 
 Expected output:
-NAME                       SUCCEEDED   REASON      STARTTIME   COMPLETIONTIME
-sample-app-on-push-abc123   Unknown     Running     1m          
+NAME                                         SUCCEEDED   REASON      STARTTIME   COMPLETIONTIME
+sample-component-golang-on-pull-request-xxx   True       Succeeded   5m          3m
+sample-component-golang-on-push-abc123        Unknown    Running     1m          
 
-# Get detailed status
-oc describe pipelinerun sample-app-on-push-abc123 -n user-{guid}-tenant | head -30
+The pull-request pipeline should show "Succeeded" (it ran before the merge)
+The push pipeline should show "Running" (triggered by the merge)
+
+# Get detailed status of the push pipeline
+oc describe pipelinerun sample-component-golang-on-push-abc123 -n user-{guid}-tenant | head -30
 
 Expected: You should see task statuses (some Running, some Pending)
 ```
 
-**Expected**: PipelineRun visible in CLI, matches Konflux UI
+**Expected**: Both PipelineRuns visible in CLI - pull-request (completed) and push (running)
 
 ---
 
-**Step 8: Verify Component Status**
+**Step 12: Verify Component Status**
 
 ```
-1. In Konflux UI, return to Application → Components → sample-app
+1. In Konflux UI, return to Application → Components → sample-component-golang
 
 2. Verify the Component details show:
    - Git repository URL: {your GitLab repo}
    - Target image: {your Quay image path}
-   - Latest PipelineRun: {the run you just triggered}
+   - Latest PipelineRun: {the push run you just triggered}
    - Status: Building (or Running)
 
 3. You may leave the pipeline running — it will complete in the background
@@ -570,7 +668,11 @@ Expected: You should see task statuses (some Running, some Pending)
 
 **Key Takeaways**:
 - Konflux uses a GitOps model: onboarding a component causes Konflux to commit Tekton PipelineRun manifests directly into the source repository
+- Creating a component triggers TWO pipeline runs:
+  1. Pull-request pipeline when the MR is created (validates the `.tekton/` configuration)
+  2. Push pipeline when the MR is merged (builds the actual image)
 - Pipelines-as-Code (PaC) reads manifests from `.tekton/` and triggers runs on push/MR events
+- The `/retest` comment can restart failed pipelines on open Merge Requests
 - The target image registry (Quay) is declared at the Component level
 - Isolating each participant in their own tenant namespace means PipelineRuns from other participants don't appear in your view
 
