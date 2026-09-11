@@ -1213,7 +1213,7 @@ Note: You may see multiple signatures:
 # Each Tekton TaskRun and PipelineRun generates its own attestation
 cosign download attestation "$IMAGE" \
   --predicate-type slsaprovenance \
-  | jq -r '.payload' | base64 -d | jq -s '.' > provenance.json
+  | jq -r '.payload | @base64d | fromjson' | jq -s '.' > provenance.json
 
 # Count how many attestations were generated
 jq 'length' provenance.json
@@ -1221,8 +1221,10 @@ jq 'length' provenance.json
 Expected output:
 3
 
-# View the first attestation
-jq '.[0]' provenance.json | head -50
+# View the first attestation's buildType
+jq '.[0].predicate.buildType' provenance.json
+
+Expected: tekton.dev/v1beta1/TaskRun or tekton.dev/v1beta1/PipelineRun
 ```
 
 **Expected**: Multiple provenance attestations are downloaded (TaskRuns and PipelineRun)
