@@ -748,7 +748,7 @@ Expected: You should see task statuses (some Running, some Pending)
 - Push PipelineRun from Module 02 should be complete (or nearly complete)
 
 **What Happened in Module 02**:
-After merging the Konflux-generated MR in Module 02, a push pipeline was automatically triggered. This pipeline built your container image, scanned it for vulnerabilities, generated an SBOM, signed the artifacts, and pushed everything to Quay. In this module, we'll examine what that pipeline produced.
+After merging the Konflux-generated MR in Module 02, a push pipeline was automatically triggered. This pipeline built your container image, scanned it for vulnerabilities, generated an SBOM, and pushed everything to Quay. After the pipeline completes, Tekton Chains automatically signs the artifacts and generates provenance attestations. In this module, we'll examine what that pipeline produced.
 
 ---
 
@@ -793,11 +793,12 @@ clamav-scan                  | Scans image for malware and viruses
 sast-shell-check             | Static analysis for shell scripts
 sast-unicode-check           | Detects potentially malicious unicode characters
 rpms-signature-scan          | Verifies signatures of RPM packages in the image
-tpa-scan                     | Trusted Profile Analyzer - scans for security issues
+tpa-scan                     | Trusted Profile Analyzer - scans for CVE vulnerabilities and policy compliance
 
-Note: SBOM generation, image signing, and provenance attestations are handled 
-automatically by Tekton Chains after the pipeline completes - they don't 
-appear as separate pipeline tasks.
+Note: SBOM generation happens automatically during the build-container and 
+build-image-index tasks using Syft. Image signing and provenance attestations 
+are handled by Tekton Chains after the pipeline completes. These artifacts are 
+attached to the image in Quay and can be retrieved with cosign.
 ```
 
 **Expected**: Students understand what each task does
@@ -910,9 +911,10 @@ Expected: Components with license identifiers (e.g., MIT, Apache-2.0)
 ```
 1. In Konflux UI, on the PipelineRun detail page:
    - Look for a "Security" or "Vulnerabilities" tab
-   - Or click on the "clamav-scan" or "tpa-scan" tasks to see security scan results
+   - Or click on the "tpa-scan" task to see CVE vulnerability scan results
+   - The "clamav-scan" task scans for malware/viruses (not CVE vulnerabilities)
 
-2. Review any vulnerabilities found:
+2. Review CVE vulnerabilities found by tpa-scan:
    - Critical: (count)
    - High: (count)
    - Medium: (count)
@@ -920,6 +922,7 @@ Expected: Components with license identifiers (e.g., MIT, Apache-2.0)
 
 3. Note: Some vulnerabilities are expected (base image dependencies)
    The pipeline should still succeed unless critical CVEs block the build
+   TPA (Trusted Profile Analyzer) scans for known CVE vulnerabilities in dependencies
 ```
 
 **Expected**: Scan results are visible (may include some vulnerabilities)
