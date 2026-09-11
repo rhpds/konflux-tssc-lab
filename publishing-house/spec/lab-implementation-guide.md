@@ -1438,20 +1438,19 @@ This is the date/time when the signature was recorded in the transparency log
 
 ```
 # Rekor provides a cryptographic proof that an entry exists in the log
-# This proof can be verified independently
+# Verify the entry using the log index we already have
 
-rekor-cli verify --rekor_server "$REKOR_URL" \
-  --artifact "$IMAGE" \
-  --signature <(cosign download signature "$IMAGE")
+rekor-cli verify --rekor_server "$REKOR_URL" --log-index "$REKOR_INDEX"
 
 Expected output:
-Inclusion Proof:
-...
-Current Root Hash: ...
-Verification Successful!
+Inclusion proof valid!
+Entry timestamp from Rekor: 1789093075
 
-Note: This proves the entry was included in the transparency log
-and cannot be retroactively modified.
+Note: "Inclusion proof valid!" confirms:
+1. The entry exists in the transparency log at the specified index
+2. The Merkle tree inclusion proof is cryptographically valid
+3. The entry cannot be retroactively modified without detection
+4. Anyone can independently verify this proof
 ```
 
 **Expected**: Inclusion proof verification succeeds
