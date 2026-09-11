@@ -1181,19 +1181,26 @@ Key fields in JSON:
 **Step 4: Extract Certificate Information**
 
 ```
-# Verify and save the certificate
+# Verify and extract the certificate Subject and Issuer from the signature
 cosign verify \
-  --rekor-url "$REKOR_URL" \
   --certificate-identity-regexp ".*" \
   --certificate-oidc-issuer-regexp ".*" \
-  "$IMAGE" 2>&1 | grep -A 50 "Certificate subject"
+  "$IMAGE" | jq -r '.[] | "Subject: \(.optional.Subject // "N/A")\nIssuer: \(.optional.Issuer // "N/A")\n---"'
 
-Expected output (example):
-Certificate subject: CN=system:serviceaccount:user-{guid}-tenant:pipeline
-Certificate issuer: CN=fulcio.apps.cluster-{guid}.{domain}
+Expected output (multiple signatures may be shown):
+Subject: https://kubernetes.io/namespaces/user-{guid}-tenant/serviceaccounts/build-pipeline-sample-component-golang
+Issuer: https://kubernetes.default.svc
+---
+Subject: https://kubernetes.io/namespaces/openshift-pipelines/serviceaccounts/tekton-chains-controller
+Issuer: https://kubernetes.default.svc
+---
+
+Note: You may see multiple signatures:
+- build-pipeline-sample-component-golang: The pipeline ServiceAccount that built the image
+- tekton-chains-controller: Tekton Chains controller that signed attestations
 ```
 
-**Expected**: Certificate subject shows the pipeline ServiceAccount
+**Expected**: Certificate subjects show the pipeline ServiceAccount and Tekton Chains controller
 
 ---
 
@@ -2480,15 +2487,14 @@ Error: no matching signatures:
 
 # Now verify with relaxed identity (to see what the actual identity is)
 cosign verify \
-  --rekor-url "$REKOR_URL" \
   --certificate-identity-regexp ".*" \
   --certificate-oidc-issuer-regexp ".*" \
-  "$DRIFTED_IMAGE" 2>&1 | grep "Certificate subject"
+  "$DRIFTED_IMAGE" | jq -r '.[0].optional.Subject'
 
 Expected output:
-Certificate subject: CN=system:serviceaccount:different-namespace:pipeline
+https://kubernetes.io/namespaces/different-namespace/serviceaccounts/pipeline
 
-This shows the image WAS signed, but by a different identity than expected.
+This shows the image WAS signed, but by a different identity (namespace) than expected.
 ```
 
 **Expected**: Identity mismatch is detected
