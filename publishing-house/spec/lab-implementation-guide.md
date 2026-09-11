@@ -1206,67 +1206,82 @@ Note: You may see multiple signatures:
 
 ### Section 2: Inspect SLSA Provenance Attestation (7 min)
 
-**Step 5: Download Provenance Attestation**
+**Step 5: Download Provenance Attestations**
 
 ```
-# Download provenance attestation
+# Download all provenance attestations (there may be multiple)
+# Each Tekton TaskRun and PipelineRun generates its own attestation
 cosign download attestation "$IMAGE" \
   --predicate-type slsaprovenance \
-  | jq -r '.payload' | base64 -d | jq . > provenance.json
+  | jq -r '.payload' | base64 -d | jq -s '.' > provenance.json
 
-# View the provenance
-cat provenance.json
+# Count how many attestations were generated
+jq 'length' provenance.json
+
+Expected output:
+3
+
+# View the first attestation
+jq '.[0]' provenance.json | head -50
 ```
 
-**Expected**: Provenance JSON is downloaded
+**Expected**: Multiple provenance attestations are downloaded (TaskRuns and PipelineRun)
 
 ---
 
 **Step 6: Analyze Provenance Fields**
 
 ```
-# Extract the subject (what was built)
-jq -r '.subject[].name' provenance.json
+# Extract build types from all attestations
+jq -r '.[].predicate.buildType' provenance.json
 
-Expected: Your image name
+Expected output:
+tekton.dev/v1beta1/TaskRun
+tekton.dev/v1beta1/TaskRun
+tekton.dev/v1beta1/PipelineRun
 
-jq -r '.subject[].digest.sha256' provenance.json
+Note: Tekton Chains generates attestations for each TaskRun and the overall PipelineRun
 
-Expected: Your image digest
+# Find the PipelineRun attestation (the most complete one)
+jq '.[] | select(.predicate.buildType == "tekton.dev/v1beta1/PipelineRun")' provenance.json > pipeline-provenance.json
 
-# Extract build type (SLSA level indicator)
-jq -r '.predicate.buildType' provenance.json
+# Extract the subject (what was built) from the PipelineRun attestation
+jq -r '.subject[].name' pipeline-provenance.json
 
-Expected output (example):
-https://tekton.dev/chains/v2
+Expected: Your image name (quay-{cluster}.apps.cluster-{guid}.{domain}/...)
+
+# Extract the image digest
+jq -r '.subject[].digest.sha256' pipeline-provenance.json
+
+Expected: Your image digest (should match the IMAGE_DIGEST variable)
 
 # Extract builder identity
-jq -r '.predicate.builder.id' provenance.json
+jq -r '.predicate.builder.id' pipeline-provenance.json
 
-Expected output (example):
+Expected output:
 https://tekton.dev/chains/v2
 
 # This indicates SLSA Level 3 (build platform generated the provenance)
 ```
 
-**Expected**: Students see the image reference and builder ID
+**Expected**: Students see multiple attestations and can extract the PipelineRun provenance
 
 ---
 
 **Step 7: Inspect Build Invocation**
 
 ```
-# View the exact source that was built
-jq -r '.predicate.invocation.configSource.uri' provenance.json
+# View the exact source that was built (from PipelineRun provenance)
+jq -r '.predicate.invocation.configSource.uri' pipeline-provenance.json
 
 Expected: Your GitLab repository URL
 
-jq -r '.predicate.invocation.configSource.digest.sha1' provenance.json
+jq -r '.predicate.invocation.configSource.digest.sha1' pipeline-provenance.json
 
-Expected: The git commit SHA from your README.md change
+Expected: The git commit SHA from your merged MR in Module 02
 
 # View build parameters
-jq -r '.predicate.invocation.parameters' provenance.json
+jq -r '.predicate.invocation.parameters' pipeline-provenance.json
 
 Expected: Build parameters including branch, revision, etc.
 ```
@@ -1279,7 +1294,7 @@ Expected: Build parameters including branch, revision, etc.
 
 ```
 # List all materials used in the build
-jq -r '.predicate.materials[] | "\(.uri) - \(.digest.sha256)"' provenance.json
+jq -r '.predicate.materials[] | "\(.uri) - \(.digest.sha256 // .digest.sha1)"' pipeline-provenance.json
 
 Expected output (example):
 git+https://gitlab-...git - abc123def456...
@@ -1302,20 +1317,20 @@ These are:
 Check if provenance meets SLSA Level 3:
 
 1. Builder identity recorded? 
-   jq -r '.predicate.builder.id' provenance.json
-   ✓ Yes (should show Tekton Chains)
+   jq -r '.predicate.builder.id' pipeline-provenance.json
+   ✓ Yes (should show https://tekton.dev/chains/v2)
 
 2. Source materials with digests?
-   jq -r '.predicate.materials[].digest' provenance.json
-   ✓ Yes (should show sha256 digests)
+   jq -r '.predicate.materials[].digest' pipeline-provenance.json
+   ✓ Yes (should show sha256/sha1 digests)
 
 3. Build parameters non-falsifiable?
-   jq -r '.predicate.buildType' provenance.json
-   ✓ Yes (build platform generated this, not user-provided)
+   jq -r '.predicate.buildType' pipeline-provenance.json
+   ✓ Yes (should show tekton.dev/v1beta1/PipelineRun - build platform generated this)
 
 4. Provenance signed by build platform?
    (Already verified in Step 2 with cosign verify)
-   ✓ Yes (signature from pipeline ServiceAccount)
+   ✓ Yes (signature from pipeline ServiceAccount and Tekton Chains)
 
 Conclusion: This artifact meets SLSA Level 3 requirements!
 ```
