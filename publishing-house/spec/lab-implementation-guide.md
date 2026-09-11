@@ -816,17 +816,20 @@ attached to the image in Quay and can be retrieved with cosign.
 
 4. Scroll through the logs and find the image digest after the push completes:
    
-   Look for the section that says "Push image with git revision", followed by
-   "Pushing to quay-..." and then a line starting with "sha256:"
+   The image is pushed twice (once with unique tag, once with git revision tag).
+   Look for the SECOND occurrence of "Writing manifest to image destination"
+   which appears AFTER the "Push image with git revision" section.
    
    Example output:
+   Writing manifest to image destination
    [timestamp] Push image with git revision
    Pushing to quay-t7cws-1.apps.cluster-{guid}.{domain}/user-{guid}/sample-component-golang:b953f80...
    ...
    Writing manifest to image destination
    sha256:01ad2ac59ac87ee33aef018e101cc98833c5cf5906945906879d61329594bcb8quay-...
    
-   The digest is the sha256:... part at the beginning of that last line.
+   The digest is the sha256:... part at the beginning of the line after the 
+   SECOND "Writing manifest to image destination".
 
 5. Copy the full sha256 digest (you'll need this later in this module)
    Example: sha256:01ad2ac59ac87ee33aef018e101cc98833c5cf5906945906879d61329594bcb8
