@@ -1270,43 +1270,47 @@ https://tekton.dev/chains/v2
 
 ---
 
-**Step 7: Inspect Build Invocation**
+**Step 7: Examine Build Materials**
 
 ```
-# View the exact source that was built (from PipelineRun provenance)
-jq -r '.predicate.invocation.configSource.uri' pipeline-provenance.json
+# List all materials used in the build (source repo and container images)
+jq -r '.predicate.materials[]? | "\(.uri) - \(.digest.sha1 // .digest.sha256 // "no-digest")"' pipeline-provenance.json
 
-Expected: Your GitLab repository URL
+Expected output (example):
+git+https://gitlab-gitlab.apps.cluster-{guid}.{domain}/user-{guid}/sample-component-golang.git - edaa650ccfc5e432c120d161bd4b8452410e3af1
+oci://quay-{cluster}.apps.cluster-{guid}.{domain}/... - sha256:abc123...
 
-jq -r '.predicate.invocation.configSource.digest.sha1' pipeline-provenance.json
+# Extract just the git repository URI
+jq -r '.predicate.materials[]? | select(.uri | startswith("git+")) | .uri' pipeline-provenance.json
 
-Expected: The git commit SHA from your merged MR in Module 02
+Expected: Your GitLab repository URL (git+https://...)
 
-# View build parameters
-jq -r '.predicate.invocation.parameters' pipeline-provenance.json
+# Extract the git commit SHA
+jq -r '.predicate.materials[]? | select(.uri | startswith("git+")) | .digest.sha1' pipeline-provenance.json
 
-Expected: Build parameters including branch, revision, etc.
+Expected: The commit SHA from your merged MR in Module 02
+
+These materials are:
+1. The source repository (git+https://...)
+2. Container images used during the build (oci://...)
 ```
 
-**Expected**: Provenance traces back to specific Git commit
+**Expected**: Provenance traces back to specific Git commit and build images
 
 ---
 
-**Step 8: Examine Build Materials**
+**Step 8: Inspect Build Metadata**
 
 ```
-# List all materials used in the build
-jq -r '.predicate.materials[] | "\(.uri) - \(.digest.sha256 // .digest.sha1)"' pipeline-provenance.json
+# View the build definition URI (the pipeline itself)
+jq -r '.predicate.buildDefinition.externalParameters.runSpec.pipelineRef' pipeline-provenance.json
 
-Expected output (example):
-git+https://gitlab-...git - abc123def456...
-oci://registry.redhat.io/ubi8/go-toolset - 789ghi012jkl...
-oci://registry.access.redhat.com/ubi8/ubi-minimal - 345mno678pqr...
+Expected: Pipeline reference (e.g., bundle or git reference)
 
-These are:
-1. The source repository
-2. The builder image (Go toolset)
-3. The base image (UBI)
+# View resolved dependencies (tasks used in the pipeline)
+jq -r '.predicate.buildDefinition.resolvedDependencies[]? | "\(.name): \(.uri)"' pipeline-provenance.json
+
+Expected: List of Tekton tasks used in the pipeline
 ```
 
 **Expected**: All build inputs are recorded with their digests
