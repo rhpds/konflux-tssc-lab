@@ -575,36 +575,39 @@ Option 1: Add /retest comment in GitLab UI (Easiest)
 5. Monitor the pipeline status in the MR view
 6. Once it shows "Passed", proceed to Step 10
 
-Option 2: Add /retest comment via git push (If Option 1 doesn't work)
-----------------------------------------------------------------------
-1. In the Showroom terminal, clone the repository and add an empty commit:
+Option 2: Push a commit via GitLab API (If Option 1 doesn't work)
+------------------------------------------------------------------
+1. In the Showroom terminal, use the GitLab API to create a commit on the MR branch:
 
    # Get GitLab credentials
    GITLAB_HOST="gitlab-gitlab.apps.cluster-{guid}.{domain}"
    GITLAB_TOKEN=$(oc get secret gitlab-auth-secret -n user-{guid}-tenant -o jsonpath='{.data.password}' | base64 -d)
    
-   # Clone the repository
-   git clone https://oauth2:${GITLAB_TOKEN}@${GITLAB_HOST}/user-{guid}/sample-component-golang.git /tmp/restart-pipeline
-   cd /tmp/restart-pipeline
-   
-   # Switch to the MR branch
-   git checkout konflux-sample-component-golang
-   
-   # Create an empty commit to trigger the pipeline
-   git commit --allow-empty -m "trigger pipeline retry"
-   
-   # Push the commit
-   git push
-   
-   # Clean up
-   cd -
-   rm -rf /tmp/restart-pipeline
+   # Create a commit via GitLab API
+   curl -k --request POST \
+     --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+     --header "Content-Type: application/json" \
+     --data '{
+       "branch": "konflux-sample-component-golang",
+       "commit_message": "trigger pipeline retry",
+       "actions": [
+         {
+           "action": "create",
+           "file_path": ".trigger-'$(date +%s)'",
+           "content": "pipeline trigger"
+         }
+       ]
+     }' \
+     "https://${GITLAB_HOST}/api/v4/projects/1/repository/commits"
+
+   This creates a new commit on the MR branch without needing git configured locally.
 
 2. Wait 30-60 seconds for the new PipelineRun to start
 3. Monitor in GitLab MR view or Konflux Activity tab
 4. Once pipeline shows "Passed", proceed to Step 10
 
 Expected output:
+- GitLab API returns commit details (JSON response)
 - New PipelineRun created for the MR
 - Pipeline executes successfully
 - MR shows "Passed" status
@@ -658,12 +661,15 @@ pull-request pipeline that ran before the merge).
 7. Observe the pipeline tasks listed:
    - init
    - clone-repository
+   - prefetch-dependencies
    - build-container
    - build-image-index
-   - clair-scan (or equivalent vulnerability scan)
-   - generate-sbom
-   - push-dockerfile
-   - apply-tags
+   - deprecated-base-image-check
+   - clamav-scan
+   - sast-shell-check
+   - sast-unicode-check
+   - rpms-signature-scan
+   - tpa-scan
 
 8. Note the PipelineRun name (e.g., sample-component-golang-on-push-abc123)
 ```
@@ -775,19 +781,23 @@ After merging the Konflux-generated MR in Module 02, a push pipeline was automat
 ```
 In the PipelineRun detail view, identify each task and its purpose:
 
-Task Name                  | Purpose
----------------------------|--------------------------------------------------
-init                       | Validates workspace and sets up build context
-clone-repository           | Fetches source code from GitLab
-build-container            | Builds OCI image using Buildah
-build-image-index          | Creates multi-arch image index (if applicable)
-clair-scan                 | Scans image for vulnerabilities
-sast-snyk-check            | Static analysis security testing
-generate-sbom              | Generates CycloneDX SBOM
-push-dockerfile            | Pushes Dockerfile to registry for provenance
-apply-tags                 | Applies version and "latest" tags to image
+Task Name                    | Purpose
+-----------------------------|--------------------------------------------------
+init                         | Validates workspace and sets up build context
+clone-repository             | Fetches source code from GitLab
+prefetch-dependencies        | Pre-fetches build dependencies for hermetic builds
+build-container              | Builds OCI image using Buildah
+build-image-index            | Creates multi-arch image index
+deprecated-base-image-check  | Checks if base image is deprecated
+clamav-scan                  | Scans image for malware and viruses
+sast-shell-check             | Static analysis for shell scripts
+sast-unicode-check           | Detects potentially malicious unicode characters
+rpms-signature-scan          | Verifies signatures of RPM packages in the image
+tpa-scan                     | Trusted Profile Analyzer - scans for security issues
 
-Note: Task names may vary slightly depending on Konflux version
+Note: SBOM generation, image signing, and provenance attestations are handled 
+automatically by Tekton Chains after the pipeline completes - they don't 
+appear as separate pipeline tasks.
 ```
 
 **Expected**: Students understand what each task does
@@ -811,7 +821,7 @@ Note: Task names may vary slightly depending on Konflux version
 
 5. Copy the full sha256 digest (you'll need this later in this module)
 
-6. Optional: Expand other tasks (clair-scan, generate-sbom) to see their logs
+6. Optional: Expand other tasks (clamav-scan, sast-shell-check, tpa-scan) to see their logs
 ```
 
 **Expected**: Image digest is obtained from build logs
@@ -900,7 +910,7 @@ Expected: Components with license identifiers (e.g., MIT, Apache-2.0)
 ```
 1. In Konflux UI, on the PipelineRun detail page:
    - Look for a "Security" or "Vulnerabilities" tab
-   - Or click on the "clair-scan" task to see results
+   - Or click on the "clamav-scan" or "tpa-scan" tasks to see security scan results
 
 2. Review any vulnerabilities found:
    - Critical: (count)
