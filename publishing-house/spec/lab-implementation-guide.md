@@ -814,13 +814,19 @@ attached to the image in Quay and can be retrieved with cosign.
 
 3. Click "Logs" to view the Buildah build output
 
-4. Scroll through the logs and find the line showing the image digest:
+4. Scroll through the logs and find the image digest after the push completes:
+   
+   Look for the "Writing manifest to image destination" message, followed by 
+   the raw digest on the next line:
    
    Example output:
-   Successfully pushed image to quay-...
-   Digest: sha256:a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0
+   Writing manifest to image destination
+   sha256:01ad2ac59ac87ee33aef018e101cc98833c5cf5906945906879d61329594bcb8quay-...
+   
+   The digest is the sha256:... part at the beginning of that line.
 
 5. Copy the full sha256 digest (you'll need this later in this module)
+   Example: sha256:01ad2ac59ac87ee33aef018e101cc98833c5cf5906945906879d61329594bcb8
 
 6. Optional: Expand other tasks (clamav-scan, sast-shell-check, tpa-scan) to see their logs
 ```
