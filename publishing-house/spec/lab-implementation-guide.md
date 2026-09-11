@@ -1103,9 +1103,22 @@ echo "Rekor: $REKOR_URL"
 **Step 2: Verify the Image Signature**
 
 ```
-# Verify signature with cosign
+# First, initialize cosign with the TUF root to trust the RHTAS deployment
+cosign initialize --mirror "$TUF_URL" --root "$TUF_URL/root.json"
+
+Expected output:
+Root status: 
+{
+	"local": "/home/lab-user/.sigstore/root",
+	"remote": "https://tuf-tsf-tas.apps.cluster-{guid}.{domain}",
+	"metadata": {
+		"root.json": "..."
+	}
+}
+Successfully initialized TUF client with root at ...
+
+# Now verify the signature with cosign
 cosign verify \
-  --rekor-url "$REKOR_URL" \
   --certificate-identity-regexp ".*" \
   --certificate-oidc-issuer-regexp ".*" \
   "$IMAGE"
