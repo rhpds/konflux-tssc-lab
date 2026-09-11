@@ -860,9 +860,17 @@ attached to the image in Quay and can be retrieved with cosign.
 
 2. Click the "View SBOM" link
 
-3. A new browser tab opens showing the SBOM as formatted JSON
+3. A new browser tab opens and you'll be prompted to authenticate with TPA 
+   (Trusted Profile Analyzer)
+   - Click "Log in with OpenShift"
+   - If prompted, use your OpenShift credentials:
+     - Username: user-{guid}
+     - Password: {your OpenShift password}
+   - Click "Allow selected permissions" to authorize TPA access
 
-4. The SBOM shows:
+4. After authentication, the SBOM displays as formatted JSON
+
+5. The SBOM shows:
    - Subject: The image digest that was built
    - Predicate type: SPDX or CycloneDX SBOM format
    - Components: List of all packages/dependencies in the image
