@@ -1419,12 +1419,15 @@ Expected: X.509 certificate (begins with -----BEGIN CERTIFICATE-----)
 # View the timestamp
 jq -r '.IntegratedTime' rekor-entry.json
 
-Expected: Unix timestamp (e.g., 1725739200)
+Expected: Unix timestamp (e.g., 1789093075)
 
-# Convert to human-readable date
-date -r $(jq -r '.IntegratedTime' rekor-entry.json)
+# Convert to human-readable date (Linux)
+date -d @$(jq -r '.IntegratedTime' rekor-entry.json)
 
-Expected: Date and time when the signature was recorded
+Expected output (example):
+Wed Sep 11 02:17:55 UTC 2026
+
+This is the date/time when the signature was recorded in the transparency log
 ```
 
 **Expected**: Students understand Rekor stores tamper-evident records
