@@ -768,9 +768,18 @@ After merging the Konflux-generated MR in Module 02, a push pipeline was automat
    (typical time: 8-15 minutes from the merge)
 
 4. Click on the PipelineRun to open its detail view
+
+5. In the PipelineRun detail page, observe:
+   - Pipeline visualization graph showing all tasks (prefetch-dependencies, build-container, 
+     build-image-index, deprecated-base-image-check, clamav-scan, sast-shell-check, 
+     sast-unicode-check, rpms-signature-scan, tpa-scan)
+   - Tasks with green checkmarks indicate successful completion
+   - Status field shows "Succeeded"
+   - Snapshot link (if integration tests ran)
+   - Download SBOM section (you'll use this in Step 5)
 ```
 
-**Expected**: Push pipeline from Module 02 is visible and completed successfully
+**Expected**: Push pipeline from Module 02 is visible and completed successfully in Konflux UI
 
 ---
 
@@ -841,10 +850,11 @@ attached to the image in Quay and can be retrieved with cosign.
 
 ---
 
-**Step 4: Verify Pipeline Success in CLI**
+**Step 4: Verify Pipeline Success in CLI (Optional)**
 
 ```
-In the terminal:
+You've already verified success in the Konflux UI (Step 1), but you can also 
+check via CLI:
 
 # Check PipelineRun status
 oc get pipelineruns -n user-{guid}-tenant --sort-by=.metadata.creationTimestamp
@@ -857,9 +867,12 @@ sample-component-golang-on-push-{random-id}     True        Succeeded   15m     
 oc get pipelinerun -n user-{guid}-tenant --sort-by=.metadata.creationTimestamp | tail -1
 
 Expected: Status shows "True" in SUCCEEDED column
+
+Note: The Konflux UI provides a more visual representation of pipeline status,
+but the CLI is useful for automation and scripting.
 ```
 
-**Expected**: CLI confirms push pipeline succeeded
+**Expected**: CLI confirms what you already saw in the Konflux UI - pipeline succeeded
 
 ---
 
@@ -867,10 +880,31 @@ Expected: Status shows "True" in SUCCEEDED column
 
 **Step 5: Download the SBOM Attestation**
 
+**Option 1: Use Konflux UI (Easiest)**
+
+```
+1. In the Konflux UI, on the PipelineRun detail page, scroll down to find the "Download SBOM" section
+
+2. You'll see:
+   - A cosign download command (pre-filled with your image reference)
+   - "View SBOM" link to view it in the browser
+   - "Install Cosign" link if you need to install cosign
+
+3. Click "View SBOM" to open the SBOM in a new tab
+   - The SBOM is displayed as formatted JSON
+   - You can browse the components, licenses, and vulnerability data
+
+4. Alternatively, copy the cosign command shown and run it in the terminal:
+   - This downloads the SBOM as JSON to your local machine
+   - Save to a file: add ` > sbom.json` to the end of the command
+```
+
+**Option 2: Use Cosign CLI Directly**
+
 ```
 In the terminal, use cosign to download the SBOM:
 
-# Set image reference (use your actual Quay URL and digest from Step 5)
+# Set image reference (use your actual Quay URL and digest from Step 3)
 IMAGE="quay-{cluster}.apps.cluster-{guid}.{domain}/user-{guid}/sample-component-golang@sha256:{digest}"
 
 # Download SBOM attestation
@@ -880,7 +914,7 @@ cosign download attestation "$IMAGE" | jq -r '.payload' | base64 -d | jq . > sbo
 cat sbom.json
 ```
 
-**Expected**: SBOM JSON downloaded and displayed
+**Expected**: SBOM is viewable in Konflux UI or downloaded as JSON file
 
 ---
 
