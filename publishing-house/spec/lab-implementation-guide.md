@@ -1000,18 +1000,32 @@ Expected: Should match the IMAGE_REF you used to download it
 
 5. Click the "Tags" tab
 
-6. Verify you see tags:
-   - A tag with the commit SHA (e.g., sha-abc123)
-   - Possibly a "latest" tag
-   - The image digest should match the one from the build logs
+6. You should see TWO important tags (from Module 02 workflows):
+   
+   a) Pull Request tag (from the on-pull-request pipeline):
+      - Format: on-pr-<commit-sha>
+      - Example: on-pr-edaa650ccfc5e432c120d161bd4b8452410e3af1
+      - Created when: The Konflux-generated MR was opened
+      - Purpose: Test image before merge
+   
+   b) Push tag (from the on-push pipeline):
+      - Format: <commit-sha> (just the SHA, no prefix)
+      - Example: edaa650ccfc5e432c120d161bd4b8452410e3af1
+      - Created when: The MR was merged to main
+      - Purpose: Production-ready image from main branch
+   
+   Note: Both tags may point to the same image digest if no code changes 
+   occurred between the PR and the merge.
 
-7. Click on a tag to see its details:
+7. Click on the push tag (commit SHA without prefix) to see its details:
    - Size: (image size in MB)
    - Pushed: (timestamp)
    - Security: Click to see vulnerability report (Clair scan results)
+   
+8. Observe that this is the image built from the merged code on the main branch
 ```
 
-**Expected**: Image is present in Quay with correct tags and digest
+**Expected**: Image repository shows both PR and push tags, representing the two pipeline runs from Module 02
 
 ---
 
