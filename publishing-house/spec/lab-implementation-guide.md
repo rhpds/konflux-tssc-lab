@@ -1273,44 +1273,72 @@ https://tekton.dev/chains/v2
 **Step 7: Examine Build Materials**
 
 ```
-# List all materials used in the build (source repo and container images)
-jq -r '.predicate.materials[]? | "\(.uri) - \(.digest.sha1 // .digest.sha256 // "no-digest")"' pipeline-provenance.json
+# Count total materials (task images + git repo)
+jq '.predicate.materials | length' pipeline-provenance.json
 
-Expected output (example):
-git+https://gitlab-gitlab.apps.cluster-{guid}.{domain}/user-{guid}/sample-component-golang.git - edaa650ccfc5e432c120d161bd4b8452410e3af1
-oci://quay-{cluster}.apps.cluster-{guid}.{domain}/... - sha256:abc123...
+Expected: ~30 items (task container images + git repository)
 
-# Extract just the git repository URI
-jq -r '.predicate.materials[]? | select(.uri | startswith("git+")) | .uri' pipeline-provenance.json
+# Extract just the git repository
+jq -r '.predicate.materials[] | select(.uri | startswith("git+"))' pipeline-provenance.json
 
-Expected: Your GitLab repository URL (git+https://...)
+Expected output:
+{
+  "digest": {
+    "sha1": "6ba4c2f5c1d1bfac2f7307626faed7c0e462aaa7"
+  },
+  "uri": "git+https://gitlab-gitlab.apps.cluster-{guid}.{domain}/user-{guid}/sample-component-golang.git"
+}
+
+# Extract the git repository URI
+jq -r '.predicate.materials[] | select(.uri | startswith("git+")) | .uri' pipeline-provenance.json
+
+Expected: git+https://gitlab-gitlab.apps.cluster-{guid}.{domain}/...
 
 # Extract the git commit SHA
-jq -r '.predicate.materials[]? | select(.uri | startswith("git+")) | .digest.sha1' pipeline-provenance.json
+jq -r '.predicate.materials[] | select(.uri | startswith("git+")) | .digest.sha1' pipeline-provenance.json
 
-Expected: The commit SHA from your merged MR in Module 02
+Expected: 6ba4c2f5c1d1bfac2f7307626faed7c0e462aaa7 (your commit SHA)
 
-These materials are:
-1. The source repository (git+https://...)
-2. Container images used during the build (oci://...)
+# List the first 5 task container images used
+jq -r '.predicate.materials[0:5][] | .uri' pipeline-provenance.json
+
+Expected: OCI image URIs (quay.io/konflux-ci/...)
+
+Note: Materials include:
+- Git repository (last item) - your source code
+- All task container images - the tools used to build (init, git-clone, buildah, etc.)
 ```
 
-**Expected**: Provenance traces back to specific Git commit and build images
+**Expected**: Provenance traces back to specific Git commit and lists all build tools
 
 ---
 
 **Step 8: Inspect Build Metadata**
 
 ```
-# View the build definition URI (the pipeline itself)
-jq -r '.predicate.buildDefinition.externalParameters.runSpec.pipelineRef' pipeline-provenance.json
+# View build timestamps
+jq -r '.predicate.metadata | "Started: \(.buildStartedOn)\nFinished: \(.buildFinishedOn)"' pipeline-provenance.json
 
-Expected: Pipeline reference (e.g., bundle or git reference)
+Expected output:
+Started: 2026-09-11T02:09:50Z
+Finished: 2026-09-11T02:21:06Z
 
-# View resolved dependencies (tasks used in the pipeline)
-jq -r '.predicate.buildDefinition.resolvedDependencies[]? | "\(.name): \(.uri)"' pipeline-provenance.json
+# Calculate build duration
+jq -r '.predicate.metadata | 
+  ((.buildFinishedOn | fromdateiso8601) - (.buildStartedOn | fromdateiso8601)) as $duration |
+  "\($duration / 60 | floor) minutes \($duration % 60 | floor) seconds"' pipeline-provenance.json
 
-Expected: List of Tekton tasks used in the pipeline
+Expected: ~11 minutes (varies based on your pipeline)
+
+# View reproducibility status
+jq '.predicate.metadata.reproducible' pipeline-provenance.json
+
+Expected: false (Konflux builds are not bit-for-bit reproducible yet)
+
+# Count tasks in the pipeline
+jq '.predicate.buildConfig.tasks | length' pipeline-provenance.json
+
+Expected: ~10-11 tasks
 ```
 
 **Expected**: All build inputs are recorded with their digests
