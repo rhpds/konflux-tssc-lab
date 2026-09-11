@@ -850,35 +850,9 @@ attached to the image in Quay and can be retrieved with cosign.
 
 ---
 
-**Step 4: Verify Pipeline Success in CLI (Optional)**
-
-```
-You've already verified success in the Konflux UI (Step 1), but you can also 
-check via CLI:
-
-# Check PipelineRun status
-oc get pipelineruns -n user-{guid}-tenant --sort-by=.metadata.creationTimestamp
-
-Expected output (most recent run should be the push pipeline):
-NAME                                            SUCCEEDED   REASON      STARTTIME    COMPLETIONTIME
-sample-component-golang-on-push-{random-id}     True        Succeeded   15m          3m
-
-# Get detailed status of the most recent one
-oc get pipelinerun -n user-{guid}-tenant --sort-by=.metadata.creationTimestamp | tail -1
-
-Expected: Status shows "True" in SUCCEEDED column
-
-Note: The Konflux UI provides a more visual representation of pipeline status,
-but the CLI is useful for automation and scripting.
-```
-
-**Expected**: CLI confirms what you already saw in the Konflux UI - pipeline succeeded
-
----
-
 ### Section 3: Inspect the SBOM (5 min)
 
-**Step 5: Download the SBOM Attestation**
+**Step 4: Download the SBOM Attestation**
 
 **Option 1: Use Konflux UI (Easiest)**
 
@@ -918,7 +892,7 @@ cat sbom.json
 
 ---
 
-**Step 6: Analyze SBOM Contents**
+**Step 5: Analyze SBOM Contents**
 
 ```
 # Extract the subject (image reference) from the SBOM
@@ -952,7 +926,7 @@ Expected: Components with license identifiers (e.g., MIT, Apache-2.0)
 
 ### Section 4: Review Scan Results and Quay Artifacts (3 min)
 
-**Step 10: Check Vulnerability Scan Results**
+**Step 6: Check Vulnerability Scan Results**
 
 ```
 1. In Konflux UI, on the PipelineRun detail page:
@@ -975,7 +949,7 @@ Expected: Components with license identifiers (e.g., MIT, Apache-2.0)
 
 ---
 
-**Step 11: Verify Image in Quay**
+**Step 7: Verify Image in Quay**
 
 ```
 1. Switch to the Quay browser tab
@@ -1003,7 +977,7 @@ Expected: Components with license identifiers (e.g., MIT, Apache-2.0)
 
 ---
 
-**Step 12: Verify Image Manifests**
+**Step 8: Verify Image Manifests**
 
 ```
 1. In Quay, while viewing the tag details, click "Fetch Tag" or "Manifest"
