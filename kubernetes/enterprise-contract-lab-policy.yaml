@@ -13,7 +13,7 @@ spec:
     - oci::quay.io/conforma/release-policy:latest@sha256:10de4ff888f9d054baeaa15c528ff74118bfd3c99ed0e5fc0ac24e72e83e01dc
     data:
     - github.com/konflux-ci/konflux-operator-trusted-sources//data?ref=8eaa4f44c2bf67e6e2b20c5777b0d73e978c632b
-    - github.com/rhpds/konflux-tssc-lab.git//tekton?ref=main
+    - github.com/rhpds/konflux-tssc-lab.git//tekton
     config:
       exclude:
       - hermetic_task
