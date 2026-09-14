@@ -1,0 +1,31 @@
+# Additional rule data for lab pipeline
+# Make CPE label optional for lab environment
+---
+rule_data:
+  # Override required labels - remove CPE requirement for lab
+  required_labels:
+  - name: com.redhat.component
+    description: The Bugzilla component name
+  - name: description
+    description: Detailed description of the image
+  - name: distribution-scope
+    description: Scope of intended distribution
+  - name: io.k8s.description
+    description: Description displayed in Kubernetes
+  - name: name
+    description: Name of the Image
+  - name: release
+    description: Release Number
+  - name: url
+    description: URL for more information
+  - name: vcs-ref
+    description: Version control reference
+  - name: vcs-type
+    description: Type of version control
+  - name: vendor
+    description: Name of the vendor
+    values:
+    - 'Red Hat, Inc.'
+  - name: version
+    description: Version of the image
+  # Note: CPE label removed for lab environment

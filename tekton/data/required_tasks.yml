@@ -1,0 +1,17 @@
+# Required tasks for lab pipeline
+# Maps our actual task names to required task categories
+---
+pipeline-required-tasks:
+  docker:
+    effective_on: "2026-09-01T00:00:00Z"
+    tasks:
+    - init
+    - git-clone-oci-ta-min  # Alternative to git-clone-oci-ta
+    - prefetch-dependencies-oci-ta-min  # Alternative to prefetch-dependencies-oci-ta
+    - buildah-oci-ta-min  # Alternative to buildah-oci-ta
+    - deprecated-image-check
+    - clamav-scan-min  # Alternative to clamav-scan
+    - sast-shell-check-oci-ta-min  # Alternative to sast-shell-check-oci-ta
+    - sast-unicode-check-oci-ta-min  # Alternative to sast-unicode-check-oci-ta
+    - rpms-signature-scan
+    - tpa-scan

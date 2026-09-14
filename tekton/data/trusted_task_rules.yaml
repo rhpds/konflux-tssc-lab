@@ -1,9 +1,9 @@
 # Custom trusted task rules for lab pipeline bundle
-# Match the bundle URL with version tag
+# Use digest-pinned bundle reference
 ---
 rule_data:
   trusted_task_rules:
     allow:
       lab-custom-bundle:
-        # Trust all versions of our bundle
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab:*
+        # Trust the pinned bundle digest
+        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab@sha256:20954ff6b57d0b1cbd0df5684605335eb715a041d7efc640f0fd77b160053752
