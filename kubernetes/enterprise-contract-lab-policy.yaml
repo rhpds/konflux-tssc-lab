@@ -20,5 +20,6 @@ spec:
       - hermetic_task
       - source_image
       - rpm_repos
+      - labels.required  # Exclude CPE label requirement for lab
       include:
       - '@redhat'

@@ -1,17 +1,18 @@
 # Required tasks for lab pipeline
 # Maps our actual task names to required task categories
+# Must match rhtap-ec-policy structure: arrays of alternatives
 ---
 pipeline-required-tasks:
   docker:
-    effective_on: "2026-09-01T00:00:00Z"
+  - effective_on: "2026-09-01T00:00:00Z"
     tasks:
     - init
-    - git-clone-oci-ta-min  # Alternative to git-clone-oci-ta
-    - prefetch-dependencies-oci-ta-min  # Alternative to prefetch-dependencies-oci-ta
-    - buildah-oci-ta-min  # Alternative to buildah-oci-ta
+    - [git-clone, git-clone-oci-ta, git-clone-oci-ta-min]
+    - [prefetch-dependencies, prefetch-dependencies-oci-ta, prefetch-dependencies-oci-ta-min]
+    - [buildah, buildah-remote, buildah-oci-ta, buildah-remote-oci-ta, buildah-oci-ta-min]
     - deprecated-image-check
-    - clamav-scan-min  # Alternative to clamav-scan
-    - sast-shell-check-oci-ta-min  # Alternative to sast-shell-check-oci-ta
-    - sast-unicode-check-oci-ta-min  # Alternative to sast-unicode-check-oci-ta
+    - [clamav-scan, clamav-scan-min]
+    - [sast-shell-check, sast-shell-check-oci-ta, sast-shell-check-oci-ta-min]
+    - [sast-unicode-check, sast-unicode-check-oci-ta, sast-unicode-check-oci-ta-min]
     - rpms-signature-scan
     - tpa-scan
