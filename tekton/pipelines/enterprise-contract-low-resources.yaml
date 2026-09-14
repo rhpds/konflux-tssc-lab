@@ -33,7 +33,7 @@ spec:
         Name of the policy configuration (EnterpriseContractConfiguration
         object) to use. `namespace/name` or `name` syntax supported. If
         namespace is omitted the namespace where the task runs is used.
-      default: enterprise-contract-service/default
+      default: enterprise-contract-service/lab-policy
     - name: SSL_CERT_DIR
       type: string
       description: |
