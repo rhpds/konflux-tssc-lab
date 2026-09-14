@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-trusted-sources
+  namespace: enterprise-contract-service
+data:
+  trusted-sources.yaml: |
+    ---
+    trusted_tasks:
+      oci://quay.io/rhpds/pipeline-docker-build-lab/init:1.0:
+        - ref: sha256:20954ff6b57d0b1cbd0df5684605335eb715a041d7efc640f0fd77b160053752
+      oci://quay.io/rhpds/pipeline-docker-build-lab/git-clone-oci-ta-min:1.0:
+        - ref: sha256:20954ff6b57d0b1cbd0df5684605335eb715a041d7efc640f0fd77b160053752
+      oci://quay.io/rhpds/pipeline-docker-build-lab/prefetch-dependencies-oci-ta-min:1.0:
+        - ref: sha256:20954ff6b57d0b1cbd0df5684605335eb715a041d7efc640f0fd77b160053752
+      oci://quay.io/rhpds/pipeline-docker-build-lab/buildah-oci-ta-min:1.0:
+        - ref: sha256:20954ff6b57d0b1cbd0df5684605335eb715a041d7efc640f0fd77b160053752
+      oci://quay.io/rhpds/pipeline-docker-build-lab/build-image-index-min:1.0:
+        - ref: sha256:20954ff6b57d0b1cbd0df5684605335eb715a041d7efc640f0fd77b160053752
+      oci://quay.io/rhpds/pipeline-docker-build-lab/deprecated-image-check:1.0:
+        - ref: sha256:20954ff6b57d0b1cbd0df5684605335eb715a041d7efc640f0fd77b160053752
+      oci://quay.io/rhpds/pipeline-docker-build-lab/clamav-scan-min:1.0:
+        - ref: sha256:20954ff6b57d0b1cbd0df5684605335eb715a041d7efc640f0fd77b160053752
+      oci://quay.io/rhpds/pipeline-docker-build-lab/sast-shell-check-oci-ta-min:1.0:
+        - ref: sha256:20954ff6b57d0b1cbd0df5684605335eb715a041d7efc640f0fd77b160053752
+      oci://quay.io/rhpds/pipeline-docker-build-lab/sast-unicode-check-oci-ta-min:1.0:
+        - ref: sha256:20954ff6b57d0b1cbd0df5684605335eb715a041d7efc640f0fd77b160053752
+      oci://quay.io/rhpds/pipeline-docker-build-lab/rpms-signature-scan:1.0:
+        - ref: sha256:20954ff6b57d0b1cbd0df5684605335eb715a041d7efc640f0fd77b160053752
+      oci://quay.io/rhpds/pipeline-docker-build-lab/tpa-scan:1.0:
+        - ref: sha256:20954ff6b57d0b1cbd0df5684605335eb715a041d7efc640f0fd77b160053752
