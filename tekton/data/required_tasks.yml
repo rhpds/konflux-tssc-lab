@@ -1,8 +1,8 @@
-# Lab custom required tasks for docker-lab pipeline
+# Lab custom required tasks for docker pipeline
 # Maps our custom task names to EC requirements
 ---
 pipeline-required-tasks:
-  docker-lab:
+  docker:
   - effective_on: "2026-01-01T00:00:00Z"
     tasks:
     - init
