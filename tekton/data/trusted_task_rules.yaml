@@ -1,12 +1,8 @@
 # Custom trusted task rules for lab pipeline bundle
-# Self-contained configuration - no external dependencies needed
+# Pattern-based allow rules only - no wrapper
 ---
-rule_data:
-  # Enable the pattern-based trusted task system
-  trusted_task_rules_enabled: true
-
-  trusted_task_rules:
-    allow:
-      lab-custom-bundle:
-        # Allow all tasks from our custom lab bundle
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/*
+trusted_task_rules:
+  allow:
+    lab-custom-bundle:
+      # Allow all tasks from our custom lab bundle
+      - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/*
