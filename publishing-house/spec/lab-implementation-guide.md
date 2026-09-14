@@ -168,13 +168,58 @@ Modern supply chain security solves this by requiring:
 
 ### Section 3: Verify Your Personal Resources (3 min)
 
-**Step 6: Log in to OpenShift CLI**
+**Step 6: Set Up Environment Variables**
+
+```
+To avoid manually replacing placeholders in commands, let's set environment 
+variables for your user GUID and cluster domain. Showroom provides template 
+variables that will be automatically replaced when you run the commands.
+
+In the Showroom terminal, run:
+
+# Set all environment variables from Showroom templates
+export GUID={guid}
+export APPS_DOMAIN={openshift_apps_domain}
+export API_DOMAIN=$(echo ${APPS_DOMAIN} | sed 's/^apps\./api./')
+
+# Set service URLs
+export GITLAB_HOST="gitlab-gitlab.${APPS_DOMAIN}"
+export KONFLUX_UI="https://konflux-ui-konflux-ui.${APPS_DOMAIN}"
+export REKOR_URL="https://rekor-server-tsf-tas.${APPS_DOMAIN}"
+export FULCIO_URL="https://fulcio-server-tsf-tas.${APPS_DOMAIN}"
+export TUF_URL="https://tuf-tsf-tas.${APPS_DOMAIN}"
+
+# Set namespace variables
+export TENANT_NS="user-${GUID}-tenant"
+export MANAGED_NS="user-${GUID}-managed"
+
+# Verify
+echo "GUID: ${GUID}"
+echo "Tenant namespace: ${TENANT_NS}"
+echo "Managed namespace: ${MANAGED_NS}"
+echo "Konflux UI: ${KONFLUX_UI}"
+
+Expected output:
+GUID: dbkkx
+Tenant namespace: user-dbkkx-tenant
+Managed namespace: user-dbkkx-managed
+Konflux UI: https://konflux-ui-konflux-ui.apps.cluster-7vlc4.dyn.redhatworkshops.io
+
+Note: The {guid} and {openshift_apps_domain} placeholders are automatically 
+replaced by Showroom with your actual values when you run the commands.
+```
+
+**Expected**: Environment variables are set and display your actual values
+
+---
+
+**Step 7: Log in to OpenShift CLI**
 
 ```
 In the Showroom terminal, run:
 
-oc login https://api.cluster-{guid}.{domain}:6443 \
-  --username=user-{guid} \
+oc login https://${API_DOMAIN}:6443 \
+  --username=user-${GUID} \
   --password='{your-password}' \
   --insecure-skip-tls-verify=true
 
@@ -190,14 +235,14 @@ Using project "user-{guid}-tenant".
 
 ---
 
-**Step 7: Inspect Your Tenant Namespace**
+**Step 8: Inspect Your Tenant Namespace**
 
 ```
 # Confirm current namespace
-oc project user-{guid}-tenant
+oc project ${TENANT_NS}
 
 # List projects you have access to
-oc get projects | grep user-{guid}
+oc get projects | grep user-${GUID}
 
 Expected output:
 user-{guid}-managed     Active   5m
@@ -207,15 +252,15 @@ Note: You should see 2 namespaces. The showroom namespace (where this
 lab guide runs) is not accessible to your user account.
 
 # Check Konflux permissions
-oc auth can-i create applications.appstudio.redhat.com -n user-{guid}-tenant
+oc auth can-i create applications.appstudio.redhat.com -n ${TENANT_NS}
 
 Expected output: yes
 
-oc auth can-i create components.appstudio.redhat.com -n user-{guid}-tenant
+oc auth can-i create components.appstudio.redhat.com -n ${TENANT_NS}
 
 Expected output: yes
 
-oc auth can-i create releaseplans.appstudio.redhat.com -n user-{guid}-tenant
+oc auth can-i create releaseplans.appstudio.redhat.com -n ${TENANT_NS}
 
 Expected output: yes
 ```
@@ -224,11 +269,11 @@ Expected output: yes
 
 ---
 
-**Step 8: Verify RoleBindings**
+**Step 9: Verify RoleBindings**
 
 ```
 # List RoleBindings in your tenant namespace
-oc get rolebindings -n user-{guid}-tenant | grep konflux
+oc get rolebindings -n ${TENANT_NS} | grep konflux
 
 Expected output:
 konflux-admin   ClusterRole/konflux-admin-user-actions   5m
@@ -434,7 +479,7 @@ password: glpat-uySoCmr_c5IajdNFIUsObm86MQp1OjcH
 
 Verify the secret was created:
 
-oc get secret gitlab-auth-secret -n user-{guid}-tenant
+oc get secret gitlab-auth-secret -n ${TENANT_NS}
 
 Expected output:
 NAME                  TYPE                       DATA   AGE
@@ -579,9 +624,8 @@ Option 2: Push a commit via GitLab API (If Option 1 doesn't work)
 ------------------------------------------------------------------
 1. In the Showroom terminal, use the GitLab API to create a commit on the MR branch:
 
-   # Get GitLab credentials
-   GITLAB_HOST="gitlab-gitlab.apps.cluster-{guid}.{domain}"
-   GITLAB_TOKEN=$(oc get secret gitlab-auth-secret -n user-{guid}-tenant -o jsonpath='{.data.password}' | base64 -d)
+   # Get GitLab token (GITLAB_HOST was set in Module 01)
+   GITLAB_TOKEN=$(oc get secret gitlab-auth-secret -n ${TENANT_NS} -o jsonpath='{.data.password}' | base64 -d)
    
    # Create a commit via GitLab API
    curl -k --request POST \
@@ -684,7 +728,7 @@ pull-request pipeline that ran before the merge).
 In the Showroom terminal:
 
 # List PipelineRuns in your tenant namespace
-oc get pipelineruns -n user-{guid}-tenant
+oc get pipelineruns -n ${TENANT_NS}
 
 Expected output:
 NAME                                         SUCCEEDED   REASON      STARTTIME   COMPLETIONTIME
@@ -695,7 +739,7 @@ The pull-request pipeline should show "Succeeded" (it ran before the merge)
 The push pipeline should show "Running" (triggered by the merge)
 
 # Get detailed status of the push pipeline
-oc describe pipelinerun sample-component-golang-on-push-abc123 -n user-{guid}-tenant | head -30
+oc describe pipelinerun sample-component-golang-on-push-abc123 -n ${TENANT_NS} | head -30
 
 Expected: You should see task statuses (some Running, some Pending)
 ```
@@ -861,14 +905,15 @@ image. Now we'll download it using cosign so we can analyze its contents.
 
 In the terminal:
 
-# Get Quay credentials from the cluster
-QUAY_USER=$(oc get secret quay-auth-secret -n user-{guid}-tenant \
+# Get Quay hostname from OpenShift route
+export QUAY_HOST=$(oc get route -n quay-system quay-quay -o jsonpath='{.spec.host}')
+
+# Get Quay credentials from the cluster  
+QUAY_USER=$(oc get secret quay-auth-secret -n ${TENANT_NS} \
   -o jsonpath='{.data.username}' | base64 -d)
 
-QUAY_PASSWORD=$(oc get secret quay-auth-secret -n user-{guid}-tenant \
+QUAY_PASSWORD=$(oc get secret quay-auth-secret -n ${TENANT_NS} \
   -o jsonpath='{.data.password}' | base64 -d)
-
-QUAY_HOST="quay-{cluster}.apps.cluster-{guid}.{domain}"
 
 # Log into Quay
 podman login -u "${QUAY_USER}" -p "${QUAY_PASSWORD}" "${QUAY_HOST}"
@@ -877,18 +922,18 @@ Expected output:
 Login Succeeded!
 
 # Get the image reference from the build
-IMAGE_URL=$(oc get pipelinerun -n user-{guid}-tenant \
+IMAGE_URL=$(oc get pipelinerun -n ${TENANT_NS} \
   --sort-by=.metadata.creationTimestamp -o json | \
   jq -r '.items[] | select(.metadata.name | contains("on-push")) | 
   .status.childReferences[] | select(.name | contains("build-container")) | 
-  .name' | tail -1 | xargs oc get taskrun -n user-{guid}-tenant -o json | \
+  .name' | tail -1 | xargs oc get taskrun -n ${TENANT_NS} -o json | \
   jq -r '.status.results[] | select(.name == "IMAGE_URL") | .value')
 
-IMAGE_DIGEST=$(oc get pipelinerun -n user-{guid}-tenant \
+IMAGE_DIGEST=$(oc get pipelinerun -n ${TENANT_NS} \
   --sort-by=.metadata.creationTimestamp -o json | \
   jq -r '.items[] | select(.metadata.name | contains("on-push")) | 
   .status.childReferences[] | select(.name | contains("build-container")) | 
-  .name' | tail -1 | xargs oc get taskrun -n user-{guid}-tenant -o json | \
+  .name' | tail -1 | xargs oc get taskrun -n ${TENANT_NS} -o json | \
   jq -r '.status.results[] | select(.name == "IMAGE_DIGEST") | .value')
 
 # Construct full image reference with digest
@@ -1554,7 +1599,7 @@ Note: "Inclusion proof valid!" confirms:
 
 ```
 # In the terminal, check for auto-created integration test scenarios
-oc get integrationtestscenarios -n user-{guid}-tenant
+oc get integrationtestscenarios -n ${TENANT_NS}
 
 Expected output:
 NAME                              APPLICATION      AGE
@@ -1612,7 +1657,7 @@ A Snapshot is created every time a Component build completes successfully.
 It represents a consistent set of Component versions ready for testing/release.
 
 # List Snapshots
-oc get snapshots -n user-{guid}-tenant --sort-by=.metadata.creationTimestamp
+oc get snapshots -n ${TENANT_NS} --sort-by=.metadata.creationTimestamp
 
 Expected output:
 NAME                          APPLICATION      AGE
@@ -1620,13 +1665,13 @@ my-sample-app-abc123          my-sample-app    10m
 my-sample-app-xyz456          my-sample-app    2m
 
 # Get the most recent Snapshot
-LATEST_SNAPSHOT=$(oc get snapshots -n user-{guid}-tenant \
+LATEST_SNAPSHOT=$(oc get snapshots -n ${TENANT_NS} \
   --sort-by=.metadata.creationTimestamp -o name | tail -1)
 
 echo "Latest Snapshot: $LATEST_SNAPSHOT"
 
 # View Snapshot details
-oc get $LATEST_SNAPSHOT -n user-{guid}-tenant -o yaml > snapshot.yaml
+oc get $LATEST_SNAPSHOT -n ${TENANT_NS} -o yaml > snapshot.yaml
 cat snapshot.yaml
 ```
 
@@ -1640,7 +1685,7 @@ cat snapshot.yaml
 
 ```
 # View integration test results in the Snapshot
-oc get $LATEST_SNAPSHOT -n user-{guid}-tenant \
+oc get $LATEST_SNAPSHOT -n ${TENANT_NS} \
   -o jsonpath='{.status.conditions}' | jq .
 
 Expected output:
@@ -1665,7 +1710,7 @@ If status is "False", the policy check failed.
 ```
 # Integration tests run as PipelineRuns
 # List PipelineRuns and find the integration test
-oc get pipelineruns -n user-{guid}-tenant \
+oc get pipelineruns -n ${TENANT_NS} \
   --sort-by=.metadata.creationTimestamp
 
 Expected: You'll see build PipelineRuns AND integration test PipelineRuns
@@ -1674,11 +1719,11 @@ Look for a PipelineRun with a name like:
   integration-test-sample-app-abc123
 
 # Describe the integration test PipelineRun
-INTEGRATION_RUN=$(oc get pipelineruns -n user-{guid}-tenant \
+INTEGRATION_RUN=$(oc get pipelineruns -n ${TENANT_NS} \
   -l 'appstudio.openshift.io/snapshot' \
   --sort-by=.metadata.creationTimestamp -o name | tail -1)
 
-oc describe $INTEGRATION_RUN -n user-{guid}-tenant
+oc describe $INTEGRATION_RUN -n ${TENANT_NS}
 ```
 
 **Expected**: Integration test PipelineRun is found
@@ -1692,7 +1737,7 @@ The integration test pipeline runs the "ec" (Enterprise Contract) CLI
 to validate the artifact against policy rules.
 
 # Get the PipelineRun result (TaskRun logs contain policy output)
-oc logs $INTEGRATION_RUN -n user-{guid}-tenant --all-containers | grep -A 50 "ec validate"
+oc logs $INTEGRATION_RUN -n ${TENANT_NS} --all-containers | grep -A 50 "ec validate"
 
 Expected output (example):
 Running: ec validate image --image quay-...
@@ -1791,7 +1836,7 @@ This is how Conforma blocks insecure artifacts from reaching production.
 
 ```
 # A Snapshot is releasable if integration tests passed
-oc get $LATEST_SNAPSHOT -n user-{guid}-tenant \
+oc get $LATEST_SNAPSHOT -n ${TENANT_NS} \
   -o jsonpath='{.metadata.labels}' | jq .
 
 Expected: You should see a label indicating release readiness
@@ -1877,7 +1922,7 @@ In this lab:
 
 ```
 # Check the managed namespace for ReleasePlanAdmission
-oc get releaseplanadmissions -n user-{guid}-managed
+oc get releaseplanadmissions -n ${MANAGED_NS}
 
 Expected output:
 NAME                  AGE
@@ -1920,7 +1965,7 @@ spec:
 EOF
 
 # Verify ReleasePlan was created
-oc get releaseplans -n user-{guid}-tenant
+oc get releaseplans -n ${TENANT_NS}
 
 Expected output:
 NAME                  APPLICATION      TARGET                  AGE
@@ -1935,7 +1980,7 @@ production-release    my-sample-app    user-{guid}-managed     5s
 
 ```
 # View ReleasePlan details
-oc get releaseplan production-release -n user-{guid}-tenant -o yaml
+oc get releaseplan production-release -n ${TENANT_NS} -o yaml
 
 Key fields:
 - spec.application: Links to your Application
@@ -1943,7 +1988,7 @@ Key fields:
 - spec.releaseGracePeriodDays: How long to wait before release (0 = immediate)
 
 # Optional: View ReleasePlanAdmission
-oc get releaseplanadmission production-release -n user-{guid}-managed -o yaml
+oc get releaseplanadmission production-release -n ${MANAGED_NS} -o yaml
 
 Key fields:
 - spec.applications: Allowed Applications
@@ -1961,16 +2006,16 @@ Key fields:
 
 ```
 # List Snapshots
-oc get snapshots -n user-{guid}-tenant --sort-by=.metadata.creationTimestamp
+oc get snapshots -n ${TENANT_NS} --sort-by=.metadata.creationTimestamp
 
 # Get the latest Snapshot name
-SNAPSHOT_NAME=$(oc get snapshots -n user-{guid}-tenant \
+SNAPSHOT_NAME=$(oc get snapshots -n ${TENANT_NS} \
   --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
 
 echo "Releasing Snapshot: $SNAPSHOT_NAME"
 
 # Verify the Snapshot passed integration tests
-oc get snapshot $SNAPSHOT_NAME -n user-{guid}-tenant \
+oc get snapshot $SNAPSHOT_NAME -n ${TENANT_NS} \
   -o jsonpath='{.status.conditions[?(@.type=="IntegrationTestSucceeded")].status}'
 
 Expected output: True
@@ -1996,7 +2041,7 @@ spec:
 EOF
 
 # Verify Release was created
-oc get releases -n user-{guid}-tenant
+oc get releases -n ${TENANT_NS}
 
 Expected output:
 NAME                             RELEASPLAN           SNAPSHOT                 AGE
@@ -2013,11 +2058,11 @@ production-release-20260907...   production-release   my-sample-app-xyz456     5
 
 ```
 # Get the Release name
-RELEASE_NAME=$(oc get releases -n user-{guid}-tenant \
+RELEASE_NAME=$(oc get releases -n ${TENANT_NS} \
   --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
 
 # Watch Release status
-oc get release $RELEASE_NAME -n user-{guid}-tenant -w
+oc get release $RELEASE_NAME -n ${TENANT_NS} -w
 
 Expected status progression:
 PHASE
@@ -2038,20 +2083,20 @@ Typical execution time: 2-5 minutes
 
 ```
 # The Release triggers a PipelineRun in the managed namespace
-oc get pipelineruns -n user-{guid}-managed
+oc get pipelineruns -n ${MANAGED_NS}
 
 Expected output:
 NAME                              SUCCEEDED   REASON      AGE
 release-production-release-abc    True        Succeeded   2m
 
 # View PipelineRun details
-RELEASE_RUN=$(oc get pipelineruns -n user-{guid}-managed \
+RELEASE_RUN=$(oc get pipelineruns -n ${MANAGED_NS} \
   --sort-by=.metadata.creationTimestamp -o name | tail -1)
 
-oc describe $RELEASE_RUN -n user-{guid}-managed
+oc describe $RELEASE_RUN -n ${MANAGED_NS}
 
 # View logs
-oc logs $RELEASE_RUN -n user-{guid}-managed --all-containers
+oc logs $RELEASE_RUN -n ${MANAGED_NS} --all-containers
 ```
 
 **Expected**: Release PipelineRun completed successfully
