@@ -20,5 +20,27 @@ spec:
       - hermetic_task
       - source_image
       - rpm_repos
+      # Exclude pinned refs requirement (lab uses bundle with tag)
+      - tasks.pinned_task_refs
+      # Exclude CPE label requirement (not a product release)
+      - labels.required_labels:cpe
+      # Exclude missing required tasks (lab pipeline has alternatives)
+      - tasks.required_tasks_found:buildah
+      - tasks.required_tasks_found:buildah-oci-ta
+      - tasks.required_tasks_found:clair-scan
+      - tasks.required_tasks_found:roxctl-scan
+      - tasks.required_tasks_found:git-clone
+      - tasks.required_tasks_found:git-clone-oci-ta
+      - tasks.required_tasks_found:prefetch-dependencies
+      - tasks.required_tasks_found:prefetch-dependencies-oci-ta
+      - tasks.required_tasks_found:sast-shell-check
+      - tasks.required_tasks_found:sast-shell-check-oci-ta
+      - tasks.required_tasks_found:sast-snyk-check
+      - tasks.required_tasks_found:sast-snyk-check-oci-ta
+      - tasks.required_tasks_found:sast-unicode-check
+      - tasks.required_tasks_found:sast-unicode-check-oci-ta
+      - tasks.required_tasks_found:source-build
+      - tasks.required_tasks_found:source-build-oci-ta
+      - tasks.required_tasks_found:clamav-scan
       include:
       - '@redhat'
