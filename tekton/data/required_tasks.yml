@@ -1,10 +1,9 @@
 # Required tasks for lab pipeline
-# Maps our actual task names to required task categories
-# Must match rhtap-ec-policy structure: arrays of alternatives
+# Define custom pipeline type to avoid merge conflicts with rhtap-ec-policy
 ---
 pipeline-required-tasks:
-  docker:
-  - effective_on: "2026-09-01T00:00:00Z"
+  docker-lab:
+  - effective_on: "2026-01-01T00:00:00Z"
     tasks:
     - init
     - [git-clone, git-clone-oci-ta, git-clone-oci-ta-min]
