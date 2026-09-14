@@ -6,19 +6,20 @@ rule_data:
   trusted_task_rules_enabled: true
 
   # Allowed registry prefixes for base images
+  # Include wildcard for cluster-local Quay (hostname is dynamic per cluster)
   allowed_registry_prefixes:
   - registry.access.redhat.com/
   - registry.redhat.io/
   - quay.io/
   - docker.io/
-  - quay-t7cws-1.apps.cluster-t7cws.dyn.redhatworkshops.io/
+  - quay.*
 
   # Allowed step image registry prefixes
   allowed_step_image_registry_prefixes:
   - quay.io/
   - registry.access.redhat.com/
   - registry.redhat.io/
-  - quay-t7cws-1.apps.cluster-t7cws.dyn.redhatworkshops.io/
+  - quay.*
 
   # Trusted task rules
   trusted_task_rules:
