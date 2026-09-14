@@ -855,8 +855,9 @@ attached to the image in Quay and can be retrieved with cosign.
 **Step 4: Download the SBOM from Quay**
 
 ```
-The SBOM is stored in Quay as an OCI artifact attached to the container image.
-We'll download it using cosign and authenticate with Quay credentials.
+In Module 03, you saw the SBOM tag in Quay (sha256-<digest>.sbom) after enabling 
+"Show Signatures". The SBOM is stored as an OCI artifact attached to your container 
+image. Now we'll download it using cosign so we can analyze its contents.
 
 In the terminal:
 
@@ -1034,14 +1035,44 @@ Expected: Should match the IMAGE_REF you used to download it
    - Pushed: (timestamp)
    - Security: Click to see vulnerability report (Clair scan results)
    
-8. Observe that this is the image built from the merged code on the main branch
+9. Observe that this is the image built from the merged code on the main branch
 ```
 
 **Expected**: Image repository shows both PR and push tags, representing the two pipeline runs from Module 02
 
 ---
 
-**Step 8: Verify Image Manifests**
+**Step 8: Reveal SBOM and Attestation Tags**
+
+```
+By default, Quay hides signature, SBOM, and attestation tags to keep the UI clean.
+Let's reveal them to see what Konflux attached to your image.
+
+1. In the Tags view, look for the **cog wheel icon (⚙️)** in the upper-right area of the tag list
+
+2. Click the cog wheel to open the display options menu
+
+3. Check the box for **"Show Signatures"**
+   - This reveals cosign signature tags, SBOMs, and attestations
+
+4. The tag list now shows additional artifacts for each image digest:
+   
+   For SHA digest sha256-8e5ebb578615ae314fb8ed3e37fac0232168e4de4e12a582e23e1a2d2a06c5d6:
+   
+   - sha256-<digest>.sbom (5.64 KB) — Software Bill of Materials
+   - sha256-<digest>.sig (1.26 KB) — Cryptographic signature
+   - sha256-<digest>.att (309 KB) — SLSA provenance attestation
+   
+5. Note the SBOM tag name and size — you'll download this in the next step
+
+6. You can click on any of these tags to view their manifest details
+```
+
+**Expected**: SBOM, signature, and attestation tags are now visible in the tag list
+
+---
+
+**Step 9: Verify Image Manifests**
 
 ```
 1. In Quay, while viewing the tag details, click "Fetch Tag" or "Manifest"
@@ -1067,7 +1098,7 @@ Expected: Should match the IMAGE_REF you used to download it
 **Key Takeaways**:
 - Pipelines-as-Code automatically triggers builds on code pushes
 - Konflux pipelines include build, scan, and SBOM generation tasks
-- SBOMs are generated in CycloneDX format and attached as attestations
+- SBOMs, signatures, and attestations are stored as separate tags in Quay (visible via "Show Signatures" option)
 - Vulnerability scans run automatically and report findings
 - Built images are pushed to Quay with tags and metadata
 
