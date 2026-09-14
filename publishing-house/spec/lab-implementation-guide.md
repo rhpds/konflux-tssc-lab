@@ -182,12 +182,20 @@ export GUID={guid}
 export APPS_DOMAIN={openshift_apps_domain}
 export API_DOMAIN=$(echo ${APPS_DOMAIN} | sed 's/^apps\./api./')
 
+# Extract cluster GUID from apps domain
+# APPS_DOMAIN format: apps.cluster-7vlc4.dyn.redhatworkshops.io
+# Extract: 7vlc4
+export CLUSTER_GUID=$(echo ${APPS_DOMAIN} | cut -d'.' -f2 | cut -d'-' -f2)
+
 # Set service URLs
 export GITLAB_HOST="gitlab-gitlab.${APPS_DOMAIN}"
 export KONFLUX_UI="https://konflux-ui-konflux-ui.${APPS_DOMAIN}"
 export REKOR_URL="https://rekor-server-tsf-tas.${APPS_DOMAIN}"
 export FULCIO_URL="https://fulcio-server-tsf-tas.${APPS_DOMAIN}"
 export TUF_URL="https://tuf-tsf-tas.${APPS_DOMAIN}"
+
+# Build Quay hostname (pattern: quay-{cluster_guid}-1.apps.cluster-{cluster_guid}.domain)
+export QUAY_HOST="quay-${CLUSTER_GUID}-1.${APPS_DOMAIN}"
 
 # Set namespace variables
 export TENANT_NS="user-${GUID}-tenant"
@@ -199,16 +207,20 @@ export LAB_PASSWORD="{password}"
 
 # Verify
 echo "GUID: ${GUID}"
+echo "Cluster GUID: ${CLUSTER_GUID}"
 echo "Username: ${LAB_USER}"
 echo "Tenant namespace: ${TENANT_NS}"
 echo "Managed namespace: ${MANAGED_NS}"
+echo "Quay: ${QUAY_HOST}"
 echo "Konflux UI: ${KONFLUX_UI}"
 
 Expected output:
 GUID: dbkkx
+Cluster GUID: 7vlc4
 Username: user-dbkkx
 Tenant namespace: user-dbkkx-tenant
 Managed namespace: user-dbkkx-managed
+Quay: quay-7vlc4-1.apps.cluster-7vlc4.dyn.redhatworkshops.io
 Konflux UI: https://konflux-ui-konflux-ui.apps.cluster-7vlc4.dyn.redhatworkshops.io
 
 Note: The {guid}, {openshift_apps_domain}, and {password} placeholders are 
@@ -912,10 +924,7 @@ image. Now we'll download it using cosign so we can analyze its contents.
 
 In the terminal:
 
-# Get Quay hostname from OpenShift route
-export QUAY_HOST=$(oc get route -n quay-system quay-quay -o jsonpath='{.spec.host}')
-
-# Log into Quay (using your lab credentials - same as OpenShift/GitLab)
+# Log into Quay (QUAY_HOST was set in Module 01, using your lab credentials)
 podman login -u "${LAB_USER}" -p "${LAB_PASSWORD}" "${QUAY_HOST}"
 
 Expected output:
@@ -2845,13 +2854,15 @@ Students set these in Module 01, Step 6. For reference:
 export GUID={guid}
 export APPS_DOMAIN={openshift_apps_domain}
 export API_DOMAIN=$(echo ${APPS_DOMAIN} | sed 's/^apps\./api./')
+export CLUSTER_GUID=$(echo ${APPS_DOMAIN} | cut -d'.' -f2 | cut -d'-' -f2)
 
-# Service URLs (set in Module 01)
+# Service URLs
 export GITLAB_HOST="gitlab-gitlab.${APPS_DOMAIN}"
 export KONFLUX_UI="https://konflux-ui-konflux-ui.${APPS_DOMAIN}"
 export REKOR_URL="https://rekor-server-tsf-tas.${APPS_DOMAIN}"
 export FULCIO_URL="https://fulcio-server-tsf-tas.${APPS_DOMAIN}"
 export TUF_URL="https://tuf-tsf-tas.${APPS_DOMAIN}"
+export QUAY_HOST="quay-${CLUSTER_GUID}-1.${APPS_DOMAIN}"
 
 # Additional URLs (if needed)
 export OPENSHIFT_CONSOLE="https://console-openshift-console.${APPS_DOMAIN}"
@@ -2862,8 +2873,9 @@ export KEYCLOAK_URL="https://keycloak-tsf-keycloak.${APPS_DOMAIN}"
 export TENANT_NS="user-${GUID}-tenant"
 export MANAGED_NS="user-${GUID}-managed"
 
-# Quay hostname (set dynamically in Module 03)
-export QUAY_HOST=$(oc get route -n quay-system quay-quay -o jsonpath='{.spec.host}')
+# User credentials (same for all applications)
+export LAB_USER="user-${GUID}"
+export LAB_PASSWORD="{password}"
 ```
 
 ---
