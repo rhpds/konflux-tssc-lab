@@ -5,9 +5,6 @@ rule_data:
   # CRITICAL: This flag enables custom trusted task rules
   trusted_task_rules_enabled: true
 
-  # Allowed RPM signature keys (empty array to disable check for lab)
-  allowed_rpm_signature_keys: []
-
   # Allowed registry prefixes for base images
   # Include wildcard for cluster-local Quay (hostname is dynamic per cluster)
   allowed_registry_prefixes:
