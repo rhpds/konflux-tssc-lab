@@ -1171,20 +1171,26 @@ Let's reveal them to see what Konflux attached to your image.
 ```
 In the terminal:
 
-# Set your image reference (use the digest from Module 03)
-export IMAGE="quay-{cluster}.apps.cluster-{guid}.{domain}/user-{guid}/sample-component-golang@sha256:{digest}"
+# Set your image reference (replace {digest} with the actual digest from Module 03)
+export IMAGE="${QUAY_HOST}/tsf/user-${GUID}-tenant/sample-component-golang@sha256:{digest}"
 
-# Set RHTAS endpoints
-export REKOR_URL="https://rekor-server-tsf-tas.apps.cluster-{guid}.{domain}"
-export FULCIO_URL="https://fulcio-server-tsf-tas.apps.cluster-{guid}.{domain}"
-export TUF_URL="https://tuf-tsf-tas.apps.cluster-{guid}.{domain}"
+# Verify environment variables (REKOR_URL, FULCIO_URL, TUF_URL were set in Module 01)
+echo "Image: ${IMAGE}"
+echo "Rekor: ${REKOR_URL}"
+echo "Fulcio: ${FULCIO_URL}"
+echo "TUF: ${TUF_URL}"
 
-# Verify variables are set
-echo "Image: $IMAGE"
-echo "Rekor: $REKOR_URL"
+Expected output:
+Image: quay-7vlc4-1.apps.cluster-7vlc4.dyn.redhatworkshops.io/tsf/user-dbkkx-tenant/sample-component-golang@sha256:8e5ebb...
+Rekor: https://rekor-server-tsf-tas.apps.cluster-7vlc4.dyn.redhatworkshops.io
+Fulcio: https://fulcio-server-tsf-tas.apps.cluster-7vlc4.dyn.redhatworkshops.io
+TUF: https://tuf-tsf-tas.apps.cluster-7vlc4.dyn.redhatworkshops.io
+
+Note: Replace {digest} with the full sha256 digest you copied in Module 03.
+The repository path is tsf/user-{guid}-tenant/sample-component-golang (shared org).
 ```
 
-**Expected**: Environment variables are set correctly
+**Expected**: IMAGE variable is set with your actual image digest
 
 ---
 
@@ -1198,12 +1204,14 @@ Expected output:
 Root status: 
 {
 	"local": "/home/lab-user/.sigstore/root",
-	"remote": "https://tuf-tsf-tas.apps.cluster-{guid}.{domain}",
+	"remote": "https://rekor-server-tsf-tas.apps.cluster-7vlc4.dyn.redhatworkshops.io",
 	"metadata": {
 		"root.json": "..."
 	}
 }
 Successfully initialized TUF client with root at ...
+
+Note: The remote URL will match your ${TUF_URL} variable.
 
 # Now verify the signature with cosign
 cosign verify \
@@ -1374,13 +1382,15 @@ Expected output:
   "digest": {
     "sha1": "6ba4c2f5c1d1bfac2f7307626faed7c0e462aaa7"
   },
-  "uri": "git+https://gitlab-gitlab.apps.cluster-{guid}.{domain}/user-{guid}/sample-component-golang.git"
+  "uri": "git+https://gitlab-gitlab.apps.cluster-7vlc4.dyn.redhatworkshops.io/user-dbkkx/sample-component-golang.git"
 }
+
+Note: The URI will match your GitLab repository URL.
 
 # Extract the git repository URI
 jq -r '.predicate.materials[] | select(.uri | startswith("git+")) | .uri' pipeline-provenance.json
 
-Expected: git+https://gitlab-gitlab.apps.cluster-{guid}.{domain}/...
+Expected: git+https://<gitlab-host>/user-<guid>/sample-component-golang.git
 
 # Extract the git commit SHA
 jq -r '.predicate.materials[] | select(.uri | startswith("git+")) | .digest.sha1' pipeline-provenance.json
@@ -2828,29 +2838,32 @@ These are NOT pre-provisioned (students create during the lab):
 
 ### Environment URLs
 
-Students need these URLs (provided in lab guide):
+Students set these in Module 01, Step 6. For reference:
 
 ```bash
-# OpenShift
-export OPENSHIFT_CONSOLE=https://console-openshift-console.apps.cluster-{guid}.{domain}
-export OPENSHIFT_API=https://api.cluster-{guid}.{domain}:6443
+# Core variables (set from Showroom templates)
+export GUID={guid}
+export APPS_DOMAIN={openshift_apps_domain}
+export API_DOMAIN=$(echo ${APPS_DOMAIN} | sed 's/^apps\./api./')
 
-# Konflux
-export KONFLUX_UI=https://konflux-ui-konflux-ui.apps.cluster-{guid}.{domain}
+# Service URLs (set in Module 01)
+export GITLAB_HOST="gitlab-gitlab.${APPS_DOMAIN}"
+export KONFLUX_UI="https://konflux-ui-konflux-ui.${APPS_DOMAIN}"
+export REKOR_URL="https://rekor-server-tsf-tas.${APPS_DOMAIN}"
+export FULCIO_URL="https://fulcio-server-tsf-tas.${APPS_DOMAIN}"
+export TUF_URL="https://tuf-tsf-tas.${APPS_DOMAIN}"
 
-# GitLab
-export GITLAB_URL=https://gitlab-gitlab.apps.cluster-{guid}.{domain}
+# Additional URLs (if needed)
+export OPENSHIFT_CONSOLE="https://console-openshift-console.${APPS_DOMAIN}"
+export OPENSHIFT_API="https://${API_DOMAIN}:6443"
+export KEYCLOAK_URL="https://keycloak-tsf-keycloak.${APPS_DOMAIN}"
 
-# Quay
-export QUAY_URL=https://quay-{cluster}.apps.cluster-{guid}.{domain}
+# Namespaces
+export TENANT_NS="user-${GUID}-tenant"
+export MANAGED_NS="user-${GUID}-managed"
 
-# RHTAS
-export REKOR_URL=https://rekor-server-tsf-tas.apps.cluster-{guid}.{domain}
-export FULCIO_URL=https://fulcio-server-tsf-tas.apps.cluster-{guid}.{domain}
-export TUF_URL=https://tuf-tsf-tas.apps.cluster-{guid}.{domain}
-
-# Keycloak
-export KEYCLOAK_URL=https://keycloak-tsf-keycloak.apps.cluster-{guid}.{domain}
+# Quay hostname (set dynamically in Module 03)
+export QUAY_HOST=$(oc get route -n quay-system quay-quay -o jsonpath='{.spec.host}')
 ```
 
 ---
