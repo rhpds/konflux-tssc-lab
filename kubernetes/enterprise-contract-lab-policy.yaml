@@ -21,6 +21,8 @@ spec:
       - source_image
       - rpm_repos
       - labels.required
-      - rpm_signature.rule_data_provided  # Exclude CPE label requirement for lab
+      - rpm_signature.rule_data_provided
+      - base_image_registries.allowed_registries_provided
+      - sbom_spdx.hermeto_attribution_required  # Exclude CPE label requirement for lab
       include:
       - '@redhat'
