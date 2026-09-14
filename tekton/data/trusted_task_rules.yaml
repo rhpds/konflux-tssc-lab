@@ -26,4 +26,4 @@ rule_data:
     allow:
       lab-custom-bundle:
         # Trust all tasks from our custom bundle repository
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/
+        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab*
