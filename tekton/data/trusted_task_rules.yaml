@@ -1,8 +1,10 @@
 # Custom trusted task rules for lab pipeline bundle
-# Pattern-based allow rules only - no wrapper
+# Must match rhtap-ec-policy structure for proper merging
+# Both files must have the same YAML hierarchy for merging to work
 ---
-trusted_task_rules:
-  allow:
-    lab-custom-bundle:
-      # Allow all tasks from our custom lab bundle
-      - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/*
+rule_data:
+  trusted_task_rules:
+    allow:
+      lab-custom-bundle:
+        # Allow all tasks from our custom lab bundle
+        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/*
