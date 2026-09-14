@@ -2,5 +2,8 @@
 - name: Create Quay members team for lab users
   ansible.builtin.include_tasks: create-quay-members-team.yml
 
+- name: Deploy Enterprise Contract lab policy
+  ansible.builtin.include_tasks: deploy-enterprise-contract-policy.yml
+
 - name: Deploy integration test patcher watcher
   ansible.builtin.include_tasks: deploy-integration-test-patcher.yml

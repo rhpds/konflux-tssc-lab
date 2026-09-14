@@ -1,0 +1,19 @@
+---
+- name: Deploy Enterprise Contract lab policy
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ role_path }}/files/enterprise-contract-lab-policy.yaml"
+  register: r_ec_policy
+
+- name: Verify Enterprise Contract lab policy exists
+  kubernetes.core.k8s_info:
+    api_version: appstudio.redhat.com/v1alpha1
+    kind: EnterpriseContractPolicy
+    name: lab-policy
+    namespace: enterprise-contract-service
+  register: r_ec_policy_info
+  until:
+    - r_ec_policy_info.resources is defined
+    - r_ec_policy_info.resources | length > 0
+  retries: 10
+  delay: 5

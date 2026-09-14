@@ -1,0 +1,28 @@
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: EnterpriseContractPolicy
+metadata:
+  name: lab-policy
+  namespace: enterprise-contract-service
+spec:
+  description: Lab policy with custom trusted tasks from quay.io/rhpds/pipeline-docker-build-lab
+  name: Lab
+  publicKey: k8s://openshift-pipelines/public-key
+  sources:
+  - name: Lab
+    policy:
+    - oci::quay.io/conforma/release-policy:latest@sha256:10de4ff888f9d054baeaa15c528ff74118bfd3c99ed0e5fc0ac24e72e83e01dc
+    data:
+    # Load our custom policy data ONLY (removed rhtap-ec-policy dependency)
+    # Force main branch to avoid stale cached commits
+    - github.com/rhpds/konflux-tssc-lab.git//tekton/data?ref=main
+    config:
+      exclude:
+      - hermetic_task
+      - source_image
+      - rpm_repos
+      - labels.required
+      - rpm_signature.rule_data_provided
+      - base_image_registries.allowed_registries_provided
+      - sbom_spdx.hermeto_attribution_required  # Exclude CPE label requirement for lab
+      include:
+      - '@redhat'
