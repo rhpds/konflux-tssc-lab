@@ -1,0 +1,9 @@
+# Custom trusted task rules for lab pipeline bundle
+# This file is merged with official rhtap-ec-policy data sources
+---
+rule_data:
+  trusted_task_rules:
+    allow:
+      lab-custom-bundle:
+        # Allow all tasks from our custom lab bundle
+        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/*
