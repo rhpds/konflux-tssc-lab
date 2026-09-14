@@ -5,6 +5,20 @@ rule_data:
   # CRITICAL: This flag enables custom trusted task rules
   trusted_task_rules_enabled: true
 
+  # Allowed registry prefixes for base images
+  allowed_registry_prefixes:
+  - registry.access.redhat.com/
+  - registry.redhat.io/
+  - quay.io/
+  - docker.io/
+
+  # Allowed step image registry prefixes
+  allowed_step_image_registry_prefixes:
+  - quay.io/
+  - registry.access.redhat.com/
+  - registry.redhat.io/
+
+  # Trusted task rules
   trusted_task_rules:
     allow:
       lab-custom-bundle:

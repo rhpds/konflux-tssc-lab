@@ -1,9 +1,0 @@
-# Lab-specific rule data overrides
-# Additional configuration for EC policy
----
-rule_data:
-  # Disable rules that don't apply to lab environment
-  # (Already excluded in policy config, but keeping for reference)
-
-  # Add any other lab-specific rule data here
-  # For example, allowed registry prefixes, etc.
