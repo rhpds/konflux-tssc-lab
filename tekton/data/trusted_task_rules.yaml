@@ -1,9 +1,12 @@
-# Custom trusted task rules for lab pipeline bundle
-# Trust all tasks from our custom bundle using wildcard pattern
+# Lab custom trusted task rules
+# Enable the new trusted task rules system
 ---
 rule_data:
+  # CRITICAL: This flag enables custom trusted task rules
+  trusted_task_rules_enabled: true
+
   trusted_task_rules:
     allow:
       lab-custom-bundle:
-        # Trust any digest from our bundle repository
+        # Trust all tasks from our custom bundle (any digest)
         - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab@sha256:.*

@@ -12,8 +12,7 @@ spec:
     policy:
     - oci::quay.io/conforma/release-policy:latest@sha256:10de4ff888f9d054baeaa15c528ff74118bfd3c99ed0e5fc0ac24e72e83e01dc
     data:
-    - github.com/release-engineering/rhtap-ec-policy//data
-    - oci::quay.io/konflux-ci/tekton-catalog/data-acceptable-bundles:latest
+    # Load our custom policy data ONLY (removed rhtap-ec-policy dependency)
     - github.com/rhpds/konflux-tssc-lab.git//tekton/data
     config:
       exclude:

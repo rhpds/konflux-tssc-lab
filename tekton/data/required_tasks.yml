@@ -1,5 +1,5 @@
-# Required tasks for lab pipeline
-# Define custom pipeline type to avoid merge conflicts with rhtap-ec-policy
+# Lab custom required tasks for docker-lab pipeline
+# Maps our custom task names to EC requirements
 ---
 pipeline-required-tasks:
   docker-lab:
