@@ -23,7 +23,6 @@ spec:
       - labels.required
       - rpm_signature.rule_data_provided
       - base_image_registries.allowed_registries_provided
-      - sbom_spdx.hermeto_attribution_required
-      - trusted_task.tagged  # Exclude CPE label requirement for lab
+      - sbom_spdx.hermeto_attribution_required  # Exclude CPE label requirement for lab
       include:
       - '@redhat'
