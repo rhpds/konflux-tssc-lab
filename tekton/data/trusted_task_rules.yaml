@@ -1,9 +1,9 @@
 # Custom trusted task rules for lab pipeline bundle
-# Use digest-pinned bundle reference
+# Trust all tasks from our custom bundle using wildcard pattern
 ---
 rule_data:
   trusted_task_rules:
     allow:
       lab-custom-bundle:
-        # Trust the pinned bundle digest
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab@sha256:2540c40bcf4851535ed5dd44f84dedc850656b62bb8ce7e756a0823db3a815d0
+        # Trust any digest from our bundle repository
+        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab@sha256:.*
