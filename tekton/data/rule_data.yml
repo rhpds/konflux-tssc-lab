@@ -1,4 +1,0 @@
-# Enable trusted task rules feature
----
-rule_data:
-  trusted_task_rules_enabled: true
