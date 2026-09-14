@@ -992,32 +992,44 @@ Expected: Should match the IMAGE_REF you used to download it
 ```
 1. Switch to the Quay browser tab
 
-2. Navigate to "Repositories" (or "Organizations" → user-{guid})
+2. Navigate to "Organizations" → "tsf" (the shared organization for this lab)
 
-3. You should now see a repository: "sample-component-golang"
+3. In the Repositories list, use the search box to filter by your username:
+   - Type: user-{guid}
+   - (Replace {guid} with your actual user ID, e.g., user-dbkkx)
 
-4. Click on the repository to open it
+4. You should now see your repository: "user-{guid}-tenant/sample-component-golang"
 
-5. Click the "Tags" tab
+5. Click on the repository to open it
 
-6. You should see TWO important tags (from Module 02 workflows):
+6. Click the "Tags" tab
+
+7. You should see MULTIPLE tags from the two pipeline runs (on-pull-request and on-push):
    
-   a) Pull Request tag (from the on-pull-request pipeline):
+   a) Pull Request tags (from the on-pull-request pipeline):
       - Format: on-pr-<commit-sha>
-      - Example: on-pr-edaa650ccfc5e432c120d161bd4b8452410e3af1
+      - Example: on-pr-9f2b086a5076ef0a2e56ee3f60773e54d95bf24d
+      - Plus pipeline task tags: sample-component-golang-on-pull-request-<pipelinerun-id>-build-container
       - Created when: The Konflux-generated MR was opened
       - Purpose: Test image before merge
    
-   b) Push tag (from the on-push pipeline):
+   b) Push tags (from the on-push pipeline):
       - Format: <commit-sha> (just the SHA, no prefix)
-      - Example: edaa650ccfc5e432c120d161bd4b8452410e3af1
+      - Example: 684b66a2c6486895f44045e7e5869a59c8100135
+      - Plus pipeline task tags: sample-component-golang-on-push-<pipelinerun-id>-build-container
       - Created when: The MR was merged to main
       - Purpose: Production-ready image from main branch
    
-   Note: Both tags may point to the same image digest if no code changes 
-   occurred between the PR and the merge.
+   c) SHA digest tags (multi-arch manifest references):
+      - Format: sha256-<first-chars-of-digest>
+      - Example: sha256-8e5ebb5786l5ae3l4fb8ed3e37fac0232168e4de4e12a582e23ela2d2a06c5d6
+      - Shows "See Child Manifests" for multi-arch images
+   
+   Note: You'll see multiple tags per pipeline run because Konflux creates tags for 
+   the final image AND intermediate pipeline task outputs. The commit SHA tag is the 
+   main production tag to focus on.
 
-7. Click on the push tag (commit SHA without prefix) to see its details:
+8. Click on the push tag (commit SHA without prefix, e.g., 684b66a2c...) to see its details:
    - Size: (image size in MB)
    - Pushed: (timestamp)
    - Security: Click to see vulnerability report (Clair scan results)
