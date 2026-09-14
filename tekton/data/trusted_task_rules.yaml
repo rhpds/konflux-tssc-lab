@@ -25,7 +25,5 @@ rule_data:
   trusted_task_rules:
     allow:
       lab-custom-bundle:
-        # Trust all tasks from our custom bundle
-        # Match both bundle reference and task-specific patterns
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab@sha256:.*
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/task-*
+        # Trust all tasks from our custom bundle repository
+        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/
