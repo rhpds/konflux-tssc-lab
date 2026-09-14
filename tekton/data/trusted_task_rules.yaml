@@ -1,10 +1,9 @@
 # Custom trusted task rules for lab pipeline bundle
-# Our tasks come from a BUNDLE, not individual OCI images
-# Try trusting the bundle itself
+# Match the bundle URL with version tag
 ---
 rule_data:
   trusted_task_rules:
     allow:
       lab-custom-bundle:
-        # Trust the bundle - all tasks resolved from it
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab
+        # Trust all versions of our bundle
+        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab:*
