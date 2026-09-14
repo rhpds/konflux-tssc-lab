@@ -25,6 +25,7 @@ rule_data:
   trusted_task_rules:
     allow:
       lab-custom-bundle:
-        # Trust all tasks from our custom bundle (any digest)
-        # Note: No oci:// prefix - EC expects bare image reference
-        - pattern: quay.io/rhpds/pipeline-docker-build-lab@sha256:.*
+        # Trust all tasks from our custom bundle
+        # Match both bundle reference and task-specific patterns
+        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab@sha256:.*
+        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/task-*
