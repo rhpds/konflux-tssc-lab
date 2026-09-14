@@ -1,11 +1,8 @@
 # Custom trusted task rules for lab pipeline tasks
-# Based on: https://github.com/release-engineering/rhtap-ec-policy/blob/main/data/trusted_task_rules.yaml
-
-rule_data:
-  trusted_task_rules_enabled: true
-
-  trusted_task_rules:
-    allow:
-      lab-custom-tasks:
-        # Allow all tasks from our custom lab bundle
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/*
+# This file is merged with official Konflux trusted task rules
+---
+trusted_task_rules:
+  allow:
+    lab-custom-tasks:
+      # Allow all tasks from our custom lab bundle
+      - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/*
