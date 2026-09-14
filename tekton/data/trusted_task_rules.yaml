@@ -1,20 +1,10 @@
 # Custom trusted task rules for lab pipeline bundle
-# Pattern must match how tasks are referenced in the bundle
+# Our tasks come from a BUNDLE, not individual OCI images
+# Try trusting the bundle itself
 ---
 rule_data:
   trusted_task_rules:
     allow:
       lab-custom-bundle:
-        # The bundle contains multiple tasks, but they're all resolved from the same bundle
-        # Try matching the bundle itself with task names
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/init
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/git-clone-oci-ta-min
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/prefetch-dependencies-oci-ta-min
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/buildah-oci-ta-min
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/build-image-index-min
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/deprecated-image-check
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/clamav-scan-min
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/sast-shell-check-oci-ta-min
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/sast-unicode-check-oci-ta-min
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/rpms-signature-scan
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab/tpa-scan
+        # Trust the bundle - all tasks resolved from it
+        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab
