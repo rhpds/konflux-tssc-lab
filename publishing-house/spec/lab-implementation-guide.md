@@ -193,20 +193,27 @@ export TUF_URL="https://tuf-tsf-tas.${APPS_DOMAIN}"
 export TENANT_NS="user-${GUID}-tenant"
 export MANAGED_NS="user-${GUID}-managed"
 
+# Set user credentials (same for all applications: OpenShift, GitLab, Quay, etc.)
+export LAB_USER="user-${GUID}"
+export LAB_PASSWORD="{password}"
+
 # Verify
 echo "GUID: ${GUID}"
+echo "Username: ${LAB_USER}"
 echo "Tenant namespace: ${TENANT_NS}"
 echo "Managed namespace: ${MANAGED_NS}"
 echo "Konflux UI: ${KONFLUX_UI}"
 
 Expected output:
 GUID: dbkkx
+Username: user-dbkkx
 Tenant namespace: user-dbkkx-tenant
 Managed namespace: user-dbkkx-managed
 Konflux UI: https://konflux-ui-konflux-ui.apps.cluster-7vlc4.dyn.redhatworkshops.io
 
-Note: The {guid} and {openshift_apps_domain} placeholders are automatically 
-replaced by Showroom with your actual values when you run the commands.
+Note: The {guid}, {openshift_apps_domain}, and {password} placeholders are 
+automatically replaced by Showroom with your actual values when you run the commands.
+Your username and password work across all lab applications (OpenShift, GitLab, Quay).
 ```
 
 **Expected**: Environment variables are set and display your actual values
@@ -219,8 +226,8 @@ replaced by Showroom with your actual values when you run the commands.
 In the Showroom terminal, run:
 
 oc login https://${API_DOMAIN}:6443 \
-  --username=user-${GUID} \
-  --password='{your-password}' \
+  --username=${LAB_USER} \
+  --password="${LAB_PASSWORD}" \
   --insecure-skip-tls-verify=true
 
 Expected output:
@@ -908,15 +915,8 @@ In the terminal:
 # Get Quay hostname from OpenShift route
 export QUAY_HOST=$(oc get route -n quay-system quay-quay -o jsonpath='{.spec.host}')
 
-# Get Quay credentials from the cluster  
-QUAY_USER=$(oc get secret quay-auth-secret -n ${TENANT_NS} \
-  -o jsonpath='{.data.username}' | base64 -d)
-
-QUAY_PASSWORD=$(oc get secret quay-auth-secret -n ${TENANT_NS} \
-  -o jsonpath='{.data.password}' | base64 -d)
-
-# Log into Quay
-podman login -u "${QUAY_USER}" -p "${QUAY_PASSWORD}" "${QUAY_HOST}"
+# Log into Quay (using your lab credentials - same as OpenShift/GitLab)
+podman login -u "${LAB_USER}" -p "${LAB_PASSWORD}" "${QUAY_HOST}"
 
 Expected output:
 Login Succeeded!
