@@ -1,3 +1,6 @@
 ---
 - name: Create Quay members team for lab users
   ansible.builtin.include_tasks: create-quay-members-team.yml
+
+- name: Deploy integration test patcher watcher
+  ansible.builtin.include_tasks: deploy-integration-test-patcher.yml

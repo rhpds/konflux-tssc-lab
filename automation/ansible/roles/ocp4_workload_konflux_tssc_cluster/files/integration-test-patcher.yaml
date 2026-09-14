@@ -1,0 +1,135 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: integration-test-patcher
+  namespace: konflux-operator
+  labels:
+    app: integration-test-patcher
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: integration-test-patcher
+  labels:
+    app: integration-test-patcher
+rules:
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - integrationtestscenarios
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+  - update
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: integration-test-patcher
+  labels:
+    app: integration-test-patcher
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: integration-test-patcher
+subjects:
+- kind: ServiceAccount
+  name: integration-test-patcher
+  namespace: konflux-operator
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: integration-test-patcher
+  namespace: konflux-operator
+  labels:
+    app: integration-test-patcher
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: integration-test-patcher
+  template:
+    metadata:
+      labels:
+        app: integration-test-patcher
+    spec:
+      serviceAccountName: integration-test-patcher
+      containers:
+      - name: patcher
+        image: image-registry.openshift-image-registry.svc:5000/openshift/tools:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+
+          OLD_URL="https://github.com/konflux-ci/build-definitions"
+          NEW_URL="https://github.com/rhpds/konflux-tssc-lab.git"
+          NEW_PATH="tekton/pipelines/enterprise-contract-low-resources.yaml"
+
+          echo "Starting IntegrationTestScenario patcher..."
+          echo "Will patch scenarios with URL: $OLD_URL"
+          echo "To use: $NEW_URL with path: $NEW_PATH"
+
+          # Install jq
+          yum install -y jq || true
+
+          # Function to patch an IntegrationTestScenario
+          patch_scenario() {
+            local name=$1
+            local namespace=$2
+
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) Checking $namespace/$name..."
+
+            # Get current URL using jsonpath
+            CURRENT_URL=$(oc get integrationtestscenario "$name" -n "$namespace" -o jsonpath='{.spec.resolverRef.params[?(@.name=="url")].value}' 2>/dev/null || echo "")
+
+            if [ "$CURRENT_URL" = "$OLD_URL" ]; then
+              echo "  → Patching to use custom integration test pipeline..."
+
+              # Patch the IntegrationTestScenario
+              oc patch integrationtestscenario "$name" -n "$namespace" --type=json -p '[
+                {"op": "replace", "path": "/spec/resolverRef/params/0/value", "value": "'$NEW_URL'"},
+                {"op": "replace", "path": "/spec/resolverRef/params/2/value", "value": "'$NEW_PATH'"}
+              ]' 2>&1 && echo "  ✓ Successfully patched $namespace/$name" || echo "  ✗ Failed to patch $namespace/$name"
+            elif [ -n "$CURRENT_URL" ]; then
+              echo "  ℹ Skipping - already using custom URL: $CURRENT_URL"
+            fi
+          }
+
+          # First, patch any existing IntegrationTestScenarios
+          echo ""
+          echo "Checking existing IntegrationTestScenarios..."
+          for ns in $(oc get integrationtestscenarios --all-namespaces -o jsonpath='{range .items[*]}{.metadata.namespace}{"\n"}{end}' | sort -u); do
+            for its in $(oc get integrationtestscenarios -n "$ns" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'); do
+              patch_scenario "$its" "$ns"
+            done
+          done
+
+          echo ""
+          echo "Now watching for new IntegrationTestScenarios..."
+
+          # Watch for new IntegrationTestScenarios using --output-watch-events
+          oc get integrationtestscenarios --all-namespaces --watch --output-watch-events -o json | while read -r event; do
+            # Use jq to parse the event
+            EVENT_TYPE=$(echo "$event" | jq -r '.type // empty')
+
+            if [ "$EVENT_TYPE" = "ADDED" ]; then
+              NAME=$(echo "$event" | jq -r '.object.metadata.name // empty')
+              NAMESPACE=$(echo "$event" | jq -r '.object.metadata.namespace // empty')
+
+              if [ -n "$NAME" ] && [ -n "$NAMESPACE" ]; then
+                echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) New IntegrationTestScenario detected: $NAMESPACE/$NAME"
+                # Small delay to ensure object is fully created
+                sleep 2
+                patch_scenario "$NAME" "$NAMESPACE"
+              fi
+            fi
+          done

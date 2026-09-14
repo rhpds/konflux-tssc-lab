@@ -1,0 +1,21 @@
+---
+- name: Deploy integration test patcher watcher
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ role_path }}/files/integration-test-patcher.yaml"
+  register: r_integration_patcher
+
+- name: Wait for integration test patcher deployment to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: integration-test-patcher
+    namespace: konflux-operator
+  register: r_patcher_deployment
+  until:
+    - r_patcher_deployment.resources is defined
+    - r_patcher_deployment.resources | length > 0
+    - r_patcher_deployment.resources[0].status.readyReplicas is defined
+    - r_patcher_deployment.resources[0].status.readyReplicas == 1
+  retries: 30
+  delay: 10
