@@ -13,7 +13,8 @@ spec:
     - oci::quay.io/conforma/release-policy:latest@sha256:10de4ff888f9d054baeaa15c528ff74118bfd3c99ed0e5fc0ac24e72e83e01dc
     data:
     # Load our custom policy data ONLY (removed rhtap-ec-policy dependency)
-    - github.com/rhpds/konflux-tssc-lab.git//tekton/data
+    # Force main branch to avoid stale cached commits
+    - github.com/rhpds/konflux-tssc-lab.git//tekton/data?ref=main
     config:
       exclude:
       - hermetic_task
