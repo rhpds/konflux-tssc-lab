@@ -6,4 +6,4 @@ rule_data:
     allow:
       lab-custom-bundle:
         # Trust the pinned bundle digest
-        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab@sha256:7797a9d0b5b781c29d42f8550be8293e83ff3b9bc029d31b4c1b77080a224167
+        - pattern: oci://quay.io/rhpds/pipeline-docker-build-lab@sha256:2540c40bcf4851535ed5dd44f84dedc850656b62bb8ce7e756a0823db3a815d0
