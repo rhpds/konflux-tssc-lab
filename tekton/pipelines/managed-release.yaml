@@ -87,31 +87,6 @@ spec:
                 cpu: 100m
                 memory: 128Mi
 
-          - name: initialize-tuf
-            image: quay.io/enterprise-contract/ec-cli:latest
-            env:
-              - name: TUF_MIRROR
-                value: "$(tasks.collect-keyless-params.results.tufUrl)"
-            script: |
-              #!/bin/bash
-              set -e
-
-              echo "Initializing TUF for signature verification..."
-              echo "TUF Mirror: ${TUF_MIRROR}"
-
-              if [ -n "$TUF_MIRROR" ]; then
-                cosign initialize --mirror="${TUF_MIRROR}" --root="${TUF_MIRROR}/root.json" || echo "TUF init failed, continuing..."
-              else
-                echo "No TUF mirror found, skipping initialization"
-              fi
-            computeResources:
-              requests:
-                cpu: 10m
-                memory: 64Mi
-              limits:
-                cpu: 100m
-                memory: 128Mi
-
           - name: validate
             image: quay.io/enterprise-contract/ec-cli:latest
             env:
