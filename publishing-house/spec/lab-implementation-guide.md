@@ -153,13 +153,19 @@ Modern supply chain security solves this by requiring:
 **Step 5: Verify Red Hat Trusted Artifact Signer (RHTAS)**
 
 ```
-1. Find the Rekor URL in the credentials section
-2. Open the Rekor Search UI:
-   https://rekor-search-ui-tsf-tas.apps.cluster-{guid}.{domain}
+Note: You can find the Rekor URL in the lab credentials section, or construct it
+after setting environment variables in Step 6.
 
-3. The transparency log UI should load (no login required)
-4. This is where all image signatures are recorded
-   (you'll use this in Module 04)
+1. The Rekor Search UI follows this pattern:
+   https://rekor-search-ui-tsf-tas.apps.cluster-<cluster-guid>.dyn.redhatworkshops.io
+   
+   Example: https://rekor-search-ui-tsf-tas.apps.cluster-7vlc4.dyn.redhatworkshops.io
+
+2. Open the URL in a browser (no login required)
+
+3. The transparency log UI should load
+
+4. This is where all image signatures are recorded (you'll use this in Module 04)
 ```
 
 **Expected**: Rekor UI loads (may show empty results initially)
@@ -1578,17 +1584,22 @@ This proves:
 **Step 13: Browse Rekor UI (Optional)**
 
 ```
-1. Open the Rekor Search UI in a browser:
-   https://rekor-search-ui-tsf-tas.apps.cluster-{guid}.{domain}
+1. Get the Rekor Search UI URL (use the terminal to print it):
+   echo "https://rekor-search-ui-tsf-tas.${APPS_DOMAIN}"
 
-2. Search options:
+   Expected output:
+   https://rekor-search-ui-tsf-tas.apps.cluster-7vlc4.dyn.redhatworkshops.io
+
+2. Copy the URL and open it in a browser
+
+4. Search options:
    - Search by UUID (from rekor-cli output)
    - Search by log index
    - Search by artifact digest
 
-3. Enter your image digest or log index
+5. Enter your image digest or log index
 
-4. View the entry in the web UI:
+6. View the entry in the web UI:
    - Shows the same information as CLI
    - Displays certificate details
    - Shows signature algorithm
