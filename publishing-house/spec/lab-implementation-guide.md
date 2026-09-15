@@ -2062,33 +2062,34 @@ In this lab:
 
 ### Section 2: Create a ReleasePlan (4 min)
 
-**Step 1: Check for Pre-Created ReleasePlanAdmission**
+**Step 1: Create ReleasePlanAdmission**
 
 ```
-# Check the managed namespace for ReleasePlanAdmission
-oc get releaseplanadmissions -n ${MANAGED_NS}
-
-Expected output:
-NAME                  AGE
-production-release    20m
-
-If no ReleasePlanAdmission exists, create one (normally pre-created):
+# A ReleasePlanAdmission controls what can be released to the managed namespace
+# Create one in the managed namespace
 
 cat <<EOF | oc apply -f -
 apiVersion: appstudio.redhat.com/v1alpha1
 kind: ReleasePlanAdmission
 metadata:
   name: production-release
-  namespace: user-{guid}-managed
+  namespace: ${MANAGED_NS}
 spec:
   applications:
     - my-sample-app
-  origin: user-{guid}-tenant
+  origin: ${TENANT_NS}
   policy: default-policy
 EOF
+
+# Verify it was created
+oc get releaseplanadmissions -n ${MANAGED_NS}
+
+Expected output:
+NAME                  AGE
+production-release    5s
 ```
 
-**Expected**: ReleasePlanAdmission exists in managed namespace
+**Expected**: ReleasePlanAdmission is created in managed namespace
 
 ---
 
@@ -2101,10 +2102,10 @@ apiVersion: appstudio.redhat.com/v1alpha1
 kind: ReleasePlan
 metadata:
   name: production-release
-  namespace: user-{guid}-tenant
+  namespace: ${TENANT_NS}
 spec:
   application: my-sample-app
-  target: user-{guid}-managed
+  target: ${MANAGED_NS}
   releaseGracePeriodDays: 0
 EOF
 
@@ -2112,8 +2113,8 @@ EOF
 oc get releaseplans -n ${TENANT_NS}
 
 Expected output:
-NAME                  APPLICATION      TARGET                  AGE
-production-release    my-sample-app    user-{guid}-managed     5s
+NAME                  APPLICATION      TARGET                    AGE
+production-release    my-sample-app    ${MANAGED_NS}             5s
 ```
 
 **Expected**: ReleasePlan is created
