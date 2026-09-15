@@ -2079,6 +2079,16 @@ spec:
     - my-sample-app
   origin: ${TENANT_NS}
   policy: default-policy
+  pipeline:
+    pipelineRef:
+      resolver: git
+      params:
+        - name: url
+          value: https://github.com/konflux-ci/release-service-catalog.git
+        - name: revision
+          value: production
+        - name: pathInRepo
+          value: pipelines/push-snapshot/push-snapshot.yaml
 EOF
 
 # Verify it was created
