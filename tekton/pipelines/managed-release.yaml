@@ -27,9 +27,6 @@ spec:
     - name: snapshot
       type: string
       description: The namespaced name (namespace/name) of the snapshot
-    - name: enterpriseContractPolicy
-      type: string
-      description: JSON representation of the EnterpriseContractPolicy
 
   results:
     - name: status
