@@ -2088,15 +2088,12 @@ Expected output:
 NAME                 ENVIRONMENT   ORIGIN
 production-release                 ${TENANT_NS}
 
-You can view it in the Konflux UI:
-1. Go to: ${KONFLUX_UI}
-2. Switch to namespace: ${MANAGED_NS}
-3. Click "Releases" in the left navigation
-4. Click "Release Plan Admission" tab
-5. You should see "production-release" listed
+Note: The managed namespace (${MANAGED_NS}) does not appear in the Konflux UI
+because it has no Application. You can only verify the ReleasePlanAdmission
+via CLI.
 ```
 
-**Expected**: ReleasePlanAdmission is created in managed namespace
+**Expected**: ReleasePlanAdmission is created in managed namespace (verify via CLI)
 
 ---
 
