@@ -1789,8 +1789,15 @@ oc describe pipelinerun $INTEGRATION_RUN -n ${TENANT_NS}
 The integration test pipeline runs the "ec" (Enterprise Contract) CLI 
 to validate the artifact against policy rules.
 
-# View the PipelineRun logs using tkn CLI
-tkn pipelinerun logs $INTEGRATION_RUN -n ${TENANT_NS} | grep -A 50 "ec validate"
+# Get the verify TaskRun from the PipelineRun
+VERIFY_TASKRUN=$(oc get taskruns -n ${TENANT_NS} \
+  -l tekton.dev/pipelineRun=${INTEGRATION_RUN},tekton.dev/pipelineTask=verify \
+  -o jsonpath='{.items[0].metadata.name}')
+
+echo "Verify TaskRun: $VERIFY_TASKRUN"
+
+# View the logs from the verify task
+oc logs -n ${TENANT_NS} $VERIFY_TASKRUN --all-containers | grep -A 50 "ec validate"
 
 Expected output (example):
 Running: ec validate image --image quay-...
@@ -1802,9 +1809,6 @@ Policy check results:
 ✓ Build materials recorded with digests
 
 Success: 5 checks passed, 0 failures
-
-# Or view all logs from the verify task
-tkn pipelinerun logs $INTEGRATION_RUN -n ${TENANT_NS} -t verify
 ```
 
 **Expected**: Policy check output shows passed rules
