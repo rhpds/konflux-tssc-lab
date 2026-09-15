@@ -48,14 +48,46 @@ spec:
           - name: pathInRepo
             value: tekton/tasks/collect-keyless-params.yaml
 
-    - name: verify-enterprise-contract
+    - name: get-snapshot-spec
       runAfter:
         - collect-keyless-params
       params:
-        - name: IMAGES
+        - name: snapshot
           value: "$(params.snapshot)"
+      taskSpec:
+        params:
+          - name: snapshot
+            type: string
+        results:
+          - name: spec
+            description: Snapshot spec as JSON
+        steps:
+          - name: get-spec
+            image: registry.redhat.io/openshift4/ose-cli:latest
+            script: |
+              #!/bin/bash
+              set -e
+
+              SNAPSHOT_NS=$(echo "$(params.snapshot)" | cut -d'/' -f1)
+              SNAPSHOT_NAME=$(echo "$(params.snapshot)" | cut -d'/' -f2)
+
+              oc get snapshot ${SNAPSHOT_NAME} -n ${SNAPSHOT_NS} -o jsonpath='{.spec}' | tee $(results.spec.path)
+            computeResources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                cpu: 100m
+                memory: 128Mi
+
+    - name: verify-enterprise-contract
+      runAfter:
+        - get-snapshot-spec
+      params:
+        - name: IMAGES
+          value: "$(tasks.get-snapshot-spec.results.spec)"
         - name: POLICY_CONFIGURATION
-          value: "$(params.enterpriseContractPolicy)"
+          value: "enterprise-contract-service/lab-policy"
         - name: STRICT
           value: "false"
         - name: PUBLIC_KEY
