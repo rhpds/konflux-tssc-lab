@@ -1787,8 +1787,7 @@ oc describe pipelinerun $INTEGRATION_RUN -n ${TENANT_NS}
 
 ```
 The integration test pipeline runs the "ec" (Enterprise Contract) CLI 
-to validate the artifact against policy rules. The results are stored
-in the TaskRun's TEST_OUTPUT result.
+to validate the artifact against policy rules.
 
 # Get the verify TaskRun from the PipelineRun
 VERIFY_TASKRUN=$(oc get taskruns -n ${TENANT_NS} \
@@ -1797,29 +1796,24 @@ VERIFY_TASKRUN=$(oc get taskruns -n ${TENANT_NS} \
 
 echo "Verify TaskRun: $VERIFY_TASKRUN"
 
-# View the TEST_OUTPUT result (contains EC policy report)
+# View the TaskRun logs
+oc logs -n ${TENANT_NS} taskrun/${VERIFY_TASKRUN}
+
+Expected output (partial):
+...
+Running ec validate image --image quay-...
+Validating image signature and attestations...
+✓ Signature verification: PASSED
+✓ SLSA provenance found: PASSED
+✓ SBOM attestation found: PASSED
+...
+
+# You can also view the structured TEST_OUTPUT result
 oc get taskrun $VERIFY_TASKRUN -n ${TENANT_NS} \
   -o jsonpath='{.status.results[?(@.name=="TEST_OUTPUT")].value}' | jq -r '.' | jq .
-
-Expected output:
-{
-  "result": "SUCCESS",
-  "namespace": "user-{guid}-tenant",
-  "successes": 15,
-  "failures": 0,
-  "warnings": 2,
-  "components": [
-    {
-      "name": "sample-component-golang",
-      "containerImage": "quay-...",
-      "success": true,
-      "violations": []
-    }
-  ]
-}
 ```
 
-**Expected**: TEST_OUTPUT shows policy validation results
+**Expected**: Policy check logs show validation results
 
 ---
 
