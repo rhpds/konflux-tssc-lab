@@ -86,14 +86,12 @@
       spec:
         description: Simple release policy for lab environment
         name: Lab Release Policy
-        publicKey: k8s://openshift-pipelines/public-key
         sources:
         - name: Release Policy
           policy:
-          - oci::quay.io/konflux-ci/tekton-catalog/policy-release:latest
+          - github.com/enterprise-contract/ec-policies//policy/lib
+          - github.com/enterprise-contract/ec-policies//policy/release
           config:
             include:
             - attestation_type
-            - attestation_task_bundle
             - slsa_provenance_available
-            - slsa_build_build_service

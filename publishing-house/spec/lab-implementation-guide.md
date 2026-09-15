@@ -2077,7 +2077,6 @@ metadata:
 spec:
   description: Simple release policy - validates snapshot passed integration tests
   name: Simple Release Policy
-  publicKey: k8s://integration-service/public-info-sigstore
   sources:
   - name: Release Policy
     policy:
@@ -2088,6 +2087,9 @@ spec:
       - attestation_type
       - slsa_provenance_available
 EOF
+
+# Note: No publicKey specified - the managed pipeline uses keyless verification
+# via the collect-keyless-params task (OIDC issuer and identity)
 
 # Verify it was created
 oc get enterprisecontractpolicy -n ${MANAGED_NS}
