@@ -1803,19 +1803,16 @@ VERIFY_POD=$(oc get pods -n ${TENANT_NS} \
 
 echo "Verify Pod: $VERIFY_POD"
 
-# View the logs from the verify pod
-oc logs -n ${TENANT_NS} ${VERIFY_POD} --all-containers
+# View the logs from the verify pod (filtered for policy results)
+oc logs -n ${TENANT_NS} ${VERIFY_POD} --all-containers | grep -E "Validating|success|failure|violation|Result:"
 
 Expected output (partial):
+Validating enterprise contract policy
 ...
-Running ec validate image --image quay-...
-Validating image signature and attestations...
-✓ Signature verification: PASSED
-✓ SLSA provenance found: PASSED  
-✓ SBOM attestation found: PASSED
-✓ No critical vulnerabilities: PASSED
-...
-Result: SUCCESS
+Result: SUCCESS - 15 checks passed, 0 failures
+
+# Or view the full summary at the end
+oc logs -n ${TENANT_NS} ${VERIFY_POD} --all-containers | tail -50
 
 # You can also view the structured TEST_OUTPUT result
 oc get taskrun $VERIFY_TASKRUN -n ${TENANT_NS} \
