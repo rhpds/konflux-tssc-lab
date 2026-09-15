@@ -37,7 +37,20 @@ spec:
       value: "$(tasks.push-images.results.status)"
 
   tasks:
+    - name: collect-keyless-params
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/rhpds/konflux-tssc-lab.git
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: tekton/tasks/collect-keyless-params.yaml
+
     - name: validate-release
+      runAfter:
+        - collect-keyless-params
       params:
         - name: snapshot
           value: "$(params.snapshot)"
@@ -76,19 +89,17 @@ spec:
 
           - name: initialize-tuf
             image: quay.io/enterprise-contract/ec-cli:latest
+            env:
+              - name: TUF_MIRROR
+                value: "$(tasks.collect-keyless-params.results.tufUrl)"
             script: |
               #!/bin/bash
               set -e
 
               echo "Initializing TUF for signature verification..."
-
-              # Get TUF mirror from trusted-artifact-signer ConfigMap
-              TUF_MIRROR=$(oc get configmap trusted-artifact-signer-public-info \
-                -n trusted-artifact-signer \
-                -o jsonpath='{.data.tufMirror}' 2>/dev/null || echo "")
+              echo "TUF Mirror: ${TUF_MIRROR}"
 
               if [ -n "$TUF_MIRROR" ]; then
-                echo "TUF Mirror: ${TUF_MIRROR}"
                 cosign initialize --mirror="${TUF_MIRROR}" --root="${TUF_MIRROR}/root.json" || echo "TUF init failed, continuing..."
               else
                 echo "No TUF mirror found, skipping initialization"
