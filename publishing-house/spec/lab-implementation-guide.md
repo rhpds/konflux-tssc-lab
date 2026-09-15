@@ -1783,20 +1783,20 @@ oc describe pipelinerun $INTEGRATION_RUN -n ${TENANT_NS}
 
 ---
 
-**Step 6: View Conforma Policy Results**
+**Step 6: View Enterprise Contract Policy Results**
 
 ```
-The integration test pipeline runs the "ec" (Enterprise Contract) CLI 
-to validate the artifact against policy rules.
+The integration test runs the Enterprise Contract policy validation.
+The verify task contains detailed policy check logs.
 
-# Get the verify TaskRun from the PipelineRun
+# Get the verify TaskRun from the integration test PipelineRun
 VERIFY_TASKRUN=$(oc get taskruns -n ${TENANT_NS} \
   -l tekton.dev/pipelineRun=${INTEGRATION_RUN},tekton.dev/pipelineTask=verify \
   -o jsonpath='{.items[0].metadata.name}')
 
 echo "Verify TaskRun: $VERIFY_TASKRUN"
 
-# View the TaskRun logs
+# View the logs from the verify task
 oc logs -n ${TENANT_NS} taskrun/${VERIFY_TASKRUN}
 
 Expected output (partial):
@@ -1804,16 +1804,18 @@ Expected output (partial):
 Running ec validate image --image quay-...
 Validating image signature and attestations...
 ✓ Signature verification: PASSED
-✓ SLSA provenance found: PASSED
+✓ SLSA provenance found: PASSED  
 ✓ SBOM attestation found: PASSED
+✓ No critical vulnerabilities: PASSED
 ...
+Result: SUCCESS
 
 # You can also view the structured TEST_OUTPUT result
 oc get taskrun $VERIFY_TASKRUN -n ${TENANT_NS} \
   -o jsonpath='{.status.results[?(@.name=="TEST_OUTPUT")].value}' | jq -r '.' | jq .
 ```
 
-**Expected**: Policy check logs show validation results
+**Expected**: Policy check logs show all validations passed
 
 ---
 

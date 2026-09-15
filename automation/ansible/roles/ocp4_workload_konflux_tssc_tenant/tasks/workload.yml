@@ -4,6 +4,16 @@
     state: present
     template: rolebinding-admin.yaml.j2
 
+- name: Create Tekton viewer role in tenant namespace
+  kubernetes.core.k8s:
+    state: present
+    template: role-tekton-viewer.yaml.j2
+
+- name: Bind lab user to tekton-viewer role
+  kubernetes.core.k8s:
+    state: present
+    template: rolebinding-tekton-viewer.yaml.j2
+
 - name: Create integration service account for Enterprise Contract
   ansible.builtin.include_tasks: create-integration-service-account.yml
 
