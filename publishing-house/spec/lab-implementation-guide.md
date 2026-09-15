@@ -1796,8 +1796,15 @@ VERIFY_TASKRUN=$(oc get taskruns -n ${TENANT_NS} \
 
 echo "Verify TaskRun: $VERIFY_TASKRUN"
 
-# View the logs from the verify task
-oc logs -n ${TENANT_NS} taskrun/${VERIFY_TASKRUN}
+# Get the pod created by the TaskRun
+VERIFY_POD=$(oc get pods -n ${TENANT_NS} \
+  -l tekton.dev/taskRun=${VERIFY_TASKRUN} \
+  -o jsonpath='{.items[0].metadata.name}')
+
+echo "Verify Pod: $VERIFY_POD"
+
+# View the logs from the verify pod
+oc logs -n ${TENANT_NS} ${VERIFY_POD} --all-containers
 
 Expected output (partial):
 ...
