@@ -171,6 +171,10 @@ spec:
         results:
           - name: status
             description: Push status
+        volumes:
+          - name: quay-push-secret
+            secret:
+              secretName: sample-component-golang-image-push
         steps:
           - name: get-snapshot
             image: registry.redhat.io/openshift4/ose-cli:latest
@@ -197,6 +201,10 @@ spec:
 
           - name: push
             image: quay.io/skopeo/stable:latest
+            volumeMounts:
+              - name: quay-push-secret
+                mountPath: /etc/docker
+                readOnly: true
             script: |
               #!/bin/bash
               set -e
@@ -223,8 +231,10 @@ spec:
               echo "  To:   ${PROD_IMAGE}"
               echo ""
 
+              # Use docker config from volume
+              export REGISTRY_AUTH_FILE=/etc/docker/.dockerconfigjson
+
               # Copy image to production tag
-              # Service account should have quay-push-secret linked
               skopeo copy \
                 --src-tls-verify=false \
                 --dest-tls-verify=false \
