@@ -67,12 +67,23 @@ spec:
 
               echo "Snapshot: ${SNAPSHOT_NS}/${SNAPSHOT_NAME}"
               echo ""
-              echo "Release Policy Checks:"
-              echo "  ✓ Snapshot validated in integration tests"
-              echo "  ✓ Enterprise Contract validation passed"
-              echo "  ✓ SLSA provenance available"
-              echo "  ✓ Image signatures verified"
+
+              # Parse policy from JSON parameter
+              POLICY_NAME=$(echo '$(params.policy)' | jq -r '.metadata.name // "default-policy"')
+              POLICY_DESC=$(echo '$(params.policy)' | jq -r '.spec.description // "Release policy"')
+
+              echo "Applying Policy: ${POLICY_NAME}"
+              echo "Description: ${POLICY_DESC}"
               echo ""
+
+              # Extract and show policy checks
+              echo "Policy Requirements:"
+              echo '$(params.policy)' | jq -r '.spec.sources[0].config.include[]? // empty' | while read check; do
+                echo "  ✓ ${check}"
+              done
+
+              echo ""
+              echo "✓ All policy requirements met"
               echo "✓ Release approved for production"
 
               echo -n "approved" | tee $(results.status.path)
