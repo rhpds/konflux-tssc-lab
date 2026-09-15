@@ -1209,24 +1209,25 @@ Successfully initialized TUF client with root at ...
 
 Note: The remote URL will match your ${TUF_URL} variable.
 
-# Now verify the signature with cosign
+# Now verify the signature with cosign (pipe through jq for readable output)
 cosign verify \
   --certificate-identity-regexp ".*" \
   --certificate-oidc-issuer-regexp ".*" \
-  "$IMAGE"
+  "$IMAGE" | jq '.'
 
-Expected output:
-Verification for quay-...
+Expected output (formatted JSON):
+Verification for quay-7vlc4-1.apps.cluster-7vlc4.dyn.redhatworkshops.io/tsf/user-dbkkx-tenant/sample-component-golang@sha256:8e5ebb...
+
 The following checks were performed on each of these signatures:
   - The cosign claims were validated
   - Existence of the claims in the transparency log was verified offline
-  - The signatures were verified against the specified public key
+  - The code-signing certificate was verified using trusted certificate authority certificates
 
 [
   {
     "critical": {
       "identity": {
-        "docker-reference": "quay-..."
+        "docker-reference": "quay-7vlc4-1.apps.cluster-7vlc4.dyn.redhatworkshops.io/tsf/user-dbkkx-tenant/sample-component-golang"
       },
       "image": {
         "docker-manifest-digest": "sha256:..."
