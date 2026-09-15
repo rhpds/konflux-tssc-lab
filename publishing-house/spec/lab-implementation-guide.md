@@ -1538,14 +1538,37 @@ This is the date/time when the signature was recorded in the transparency log
 rekor-cli verify --rekor_server "$REKOR_URL" --log-index "$REKOR_INDEX"
 
 Expected output:
-Inclusion proof valid!
-Entry timestamp from Rekor: 1789093075
+Current Root Hash: 5baeb4f6682c662a5a8fc31a41275b941de7b9317ed460fc33f8ccfd69a01327
+Entry Hash: b3e8aee5187a1908a73c5398f4639e2e42bf3d269643743a2c95b56ea8d7177c
+Entry Index in Current Tree: 41
+Current Tree Size: 58
+Checkpoint:
+rekor-server-6f4874f4f7-9lkfv - 3835187695722017857
+58
+W6609mgsZipaj8MaQSdblB3nuTF+1GD8M/jM/WmgEyc=
 
-Note: "Inclusion proof valid!" confirms:
-1. The entry exists in the transparency log at the specified index
-2. The Merkle tree inclusion proof is cryptographically valid
-3. The entry cannot be retroactively modified without detection
-4. Anyone can independently verify this proof
+— rekor-server-6f4874f4f7-9lkfv PCd5UjBFAiB3WruHGfv62HrebWd+g0pIJUqoLavvXGKYE5fzMqMMXQIhAPvyiVVxgg2rKmBeIdZtm58R58xAsKndeqWSOy7DwBwo
+
+Inclusion Proof:
+SHA256(0x01 | <hash1> | <hash2>) = <result>
+...
+(multiple SHA256 hash operations showing Merkle tree proof)
+...
+
+Computed Root Hash: 5baeb4f6682c662a5a8fc31a41275b941de7b9317ed460fc33f8ccfd69a01327
+Expected Root Hash: 5baeb4f6682c662a5a8fc31a41275b941de7b9317ed460fc33f8ccfd69a01327
+
+Key observations:
+1. Entry Index shows where your signature is in the log (e.g., 41)
+2. Current Tree Size shows total entries in the log (e.g., 58)  
+3. Inclusion Proof shows the cryptographic Merkle tree path
+4. Computed Root Hash MATCHES Expected Root Hash ✓ - verification succeeds!
+
+This proves:
+- The entry exists in the transparency log at the specified index
+- The Merkle tree inclusion proof is cryptographically valid
+- The entry cannot be retroactively modified without detection
+- Anyone can independently verify this proof
 ```
 
 **Expected**: Inclusion proof verification succeeds
