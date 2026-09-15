@@ -117,11 +117,9 @@ spec:
               echo "  Rekor Host: ${REKOR_HOST}"
               echo ""
 
-              # Initialize TUF with local mirror
-              echo "Initializing TUF..."
-              # Clear any existing TUF cache to avoid corruption
-              rm -rf ~/.sigstore
-              cosign initialize --mirror="${TUF_MIRROR}" --root="${TUF_MIRROR}/root.json" || echo "TUF init warning (non-blocking)"
+              # Initialize Sigstore TUF with local mirror
+              echo "Initializing Sigstore TUF..."
+              ec sigstore initialize --mirror "${TUF_MIRROR}" --root "${TUF_MIRROR}/root.json"
               echo ""
 
               # Write policy to file
@@ -138,7 +136,7 @@ spec:
               echo ""
 
               # Show policy checks
-              echo "Policy Checks:"
+              echo "Policy Requirements:"
               jq -r '.spec.sources[0].config.include[]? // empty' /tmp/policy.json | while read check; do
                 [ -n "$check" ] && echo "  ✓ ${check}"
               done
@@ -146,20 +144,17 @@ spec:
 
               # Run EC validate with keyless verification parameters
               echo "Running EC validation..."
-
-              # When keyless params are provided, EC uses them instead of publicKey
               ec validate image \
                 --image "${IMAGE}" \
                 --policy /tmp/policy.json \
                 --certificate-identity "${CERTIFICATE_IDENTITY}" \
                 --certificate-oidc-issuer "${OIDC_ISSUER}" \
                 --rekor-url "${REKOR_HOST}" \
-                --certificate-identity-regexp ".*" \
                 --strict=false \
-                --output text || true
+                --output text
 
               echo ""
-              echo "✓ EC validation complete"
+              echo "✓ EC validation passed"
               echo "✓ Release approved for production"
               echo -n "approved" | tee $(results.status.path)
             computeResources:
