@@ -1,4 +1,7 @@
 ---
+- name: Configure managed namespace for Konflux UI visibility
+  ansible.builtin.include_tasks: setup-managed-namespace.yml
+
 - name: Bind lab user to konflux-admin-user-actions in tenant namespace
   kubernetes.core.k8s:
     state: present

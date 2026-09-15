@@ -1,0 +1,32 @@
+---
+# Configure the managed namespace to be visible in Konflux UI
+# The managed namespace is the production/release target
+
+- name: Add konflux-ci.dev/type=tenant label to managed namespace
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ ocp4_workload_konflux_tssc_tenant_user }}-managed"
+    merge_type: merge
+    definition:
+      metadata:
+        labels:
+          konflux-ci.dev/type: tenant
+
+- name: Bind lab user to konflux-admin-user-actions in managed namespace
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: konflux-admin
+        namespace: "{{ ocp4_workload_konflux_tssc_tenant_user }}-managed"
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: konflux-admin-user-actions
+      subjects:
+        - apiGroup: rbac.authorization.k8s.io
+          kind: User
+          name: "{{ ocp4_workload_konflux_tssc_tenant_user }}"
