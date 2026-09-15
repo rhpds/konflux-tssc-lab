@@ -52,7 +52,7 @@ spec:
       runAfter:
         - collect-keyless-params
       params:
-        - name: SNAPSHOT
+        - name: IMAGES
           value: "$(params.snapshot)"
         - name: POLICY_CONFIGURATION
           value: "$(params.enterpriseContractPolicy)"
