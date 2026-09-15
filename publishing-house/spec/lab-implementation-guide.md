@@ -2088,7 +2088,7 @@ spec:
         - name: revision
           value: production
         - name: pathInRepo
-          value: pipelines/push-snapshot/push-snapshot.yaml
+          value: pipelines/managed/push-to-external-registry/push-to-external-registry.yaml
 EOF
 
 # Verify it was created
@@ -2130,8 +2130,14 @@ Now create a ReleasePlan in your tenant namespace that references the ReleasePla
    - Name: production-release
    - Application: my-sample-app
    - Target: ${MANAGED_NS}
-   - Auto release: false (leave unchecked for manual releases)
+   - Git URL for the release pipeline: **Leave blank**
+   - Do NOT expand "Git options for the release pipeline"
+   - Auto release: Off (leave toggled off for manual releases)
+   - Standing attribution: Off (leave toggled off)
    - Click "Create"
+   
+   Note: We leave the pipeline fields blank because we don't need a tenant pipeline.
+   The managed pipeline (configured in ReleasePlanAdmission) handles the release.
 
 6. Verify it was created in the UI:
    You should see "production-release" listed in the Release plans tab

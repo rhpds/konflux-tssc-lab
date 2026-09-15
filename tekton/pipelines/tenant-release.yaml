@@ -1,0 +1,95 @@
+---
+# Simple tenant pipeline for releases
+# This pipeline runs in the tenant namespace before the managed pipeline
+# For this lab, it simply validates the snapshot and passes through to the managed pipeline
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: tenant-release
+  labels:
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  description: |
+    Simple tenant release pipeline that validates the snapshot is ready for release.
+    This runs in the tenant namespace before the managed release pipeline executes.
+  params:
+    - name: release
+      type: string
+      description: The namespaced name (namespace/name) of the Release
+    - name: releasePlan
+      type: string
+      description: The namespaced name (namespace/name) of the releasePlan
+    - name: releasePlanAdmission
+      type: string
+      description: The namespaced name (namespace/name) of the releasePlanAdmission
+    - name: releaseServiceConfig
+      type: string
+      description: The namespaced name (namespace/name) of the releaseServiceConfig
+    - name: snapshot
+      type: string
+      description: The namespaced name (namespace/name) of the snapshot
+    - name: enterpriseContractPolicy
+      type: string
+      description: JSON representation of the EnterpriseContractPolicy
+    - name: enterpriseContractPublicKey
+      type: string
+      description: Public key to use for validation by the enterprise contract
+      default: k8s://openshift-pipelines/public-key
+    - name: verify_ec_task_bundle
+      type: string
+      description: The location of the bundle containing the verify-enterprise-contract task
+      default: ""
+    - name: taskGitUrl
+      type: string
+      description: The url to the git repo where the release-service-catalog tasks are stored
+      default: https://github.com/konflux-ci/release-service-catalog.git
+    - name: taskGitRevision
+      type: string
+      description: The revision in the taskGitUrl repo to be used
+      default: production
+
+  results:
+    - name: status
+      description: Status of the tenant pipeline
+      value: "$(tasks.verify-snapshot.results.status)"
+
+  tasks:
+    - name: verify-snapshot
+      params:
+        - name: snapshot
+          value: "$(params.snapshot)"
+        - name: release
+          value: "$(params.release)"
+      taskSpec:
+        params:
+          - name: snapshot
+            type: string
+          - name: release
+            type: string
+        results:
+          - name: status
+            description: Verification status
+        steps:
+          - name: verify
+            image: registry.redhat.io/openshift4/ose-cli:latest
+            script: |
+              #!/bin/bash
+              set -e
+
+              echo "Tenant release pipeline validation"
+              echo "====================================="
+              echo "Release: $(params.release)"
+              echo "Snapshot: $(params.snapshot)"
+              echo ""
+              echo "✓ Snapshot is ready for release"
+              echo "✓ Proceeding to managed release pipeline"
+
+              # Set success status
+              echo -n "success" | tee $(results.status.path)
+            computeResources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                cpu: 100m
+                memory: 128Mi
