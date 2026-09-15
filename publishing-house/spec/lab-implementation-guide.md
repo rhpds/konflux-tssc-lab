@@ -2158,24 +2158,19 @@ oc get snapshots -n ${TENANT_NS} --sort-by=.metadata.creationTimestamp
 
 You'll see Snapshots from both pull requests and pushes.
 
-# Check what labels exist on Snapshots to identify push vs pull request
-oc get snapshots -n ${TENANT_NS} -o json | jq '.items[0].metadata.labels'
-
-# Get the latest Snapshot created by a push build
-# Filter by checking if the triggering commit annotation exists (only on-push builds have this)
+# Get the latest Snapshot created by a push build (not a pull request)
+# Push builds have the label: pac.test.appstudio.openshift.io/event-type: "push"
 SNAPSHOT_NAME=$(oc get snapshots -n ${TENANT_NS} -o json | \
-  jq -r '[.items[] | select(.metadata.annotations["build.appstudio.openshift.io/pipeline_run_name"] // "" | 
-  contains("on-push"))] | sort_by(.metadata.creationTimestamp) | last | .metadata.name')
+  jq -r '[.items[] | select(.metadata.labels["pac.test.appstudio.openshift.io/event-type"] == "push")] | 
+  sort_by(.metadata.creationTimestamp) | last | .metadata.name')
 
 echo "Releasing Snapshot: $SNAPSHOT_NAME"
 
-# Alternative: Get the most recent Snapshot (assumes latest is from push)
-# If the above returns null, use this simpler approach:
-# SNAPSHOT_NAME=$(oc get snapshots -n ${TENANT_NS} \
-#   --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
+# Verify this is from a push event (not a pull request)
+oc get snapshot $SNAPSHOT_NAME -n ${TENANT_NS} \
+  -o jsonpath='{.metadata.labels.pac\.test\.appstudio\.openshift\.io/event-type}'
 
-# Verify the Snapshot name
-echo "Using Snapshot: $SNAPSHOT_NAME"
+Expected output: push
 ```
 
 **Expected**: Snapshot from push build is obtained
