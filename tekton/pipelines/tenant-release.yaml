@@ -19,34 +19,9 @@ spec:
     - name: releasePlan
       type: string
       description: The namespaced name (namespace/name) of the releasePlan
-    - name: releasePlanAdmission
-      type: string
-      description: The namespaced name (namespace/name) of the releasePlanAdmission
-    - name: releaseServiceConfig
-      type: string
-      description: The namespaced name (namespace/name) of the releaseServiceConfig
     - name: snapshot
       type: string
       description: The namespaced name (namespace/name) of the snapshot
-    - name: enterpriseContractPolicy
-      type: string
-      description: JSON representation of the EnterpriseContractPolicy
-    - name: enterpriseContractPublicKey
-      type: string
-      description: Public key to use for validation by the enterprise contract
-      default: k8s://openshift-pipelines/public-key
-    - name: verify_ec_task_bundle
-      type: string
-      description: The location of the bundle containing the verify-enterprise-contract task
-      default: ""
-    - name: taskGitUrl
-      type: string
-      description: The url to the git repo where the release-service-catalog tasks are stored
-      default: https://github.com/konflux-ci/release-service-catalog.git
-    - name: taskGitRevision
-      type: string
-      description: The revision in the taskGitUrl repo to be used
-      default: production
 
   results:
     - name: status
