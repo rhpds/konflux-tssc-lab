@@ -1131,20 +1131,29 @@ Let's reveal them to see what Konflux attached to your image.
 **Step 9: Verify Image Manifests**
 
 ```
-1. In Quay, while viewing the tag details, click "Fetch Tag" or "Manifest"
+1. In the Tags view, locate a commit SHA tag (e.g., 684b66a2c...)
 
-2. You should see options:
+2. Hover your mouse over the tag row
+
+3. A menu appears on the right side with options:
+   - Fetch Tag
+   - Podman Pull (Bash)
+   - Docker Pull (By Digest)
+
+4. Click "Fetch Tag"
+
+5. You should see options:
    - Docker Manifest V2, Schema 2
    - OCI manifest
 
-3. Click "View" on one of the manifests
+6. Click "View" next to one of the manifests
 
-4. The manifest JSON shows:
+7. The manifest JSON shows:
    - Layers (filesystem layers)
    - Config digest
    - Media types
 
-5. Note: This is the OCI image manifest that was pushed
+8. Note: This is the OCI image manifest that was pushed
 ```
 
 **Expected**: Image manifest is viewable in Quay UI
