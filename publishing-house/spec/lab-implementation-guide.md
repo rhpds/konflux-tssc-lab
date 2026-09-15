@@ -1758,20 +1758,28 @@ If status is "False", the policy check failed.
 oc get pipelineruns -n ${TENANT_NS} \
   --sort-by=.metadata.creationTimestamp
 
-Expected: You'll see build PipelineRuns AND integration test PipelineRuns
+Expected output:
+NAME                                            SUCCEEDED   REASON      STARTTIME   COMPLETIONTIME
+sample-component-golang-on-pull-request-abc123  True        Succeeded   15h         15h
+my-sample-app-enterprise-contract-xyz456        True        Succeeded   15h         15h
+sample-component-golang-on-push-def789          True        Succeeded   15h         15h
+my-sample-app-enterprise-contract-ghi012        True        Succeeded   15h         15h
 
-Look for a PipelineRun with a name like:
-  integration-test-sample-app-abc123
+Note: Integration test PipelineRuns are named after the IntegrationTestScenario
+(my-sample-app-enterprise-contract). They run automatically after each build.
 
-# Describe the integration test PipelineRun
+# Get the most recent integration test PipelineRun
 INTEGRATION_RUN=$(oc get pipelineruns -n ${TENANT_NS} \
   -l 'appstudio.openshift.io/snapshot' \
   --sort-by=.metadata.creationTimestamp -o name | tail -1)
 
+echo "Integration test: $INTEGRATION_RUN"
+
+# Describe the integration test PipelineRun
 oc describe $INTEGRATION_RUN -n ${TENANT_NS}
 ```
 
-**Expected**: Integration test PipelineRun is found
+**Expected**: Integration test PipelineRun is found (named my-sample-app-enterprise-contract-*)
 
 ---
 
