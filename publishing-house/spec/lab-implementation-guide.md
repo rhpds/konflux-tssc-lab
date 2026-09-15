@@ -2147,39 +2147,46 @@ Key fields:
 
 ### Section 3: Trigger a Release (3 min)
 
-**Step 4: Get the Latest Releasable Snapshot**
+**Step 4: Get the Latest Push Snapshot**
 
 ```
-# List Snapshots
+# We need the Snapshot from the push build (after merge), not the pull request
+# Snapshots are created for both pull requests and pushes
+
+# List all Snapshots to see them
 oc get snapshots -n ${TENANT_NS} --sort-by=.metadata.creationTimestamp
 
-# Get the latest Snapshot name
-SNAPSHOT_NAME=$(oc get snapshots -n ${TENANT_NS} \
-  --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
+You'll see Snapshots from both pull requests and pushes.
+
+# Get the latest Snapshot created by a push build
+# These are created by "on-push" PipelineRuns, not "on-pull-request" PipelineRuns
+SNAPSHOT_NAME=$(oc get snapshots -n ${TENANT_NS} -o json | \
+  jq -r '[.items[] | select(.metadata.labels["build.appstudio.redhat.com/pipeline"] == "sample-component-golang-on-push")] | 
+  sort_by(.metadata.creationTimestamp) | last | .metadata.name')
 
 echo "Releasing Snapshot: $SNAPSHOT_NAME"
 
-# Verify the Snapshot passed integration tests
+# Verify this is from a push build
 oc get snapshot $SNAPSHOT_NAME -n ${TENANT_NS} \
-  -o jsonpath='{.status.conditions[?(@.type=="IntegrationTestSucceeded")].status}'
+  -o jsonpath='{.metadata.labels.build\.appstudio\.redhat\.com/pipeline}'
 
-Expected output: True
+Expected output: sample-component-golang-on-push
 ```
 
-**Expected**: Snapshot name is obtained and verified
+**Expected**: Snapshot from push build is obtained
 
 ---
 
 **Step 5: Create a Release**
 
 ```
-# Create Release object
+# Create Release object referencing the push Snapshot
 cat <<EOF | oc apply -f -
 apiVersion: appstudio.redhat.com/v1alpha1
 kind: Release
 metadata:
   name: production-release-$(date +%Y%m%d-%H%M%S)
-  namespace: user-{guid}-tenant
+  namespace: ${TENANT_NS}
 spec:
   releasePlan: production-release
   snapshot: $SNAPSHOT_NAME
@@ -2189,8 +2196,8 @@ EOF
 oc get releases -n ${TENANT_NS}
 
 Expected output:
-NAME                             RELEASPLAN           SNAPSHOT                 AGE
-production-release-20260907...   production-release   my-sample-app-xyz456     5s
+NAME                             RELEASPLAN           SNAPSHOT                        AGE
+production-release-20260914...   production-release   my-sample-app-20260914-...      5s
 ```
 
 **Expected**: Release object is created
