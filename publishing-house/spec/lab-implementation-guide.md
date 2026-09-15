@@ -1910,7 +1910,7 @@ You can view the Snapshot details in the Konflux web UI to see vulnerability
 scan results and component builds.
 
 # Navigate in the UI
-1. Go to the Konflux console: https://console-openshift-console.${APPS_DOMAIN}/preview/application-pipeline
+1. Go to the Konflux console: ${KONFLUX_UI}
 2. Select namespace: ${TENANT_NS}
 3. Click "Applications" → "my-sample-app"
 4. Click "Snapshots" tab
@@ -2067,7 +2067,7 @@ In this lab:
 ```
 A ReleasePlanAdmission controls what can be released to the managed namespace.
 
-1. Go to the Konflux console: https://console-openshift-console.${APPS_DOMAIN}/preview/application-pipeline
+1. Go to the Konflux console: ${KONFLUX_UI}
 
 2. Switch to the managed namespace: ${MANAGED_NS}
    (Use the namespace dropdown at the top)
@@ -2166,7 +2166,7 @@ to the production namespace (${MANAGED_NS})
 ```
 Now we'll trigger a release using the Konflux web UI.
 
-1. Go to the Konflux console: https://console-openshift-console.${APPS_DOMAIN}/preview/application-pipeline
+1. Go to the Konflux console: ${KONFLUX_UI}
 
 2. Select namespace: ${TENANT_NS}
 
