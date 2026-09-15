@@ -1903,37 +1903,11 @@ This is how Conforma blocks insecure artifacts from reaching production.
 
 ---
 
-**Step 9: View Policy Check in Konflux UI**
+**Step 9: View Snapshot in Konflux UI**
 
 ```
-1. Switch to the Konflux UI browser tab
-
-2. Navigate to your Application → Activity
-
-3. Locate the Snapshot entry for your latest build
-
-4. Click on the Snapshot to view details
-
-5. You should see:
-   - Integration test status: Passed (green checkmark)
-   - Policy check results: Succeeded
-   - Link to integration test PipelineRun
-
-6. Optional: Click the PipelineRun link to view logs in the UI
-```
-
-**Expected**: Konflux UI shows integration test status
-
----
-
-**Step 10: View Snapshot in Konflux UI**
-
-```
-You can view the Snapshot details in the Konflux web UI to see:
-- Vulnerabilities scan results
-- Component builds included in the snapshot
-- Container image references
-- Git commit that triggered the build
+You can view the Snapshot details in the Konflux web UI to see vulnerability
+scan results and component builds.
 
 # Navigate in the UI
 1. Go to the Konflux console: https://console-openshift-console.${APPS_DOMAIN}/preview/application-pipeline
@@ -1942,9 +1916,10 @@ You can view the Snapshot details in the Konflux web UI to see:
 4. Click "Snapshots" tab
 5. Click on the most recent Snapshot
 
-You'll see:
+You'll see the Snapshot Overview tab showing:
 - Snapshot name (e.g., my-sample-app-20260914-093615-000)
-- Triggered by commit and commit SHA
+- Created timestamp
+- Triggered by: Edit sample-component-golang-pull-request.yaml (commit SHA link)
 - Vulnerabilities: 0 critical, 0 high, 0 medium, 0 low, 0 unknown
 - Components section showing:
   - Component name: sample-component-golang
@@ -1952,14 +1927,37 @@ You'll see:
   - Git URL: ${LAB_USER}/sample-component-golang (GitLab repository path)
   - Revision: commit SHA
 
-# Check if Snapshot is releasable via CLI
-oc get $LATEST_SNAPSHOT -n ${TENANT_NS} -o yaml | grep -A 5 "conditions:"
+6. Click the "Pipeline runs" tab to see:
+   - Build PipelineRuns (sample-component-golang-on-push)
+   - Integration test PipelineRuns (my-sample-app-enterprise-contract)
 
-Expected: Look for IntegrationTestSucceeded with status: "True"
+7. Click on an integration test PipelineRun to view policy check logs in the UI
+```
+
+**Expected**: Snapshot shows vulnerability scan results and links to pipeline runs
+
+---
+
+**Step 10: Verify Snapshot Passed Policy Checks**
+
+```
+# Check if Snapshot passed integration tests via CLI
+oc get $LATEST_SNAPSHOT -n ${TENANT_NS} \
+  -o jsonpath='{.status.conditions[?(@.type=="IntegrationTestSucceeded")]}' | jq .
+
+Expected output:
+{
+  "type": "IntegrationTestSucceeded",
+  "status": "True",
+  "reason": "Succeeded",
+  "message": "Integration test succeeded",
+  "lastTransitionTime": "2026-09-14T09:36:30Z"
+}
+
 This indicates the Snapshot passed policy checks and can be released.
 ```
 
-**Expected**: Snapshot shows vulnerability scan and integration test results
+**Expected**: Snapshot conditions show IntegrationTestSucceeded with status True
 
 ---
 
