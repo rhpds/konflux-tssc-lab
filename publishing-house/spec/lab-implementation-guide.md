@@ -2147,33 +2147,35 @@ Key fields:
 
 ### Section 3: Trigger a Release (3 min)
 
-**Step 4: Get the Latest Push Snapshot**
+**Step 4: Get the Latest Snapshot from Merged Code**
 
 ```
-# We need the Snapshot from the push build (after merge), not the pull request
-# Snapshots are created for both pull requests and pushes
+# Konflux creates Snapshots for both:
+# 1. Pull Requests (pre-merge validation) - event-type: "Merge_Request"
+# 2. After Merge (actual merged code) - event-type: "push"
+#
+# For release, we want the Snapshot from AFTER the merge, not the pre-merge validation.
 
 # List all Snapshots to see them
 oc get snapshots -n ${TENANT_NS} --sort-by=.metadata.creationTimestamp
 
-You'll see Snapshots from both pull requests and pushes.
+You'll see Snapshots from both pre-merge (pull request) and post-merge (push) builds.
 
-# Get the latest Snapshot created by a push build (not a pull request)
-# Push builds have the label: pac.test.appstudio.openshift.io/event-type: "push"
+# Get the latest Snapshot from merged code (event-type: "push")
 SNAPSHOT_NAME=$(oc get snapshots -n ${TENANT_NS} -o json | \
   jq -r '[.items[] | select(.metadata.labels["pac.test.appstudio.openshift.io/event-type"] == "push")] | 
   sort_by(.metadata.creationTimestamp) | last | .metadata.name')
 
 echo "Releasing Snapshot: $SNAPSHOT_NAME"
 
-# Verify this is from a push event (not a pull request)
+# Verify this is from merged code (not a pre-merge pull request)
 oc get snapshot $SNAPSHOT_NAME -n ${TENANT_NS} \
   -o jsonpath='{.metadata.labels.pac\.test\.appstudio\.openshift\.io/event-type}'
 
-Expected output: push
+Expected output: push (meaning this Snapshot was created AFTER the merge)
 ```
 
-**Expected**: Snapshot from push build is obtained
+**Expected**: Snapshot from merged code is obtained
 
 ---
 
