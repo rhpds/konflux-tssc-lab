@@ -2065,9 +2065,12 @@ In this lab:
 **Step 1: Create ReleasePlanAdmission via CLI**
 
 ```
-A ReleasePlanAdmission controls what can be released to the managed namespace.
-Currently, this must be created via CLI (no UI option available).
+A ReleasePlanAdmission controls what can be released to the managed (production) namespace.
 
+The managed namespace exists but is not visible in the Konflux UI because it has 
+no Application resource. All operations on the managed namespace must be done via CLI.
+
+# Create the ReleasePlanAdmission
 cat <<EOF | oc apply -f -
 apiVersion: appstudio.redhat.com/v1alpha1
 kind: ReleasePlanAdmission
@@ -2088,12 +2091,11 @@ Expected output:
 NAME                 ENVIRONMENT   ORIGIN
 production-release                 ${TENANT_NS}
 
-Note: The managed namespace (${MANAGED_NS}) does not appear in the Konflux UI
-because it has no Application. You can only verify the ReleasePlanAdmission
-via CLI.
+This ReleasePlanAdmission allows the my-sample-app Application from ${TENANT_NS}
+to be released to the ${MANAGED_NS} production namespace.
 ```
 
-**Expected**: ReleasePlanAdmission is created in managed namespace (verify via CLI)
+**Expected**: ReleasePlanAdmission is created in managed namespace
 
 ---
 
