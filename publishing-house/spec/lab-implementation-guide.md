@@ -2085,8 +2085,8 @@ EOF
 oc get releaseplanadmissions -n ${MANAGED_NS}
 
 Expected output:
-NAME                  AGE
-production-release    5s
+NAME                 ENVIRONMENT   ORIGIN
+production-release                 ${TENANT_NS}
 ```
 
 **Expected**: ReleasePlanAdmission is created in managed namespace
