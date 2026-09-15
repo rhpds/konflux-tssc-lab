@@ -2062,38 +2062,38 @@ In this lab:
 
 ### Section 2: Create a ReleasePlan (4 min)
 
-**Step 1: Create ReleasePlanAdmission via UI**
+**Step 1: Create ReleasePlanAdmission via CLI**
 
 ```
 A ReleasePlanAdmission controls what can be released to the managed namespace.
+Currently, this must be created via CLI (no UI option available).
 
-1. Go to the Konflux console: ${KONFLUX_UI}
+cat <<EOF | oc apply -f -
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: ReleasePlanAdmission
+metadata:
+  name: production-release
+  namespace: ${MANAGED_NS}
+spec:
+  applications:
+    - my-sample-app
+  origin: ${TENANT_NS}
+  policy: default-policy
+EOF
 
-2. Switch to the managed namespace: ${MANAGED_NS}
-   (Use the namespace dropdown at the top)
-
-3. Click "Release" in the left navigation
-
-4. Click "ReleasePlanAdmissions" tab
-
-5. Click "Create ReleasePlanAdmission"
-
-6. Fill in the form:
-   - Name: production-release
-   - Applications: my-sample-app
-   - Origin: ${TENANT_NS}
-   - Policy: default-policy
-   - Click "Create"
-
-7. Verify it was created:
-   You should see it listed in the ReleasePlanAdmissions tab
-
-Or use CLI:
+# Verify it was created
 oc get releaseplanadmissions -n ${MANAGED_NS}
 
 Expected output:
 NAME                 ENVIRONMENT   ORIGIN
 production-release                 ${TENANT_NS}
+
+You can view it in the Konflux UI:
+1. Go to: ${KONFLUX_UI}
+2. Switch to namespace: ${MANAGED_NS}
+3. Click "Releases" in the left navigation
+4. Click "Release Plan Admission" tab
+5. You should see "production-release" listed
 ```
 
 **Expected**: ReleasePlanAdmission is created in managed namespace
