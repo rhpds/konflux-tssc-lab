@@ -2062,26 +2062,33 @@ In this lab:
 
 ### Section 2: Create a ReleasePlan (4 min)
 
-**Step 1: Create ReleasePlanAdmission**
+**Step 1: Create ReleasePlanAdmission via UI**
 
 ```
-# A ReleasePlanAdmission controls what can be released to the managed namespace
-# Create one in the managed namespace
+A ReleasePlanAdmission controls what can be released to the managed namespace.
 
-cat <<EOF | oc apply -f -
-apiVersion: appstudio.redhat.com/v1alpha1
-kind: ReleasePlanAdmission
-metadata:
-  name: production-release
-  namespace: ${MANAGED_NS}
-spec:
-  applications:
-    - my-sample-app
-  origin: ${TENANT_NS}
-  policy: default-policy
-EOF
+1. Go to the Konflux console: https://console-openshift-console.${APPS_DOMAIN}/preview/application-pipeline
 
-# Verify it was created
+2. Switch to the managed namespace: ${MANAGED_NS}
+   (Use the namespace dropdown at the top)
+
+3. Click "Release" in the left navigation
+
+4. Click "ReleasePlanAdmissions" tab
+
+5. Click "Create ReleasePlanAdmission"
+
+6. Fill in the form:
+   - Name: production-release
+   - Applications: my-sample-app
+   - Origin: ${TENANT_NS}
+   - Policy: default-policy
+   - Click "Create"
+
+7. Verify it was created:
+   You should see it listed in the ReleasePlanAdmissions tab
+
+Or use CLI:
 oc get releaseplanadmissions -n ${MANAGED_NS}
 
 Expected output:
@@ -2093,23 +2100,31 @@ production-release                 ${TENANT_NS}
 
 ---
 
-**Step 2: Create a ReleasePlan**
+**Step 2: Create a ReleasePlan via UI**
 
 ```
-# Create ReleasePlan in your tenant namespace
-cat <<EOF | oc apply -f -
-apiVersion: appstudio.redhat.com/v1alpha1
-kind: ReleasePlan
-metadata:
-  name: production-release
-  namespace: ${TENANT_NS}
-spec:
-  application: my-sample-app
-  target: ${MANAGED_NS}
-  releaseGracePeriodDays: 0
-EOF
+Now create a ReleasePlan in your tenant namespace that references the ReleasePlanAdmission.
 
-# Verify ReleasePlan was created
+1. Switch back to your tenant namespace: ${TENANT_NS}
+   (Use the namespace dropdown at the top)
+
+2. Click "Release" in the left navigation
+
+3. Click "Release plans" tab
+
+4. Click "Create Release plan"
+
+5. Fill in the form:
+   - Name: production-release
+   - Application: my-sample-app
+   - Target: ${MANAGED_NS}
+   - Auto release: false (optional - leave unchecked for manual releases)
+   - Click "Create"
+
+6. Verify it was created:
+   You should see it listed in the Release plans tab
+
+Or use CLI:
 oc get releaseplans -n ${TENANT_NS}
 
 Expected output:
@@ -2117,26 +2132,25 @@ NAME                 APPLICATION     COMPONENTGROUP   TARGET
 production-release   my-sample-app                    ${MANAGED_NS}
 ```
 
-**Expected**: ReleasePlan is created
+**Expected**: ReleasePlan is created in tenant namespace
 
 ---
 
-**Step 3: Verify ReleasePlan Configuration**
+**Step 3: View ReleasePlan Configuration**
 
 ```
-# View ReleasePlan details
-oc get releaseplan production-release -n ${TENANT_NS} -o yaml
+In the Konflux UI:
 
-Key fields:
-- spec.application: Links to your Application
-- spec.target: Target namespace (user-{guid}-managed)
-- spec.releaseGracePeriodDays: How long to wait before release (0 = immediate)
+1. From the Release plans tab, click on "production-release"
 
-# Optional: View ReleasePlanAdmission
-oc get releaseplanadmission production-release -n ${MANAGED_NS} -o yaml
+2. You'll see the ReleasePlan details:
+   - Name: production-release
+   - Application: my-sample-app
+   - Target workspace: ${MANAGED_NS}
+   - Standing attribution: (optional metadata)
 
-Key fields:
-- spec.applications: Allowed Applications
+This ReleasePlan defines how Snapshots from my-sample-app will be released
+to the production namespace (${MANAGED_NS})
 - spec.origin: Source namespace (user-{guid}-tenant)
 - spec.policy: Policy to apply during release
 ```
