@@ -63,16 +63,23 @@
             }
           }
 
+- name: Get pipeline service account
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ServiceAccount
+    name: pipeline
+    namespace: "{{ ocp4_workload_konflux_tssc_tenant_user }}-managed"
+  register: r_pipeline_sa
+
 - name: Link Quay push secret to pipeline service account
-  ansible.builtin.shell: |
-    oc patch serviceaccount pipeline \
-      -n {{ ocp4_workload_konflux_tssc_tenant_user }}-managed \
-      --type=json \
-      -p='[{"op": "add", "path": "/secrets/-", "value": {"name": "quay-push-secret"}}]'
-  register: r_sa_patch
-  failed_when:
-    - r_sa_patch.rc != 0
-    - '"already exists" not in r_sa_patch.stderr'
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: ServiceAccount
+    name: pipeline
+    namespace: "{{ ocp4_workload_konflux_tssc_tenant_user }}-managed"
+    definition:
+      secrets: "{{ (r_pipeline_sa.resources[0].secrets | default([])) + [{'name': 'quay-push-secret'}] }}"
+  when: r_pipeline_sa.resources | length > 0 and ('quay-push-secret' not in (r_pipeline_sa.resources[0].secrets | default([]) | map(attribute='name') | list))
 
 - name: Create simple Enterprise Contract policy for releases
   kubernetes.core.k8s:
