@@ -2189,7 +2189,7 @@ Now we'll trigger a release using the Konflux web UI.
 7. In the Release dialog:
    - Release plan: Select "production-release"
    - The Snapshot is already pre-selected
-   - Click "Trigger"
+   - Click "Trigger release"
 
 8. You'll be taken to the Releases view showing your newly created Release
 
