@@ -86,6 +86,7 @@
       spec:
         description: Simple release policy for lab environment
         name: Lab Release Policy
+        publicKey: ""
         sources:
         - name: Release Policy
           policy:

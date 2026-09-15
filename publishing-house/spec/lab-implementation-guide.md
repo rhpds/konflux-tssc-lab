@@ -2077,6 +2077,7 @@ metadata:
 spec:
   description: Simple release policy - validates snapshot passed integration tests
   name: Simple Release Policy
+  publicKey: ""
   sources:
   - name: Release Policy
     policy:
@@ -2088,8 +2089,9 @@ spec:
       - slsa_provenance_available
 EOF
 
-# Note: No publicKey specified - the managed pipeline uses keyless verification
-# via the collect-keyless-params task (OIDC issuer and identity)
+# Note: publicKey is set to empty string ("") because we use keyless verification.
+# The managed pipeline passes OIDC issuer and certificate identity parameters
+# to EC via the collect-keyless-params task.
 
 # Verify it was created
 oc get enterprisecontractpolicy -n ${MANAGED_NS}
