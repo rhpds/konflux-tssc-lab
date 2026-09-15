@@ -1789,8 +1789,8 @@ oc describe pipelinerun $INTEGRATION_RUN -n ${TENANT_NS}
 The integration test pipeline runs the "ec" (Enterprise Contract) CLI 
 to validate the artifact against policy rules.
 
-# Get the PipelineRun result (TaskRun logs contain policy output)
-oc logs pipelinerun/$INTEGRATION_RUN -n ${TENANT_NS} --all-containers | grep -A 50 "ec validate"
+# View the PipelineRun logs using tkn CLI
+tkn pipelinerun logs $INTEGRATION_RUN -n ${TENANT_NS} | grep -A 50 "ec validate"
 
 Expected output (example):
 Running: ec validate image --image quay-...
@@ -1802,6 +1802,9 @@ Policy check results:
 ✓ Build materials recorded with digests
 
 Success: 5 checks passed, 0 failures
+
+# Or view all logs from the verify task
+tkn pipelinerun logs $INTEGRATION_RUN -n ${TENANT_NS} -t verify
 ```
 
 **Expected**: Policy check output shows passed rules
