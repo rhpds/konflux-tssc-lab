@@ -1771,12 +1771,12 @@ Note: Integration test PipelineRuns are named after the IntegrationTestScenario
 # Get the most recent integration test PipelineRun
 INTEGRATION_RUN=$(oc get pipelineruns -n ${TENANT_NS} \
   -l 'appstudio.openshift.io/snapshot' \
-  --sort-by=.metadata.creationTimestamp -o name | tail -1)
+  --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
 
 echo "Integration test: $INTEGRATION_RUN"
 
 # Describe the integration test PipelineRun
-oc describe $INTEGRATION_RUN -n ${TENANT_NS}
+oc describe pipelinerun $INTEGRATION_RUN -n ${TENANT_NS}
 ```
 
 **Expected**: Integration test PipelineRun is found (named my-sample-app-enterprise-contract-*)
@@ -1790,7 +1790,7 @@ The integration test pipeline runs the "ec" (Enterprise Contract) CLI
 to validate the artifact against policy rules.
 
 # Get the PipelineRun result (TaskRun logs contain policy output)
-oc logs $INTEGRATION_RUN -n ${TENANT_NS} --all-containers | grep -A 50 "ec validate"
+oc logs pipelinerun/$INTEGRATION_RUN -n ${TENANT_NS} --all-containers | grep -A 50 "ec validate"
 
 Expected output (example):
 Running: ec validate image --image quay-...
