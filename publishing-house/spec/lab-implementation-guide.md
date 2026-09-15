@@ -77,20 +77,20 @@ Modern supply chain security solves this by requiring:
 **Step 2: Verify Konflux UI Access**
 
 ```
-1. Find the Konflux UI URL in the Environment Variables section above
-   (or in the lab credentials table)
-2. Open the Konflux UI URL in a new browser tab:
-   https://konflux-ui-konflux-ui.apps.cluster-{guid}.{domain}
+1. Find the Konflux UI URL in the lab credentials table
 
-3. Log in using your OpenShift credentials:
-   - Username: user-{guid}
-   - Password: {provided in credentials}
+2. Open the Konflux UI URL in a new browser tab
+   Example: https://konflux-ui-konflux-ui.apps.cluster-7vlc4.dyn.redhatworkshops.io
+
+3. Log in using your OpenShift credentials provided in the lab credentials:
+   - Username: user-<your-guid> (e.g., user-dbkkx)
+   - Password: <provided in credentials>
 
 4. After login, verify you see the Konflux Overview page with "Get started with Konflux"
 
 5. Click "Namespaces" in the left sidebar (or click the "View my namespaces" button)
 
-6. Verify you see "user-{guid}-tenant" in the namespace list
+6. Verify you see your tenant namespace in the list (e.g., "user-dbkkx-tenant")
 ```
 
 **Expected**: Konflux UI loads, user is authenticated, namespace is accessible
@@ -101,12 +101,13 @@ Modern supply chain security solves this by requiring:
 
 ```
 1. Find the GitLab URL in the credentials section
-2. Open GitLab in a new browser tab:
-   https://gitlab-gitlab.apps.cluster-{guid}.{domain}
+
+2. Open GitLab in a new browser tab
+   Example: https://gitlab-gitlab.apps.cluster-7vlc4.dyn.redhatworkshops.io
 
 3. Log in:
-   - Username: user-{guid}
-   - Password: {same as OpenShift password}
+   - Username: user-<your-guid> (e.g., user-dbkkx)
+   - Password: <same as OpenShift password>
 
 4. Click "Projects" in the left sidebar
 
@@ -131,16 +132,17 @@ Modern supply chain security solves this by requiring:
 
 ```
 1. Find the Quay URL in the credentials section
-2. Open Quay in a new browser tab:
-   https://quay-{cluster}.apps.cluster-{guid}.{domain}
+
+2. Open Quay in a new browser tab
+   Example: quay-7vlc4-1.apps.cluster-7vlc4.dyn.redhatworkshops.io
 
 3. Log in:
-   - Username: user-{guid}
-   - Password: {same as OpenShift password}
+   - Username: user-<your-guid> (e.g., user-dbkkx)
+   - Password: <same as OpenShift password>
 
 4. Verify you land on the Organizations page
-   - Your username should appear in the top-right corner (user-{guid})
-   - You should see one organization: "user-{guid}" with 0 repos
+   - Your username should appear in the top-right corner
+   - You should see the "tsf" organization (shared organization for the lab)
 
 5. Click "Repositories" in the left sidebar
    - Confirm the page is empty (no repositories yet - this is normal)
@@ -395,7 +397,7 @@ In the Showroom terminal, run this command to patch the
 IntegrationTestScenario to use a low-resource version:
 
 oc patch integrationtestscenario my-sample-app-enterprise-contract \
-  -n user-{guid}-tenant \
+  -n ${TENANT_NS} \
   --type='json' \
   -p='[
   {
@@ -416,7 +418,7 @@ integrationtestscenario.appstudio.redhat.com/my-sample-app-enterprise-contract p
 Verify the patch was applied:
 
 oc get integrationtestscenario my-sample-app-enterprise-contract \
-  -n user-{guid}-tenant \
+  -n ${TENANT_NS} \
   -o jsonpath='{.spec.resolverRef.params[*]}' | jq
 
 Expected output should show:
@@ -1659,7 +1661,7 @@ create a Component. This scenario runs policy checks on every build.
 ```
 # Get details
 oc get integrationtestscenario sample-app-default-integration \
-  -n user-{guid}-tenant -o yaml > integration-test-scenario.yaml
+  -n ${TENANT_NS} -o yaml > integration-test-scenario.yaml
 
 # View the spec
 cat integration-test-scenario.yaml
@@ -1671,7 +1673,7 @@ Key fields to note:
 
 # View just the resolver reference
 oc get integrationtestscenario sample-app-default-integration \
-  -n user-{guid}-tenant -o jsonpath='{.spec.resolverRef}' | jq .
+  -n ${TENANT_NS} -o jsonpath='{.spec.resolverRef}' | jq .
 
 Expected output (example):
 {
@@ -1803,7 +1805,7 @@ The Enterprise Contract policy is defined in a policy bundle.
 
 # Get the policy reference from the IntegrationTestScenario
 oc get integrationtestscenario sample-app-default-integration \
-  -n user-{guid}-tenant -o yaml | grep -A 10 "policy"
+  -n ${TENANT_NS} -o yaml | grep -A 10 "policy"
 
 Expected output (example):
   params:
