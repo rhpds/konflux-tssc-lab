@@ -2060,47 +2060,41 @@ In this lab:
 
 ---
 
-### Section 2: Create a ReleasePlan (4 min)
+### Section 2: Create Release Infrastructure (4 min)
 
-**Step 1: Create Enterprise Contract Policy and ReleasePlanAdmission**
+**Step 1: View Enterprise Contract Policy**
 
 ```
-First, create an Enterprise Contract policy that the managed pipeline will use to validate releases.
+The managed namespace has been pre-configured with an Enterprise Contract Policy
+that defines validation rules for releases.
 
-# Create the EC Policy
-cat <<EOF | oc apply -f -
-apiVersion: appstudio.redhat.com/v1alpha1
-kind: EnterpriseContractPolicy
-metadata:
-  name: default-policy
-  namespace: ${MANAGED_NS}
-spec:
-  description: Simple release policy - validates snapshot passed integration tests
-  name: Simple Release Policy
-  publicKey: k8s://openshift-pipelines/public-key
-  sources:
-  - name: Release Policy
-    policy:
-    - github.com/enterprise-contract/ec-policies//policy/lib
-    - github.com/enterprise-contract/ec-policies//policy/release
-    config:
-      include:
-      - attestation_type
-      - slsa_provenance_available
-EOF
-
-# Note: The publicKey field references k8s://openshift-pipelines/public-key (same as integration tests).
-# The managed pipeline uses keyless verification by passing OIDC parameters to the EC CLI,
-# which takes precedence over the publicKey field.
-
-# Verify it was created
+# View the Enterprise Contract Policy
 oc get enterprisecontractpolicy -n ${MANAGED_NS}
 
 Expected output:
 NAME             AGE
-default-policy   5s
+tenant-policy    <time>
 
-Now create the ReleasePlanAdmission which controls what can be released to production.
+# View the policy details
+oc get enterprisecontractpolicy tenant-policy -n ${MANAGED_NS} -o yaml
+
+You should see:
+- publicKey: k8s://openshift-pipelines/public-key (same as integration tests)
+- Policy sources from github.com/enterprise-contract/ec-policies
+- Required checks: attestation_type, slsa_provenance_available
+
+Note: The managed release pipeline uses keyless verification by passing OIDC 
+parameters to the EC CLI, which takes precedence over the publicKey field.
+```
+
+**Expected**: EC Policy is visible in managed namespace
+
+---
+
+**Step 2: Create ReleasePlanAdmission**
+
+```
+Now create a ReleasePlanAdmission which controls what can be released to production.
 
 # Create the ReleasePlanAdmission
 cat <<EOF | oc apply -f -
@@ -2113,7 +2107,7 @@ spec:
   applications:
     - my-sample-app
   origin: ${TENANT_NS}
-  policy: default-policy
+  policy: tenant-policy
   pipeline:
     pipelineRef:
       resolver: git
@@ -2135,7 +2129,7 @@ production-release                 ${TENANT_NS}
 
 This ReleasePlanAdmission:
 - Allows the my-sample-app Application from ${TENANT_NS} to be released
-- References the default-policy for validation
+- References the tenant-policy for validation
 - Uses our custom managed-release pipeline that validates and pushes images to Quay
 
 To view it in the Konflux UI:
@@ -2146,11 +2140,11 @@ To view it in the Konflux UI:
 5. You should see "production-release" listed
 ```
 
-**Expected**: EC Policy and ReleasePlanAdmission are created and visible in UI
+**Expected**: ReleasePlanAdmission is created and visible
 
 ---
 
-**Step 2: Create a ReleasePlan via UI**
+**Step 3: Create a ReleasePlan via UI**
 
 ```
 Now create a ReleasePlan in your tenant namespace that references the ReleasePlanAdmission.
@@ -2202,7 +2196,7 @@ Expected output:
 
 ---
 
-**Step 3: View ReleasePlan Configuration**
+**Step 4: View ReleasePlan Configuration**
 
 ```
 In the Konflux UI:
@@ -2227,7 +2221,7 @@ to the production namespace (${MANAGED_NS})
 
 ### Section 3: Trigger a Release (3 min)
 
-**Step 4: Trigger a Release via Konflux UI**
+**Step 5: Trigger a Release via Konflux UI**
 
 ```
 Now we'll trigger a release using the Konflux web UI.
@@ -2269,7 +2263,7 @@ You should see:
 
 ### Section 4: Monitor Release Execution (5 min)
 
-**Step 5: Watch Release Status in UI**
+**Step 6: Watch Release Status in UI**
 
 ```
 After creating the Release, you'll be on the Release details page.
@@ -2298,7 +2292,7 @@ Press Ctrl+C to stop watching after status shows "Succeeded"
 
 ---
 
-**Step 6: View Release Pipeline Execution**
+**Step 7: View Release Pipeline Execution**
 
 ```
 In the Konflux UI, on the Release details page:
