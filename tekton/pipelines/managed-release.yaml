@@ -74,6 +74,33 @@ spec:
                 cpu: 100m
                 memory: 128Mi
 
+          - name: initialize-tuf
+            image: quay.io/enterprise-contract/ec-cli:latest
+            script: |
+              #!/bin/bash
+              set -e
+
+              echo "Initializing TUF for signature verification..."
+
+              # Get TUF mirror from trusted-artifact-signer ConfigMap
+              TUF_MIRROR=$(oc get configmap trusted-artifact-signer-public-info \
+                -n trusted-artifact-signer \
+                -o jsonpath='{.data.tufMirror}' 2>/dev/null || echo "")
+
+              if [ -n "$TUF_MIRROR" ]; then
+                echo "TUF Mirror: ${TUF_MIRROR}"
+                cosign initialize --mirror="${TUF_MIRROR}" --root="${TUF_MIRROR}/root.json" || echo "TUF init failed, continuing..."
+              else
+                echo "No TUF mirror found, skipping initialization"
+              fi
+            computeResources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                cpu: 100m
+                memory: 128Mi
+
           - name: validate
             image: quay.io/enterprise-contract/ec-cli:latest
             script: |
@@ -94,7 +121,7 @@ spec:
               echo "Policy: ${POLICY_NAME}"
               echo ""
 
-              # Run EC validate
+              # Run EC validate (ignore-rekor since default Konflux doesn't use it)
               ec validate image \
                 --image "${IMAGE}" \
                 --policy /tmp/policy.json \
