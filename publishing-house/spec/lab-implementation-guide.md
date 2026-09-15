@@ -1801,29 +1801,42 @@ Success: 5 checks passed, 0 failures
 
 ---
 
-**Step 7: Inspect Policy Bundle**
+**Step 7: Inspect Policy Configuration**
 
 ```
-The Enterprise Contract policy is defined in a policy bundle.
+The Enterprise Contract policy is defined in an EnterpriseContractPolicy resource
+that was deployed to the cluster. This policy was customized for the lab environment.
 
-# Get the policy reference from the IntegrationTestScenario
-oc get integrationtestscenario my-sample-app-enterprise-contract \
-  -n ${TENANT_NS} -o yaml | grep -A 10 "policy"
+# View the lab policy
+oc get enterprisecontractpolicy -n enterprise-contract-service
 
-Expected output (example):
-  params:
-    - name: POLICY_CONFIGURATION
-      value: "github.com/enterprise-contract/config//default"
+Expected output:
+NAME          AGE
+lab-policy    2h
 
-This points to a policy bundle that defines:
-- Required attestations (SLSA provenance, SBOM)
-- Signature requirements
-- Vulnerability thresholds
-- Approved base images
-- Other supply chain rules
+# Get policy details
+oc get enterprisecontractpolicy lab-policy \
+  -n enterprise-contract-service -o yaml | grep -A 15 "spec:"
+
+Expected output (partial):
+spec:
+  description: Lab policy with custom trusted tasks
+  name: Lab
+  publicKey: k8s://openshift-pipelines/public-key
+  sources:
+  - name: Lab
+    policy:
+    - oci::quay.io/conforma/release-policy:latest@sha256:...
+    data:
+    - github.com/rhpds/konflux-tssc-lab.git//tekton/data?ref=main
+
+This policy:
+- References our custom trusted task rules (from this repo)
+- Uses the standard Conforma release policy
+- Excludes certain checks not relevant for the lab (hermetic builds, etc.)
 ```
 
-**Expected**: Policy bundle reference is identified
+**Expected**: Lab-specific policy configuration is visible
 
 ---
 
