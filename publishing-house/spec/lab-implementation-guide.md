@@ -982,17 +982,19 @@ SPDX-2.3
 # Count total packages in the SBOM
 jq '.packages | length' sbom.json
 
-Expected: A number (e.g., 7-10 packages for this simple Go app)
+Expected: 5
 
 # List all package names and versions
 jq -r '.packages[] | "\(.name) - \(.versionInfo)"' sbom.json
 
-Expected output (example):
-sample-component-golang - sha256:cc2cf1...
-go - 1.27.0-X:nodwarf5
+Expected output:
+sample-component-golang_amd64 - 684b66a2c6486895f44045e7e5869a59c8100135
+command-line-arguments - UNKNOWN
 golang.org/x/text - v0.41.0
-command-line-arguments - v1.0.0
-...
+stdlib - go1.27.0-X:nodwarf5
+go - 1.27.0
+
+Note: The commit SHA in sample-component-golang_amd64 will match your git commit.
 
 # Find packages with licenses
 jq -r '.packages[] | select(.licenseDeclared) | 
