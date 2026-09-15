@@ -8,9 +8,6 @@ ocp4_workload_konflux_tssc_tenant_namespace: "{{ ocp4_workload_konflux_tssc_tena
 # Lab user password (must be provided for Quay access)
 ocp4_workload_konflux_tssc_tenant_password: ""
 
-# Quay registry host (must be provided)
-ocp4_workload_konflux_tssc_quay_host: ""
-
 # Workload control
 ocp4_workload_konflux_tssc_tenant_become_override: false
 ocp4_workload_konflux_tssc_tenant_silent: false

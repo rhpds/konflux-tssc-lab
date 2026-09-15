@@ -31,6 +31,18 @@
           kind: User
           name: "{{ ocp4_workload_konflux_tssc_tenant_user }}"
 
+- name: Get Quay registry host from route
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: quay-quay
+    namespace: quay-enterprise
+  register: r_quay_route
+
+- name: Set Quay registry host fact
+  ansible.builtin.set_fact:
+    quay_registry_host: "{{ r_quay_route.resources[0].spec.host }}"
+
 - name: Create Quay push secret in managed namespace for release pipeline
   kubernetes.core.k8s:
     state: present
@@ -45,7 +57,7 @@
         .dockerconfigjson: |
           {
             "auths": {
-              "{{ ocp4_workload_konflux_tssc_quay_host }}": {
+              "{{ quay_registry_host }}": {
                 "auth": "{{ (ocp4_workload_konflux_tssc_tenant_user + ':' + ocp4_workload_konflux_tssc_tenant_password) | b64encode }}"
               }
             }
