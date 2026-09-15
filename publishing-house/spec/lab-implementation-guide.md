@@ -1968,23 +1968,33 @@ You'll see the Snapshot Overview tab showing:
 **Step 10: Verify Snapshot Passed Policy Checks**
 
 ```
-# Check if Snapshot passed integration tests via CLI
-oc get $LATEST_SNAPSHOT -n ${TENANT_NS} \
-  -o jsonpath='{.status.conditions[?(@.type=="IntegrationTestSucceeded")]}' | jq .
+# View the Snapshot status to see if it passed integration tests
+oc get $LATEST_SNAPSHOT -n ${TENANT_NS} -o yaml | grep -A 20 "status:"
 
-Expected output:
-{
-  "type": "IntegrationTestSucceeded",
-  "status": "True",
-  "reason": "Succeeded",
-  "message": "Integration test succeeded",
-  "lastTransitionTime": "2026-09-14T09:36:30Z"
-}
+Expected output (partial):
+status:
+  conditions:
+  - lastTransitionTime: "2026-09-14T20:01:30Z"
+    message: ""
+    reason: Succeeded
+    status: "True"
+    type: AppStudioTestSucceeded
+  - lastTransitionTime: "2026-09-14T20:01:30Z"
+    message: ""
+    reason: Succeeded
+    status: "True"
+    type: AppStudioIntegrationStatusSucceeded
 
-This indicates the Snapshot passed policy checks and can be released.
+Look for conditions with status: "True" and type containing "Test" or "Integration".
+This indicates the Snapshot passed policy checks.
+
+# Alternative: Check just the condition types
+oc get $LATEST_SNAPSHOT -n ${TENANT_NS} -o jsonpath='{.status.conditions[*].type}'
+
+Expected: AppStudioTestSucceeded AppStudioIntegrationStatusSucceeded
 ```
 
-**Expected**: Snapshot conditions show IntegrationTestSucceeded with status True
+**Expected**: Snapshot status shows test conditions passed
 
 ---
 
