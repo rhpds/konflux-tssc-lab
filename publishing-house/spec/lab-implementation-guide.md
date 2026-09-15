@@ -2147,110 +2147,100 @@ Key fields:
 
 ### Section 3: Trigger a Release (3 min)
 
-**Step 4: Get the Latest Snapshot from Merged Code**
+**Step 4: Create a Release via Konflux UI**
 
 ```
-# Konflux creates Snapshots for both:
-# 1. Pull Requests (pre-merge validation) - event-type: "Merge_Request"
-# 2. After Merge (actual merged code) - event-type: "push"
-#
-# For release, we want the Snapshot from AFTER the merge, not the pre-merge validation.
+Now we'll trigger a release using the Konflux web UI.
 
-# List all Snapshots to see them
-oc get snapshots -n ${TENANT_NS} --sort-by=.metadata.creationTimestamp
+1. Go to the Konflux console: https://console-openshift-console.${APPS_DOMAIN}/preview/application-pipeline
 
-You'll see Snapshots from both pre-merge (pull request) and post-merge (push) builds.
+2. Select namespace: ${TENANT_NS}
 
-# Get the latest Snapshot from merged code (event-type: "push")
-SNAPSHOT_NAME=$(oc get snapshots -n ${TENANT_NS} -o json | \
-  jq -r '[.items[] | select(.metadata.labels["pac.test.appstudio.openshift.io/event-type"] == "push")] | 
-  sort_by(.metadata.creationTimestamp) | last | .metadata.name')
+3. Click "Applications" → "my-sample-app"
 
-echo "Releasing Snapshot: $SNAPSHOT_NAME"
+4. Click the "Snapshots" tab
 
-# Verify this is from merged code (not a pre-merge pull request)
-oc get snapshot $SNAPSHOT_NAME -n ${TENANT_NS} \
-  -o jsonpath='{.metadata.labels.pac\.test\.appstudio\.openshift\.io/event-type}'
+5. Look for the most recent Snapshot that was triggered by a "push" event (after merge)
+   - The "Triggered by" field will show the merge commit message
+   - Example: "Merge branch 'konflux-sample-component-golang' into 'main'"
+   - This is different from pull request Snapshots which show "Edit ... yaml"
 
-Expected output: push (meaning this Snapshot was created AFTER the merge)
+6. Click on that Snapshot to open it
+
+7. Click the "Actions" button (top right)
+
+8. Select "Release" from the dropdown menu
+
+9. In the Release dialog:
+   - Release plan: Select "production-release"
+   - The Snapshot is already pre-selected
+   - Click "Release"
+
+10. You'll be taken to the Releases view showing your newly created Release
+
+You should see:
+- Release name: production-release-<timestamp>
+- Status: Starting / Running
+- ReleasePlan: production-release
+- Snapshot: The Snapshot you selected
 ```
 
-**Expected**: Snapshot from merged code is obtained
-
----
-
-**Step 5: Create a Release**
-
-```
-# Create Release object referencing the push Snapshot
-cat <<EOF | oc apply -f -
-apiVersion: appstudio.redhat.com/v1alpha1
-kind: Release
-metadata:
-  name: production-release-$(date +%Y%m%d-%H%M%S)
-  namespace: ${TENANT_NS}
-spec:
-  releasePlan: production-release
-  snapshot: $SNAPSHOT_NAME
-EOF
-
-# Verify Release was created
-oc get releases -n ${TENANT_NS}
-
-Expected output:
-NAME                             RELEASPLAN           SNAPSHOT                        AGE
-production-release-20260914...   production-release   my-sample-app-20260914-...      5s
-```
-
-**Expected**: Release object is created
+**Expected**: Release is created via the UI
 
 ---
 
 ### Section 4: Monitor Release Execution (5 min)
 
-**Step 6: Watch Release Status**
+**Step 5: Watch Release Status in UI**
 
 ```
-# Get the Release name
-RELEASE_NAME=$(oc get releases -n ${TENANT_NS} \
-  --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
+After creating the Release, you'll be on the Release details page.
 
-# Watch Release status
-oc get release $RELEASE_NAME -n ${TENANT_NS} -w
+The page shows:
+- Release name: production-release-<timestamp>
+- Status: Will progress from "Starting" → "Running" → "Succeeded"
+- Namespace: ${TENANT_NS}
+- ReleasePlan: production-release
+- Snapshot: The Snapshot you selected
+- Target: ${MANAGED_NS} (the production namespace)
 
-Expected status progression:
-PHASE
-Pending
-Running
-Succeeded
+Wait for the Status to show "Succeeded" (typically 2-5 minutes)
+
+You can also:
+1. Click "View logs" to see the release pipeline execution
+2. Monitor the progress in real-time
+
+Or use CLI to watch:
+oc get releases -n ${TENANT_NS} -w
 
 Press Ctrl+C to stop watching after status shows "Succeeded"
-
-Typical execution time: 2-5 minutes
 ```
 
 **Expected**: Release transitions to Succeeded
 
 ---
 
-**Step 7: Find the Release PipelineRun**
+**Step 6: View Release Pipeline Execution**
 
 ```
+In the Konflux UI, on the Release details page:
+
+1. Scroll down to see the "Pipeline runs" section
+
+2. You'll see the release PipelineRun that was triggered
+   - Name: Usually starts with the release name
+   - Status: Should show "Succeeded" when complete
+   - Duration: Typically 2-5 minutes
+
+3. Click on the PipelineRun to view its details and logs
+
+You can also check via CLI:
 # The Release triggers a PipelineRun in the managed namespace
 oc get pipelineruns -n ${MANAGED_NS}
 
 Expected output:
 NAME                              SUCCEEDED   REASON      AGE
-release-production-release-abc    True        Succeeded   2m
-
-# View PipelineRun details
-RELEASE_RUN=$(oc get pipelineruns -n ${MANAGED_NS} \
-  --sort-by=.metadata.creationTimestamp -o name | tail -1)
-
-oc describe $RELEASE_RUN -n ${MANAGED_NS}
-
-# View logs
-oc logs $RELEASE_RUN -n ${MANAGED_NS} --all-containers
+release-production-release-...    True        Succeeded   2m
 ```
 
 **Expected**: Release PipelineRun completed successfully
