@@ -1926,25 +1926,40 @@ This is how Conforma blocks insecure artifacts from reaching production.
 
 ---
 
-**Step 10: Verify Snapshot is Releasable**
+**Step 10: View Snapshot in Konflux UI**
 
 ```
-# A Snapshot is releasable if integration tests passed
-oc get $LATEST_SNAPSHOT -n ${TENANT_NS} \
-  -o jsonpath='{.metadata.labels}' | jq .
+You can view the Snapshot details in the Konflux web UI to see:
+- Vulnerabilities scan results
+- Component builds included in the snapshot
+- Container image references
+- Git commit that triggered the build
 
-Expected: You should see a label indicating release readiness
-(exact label name may vary by Konflux version)
+# Navigate in the UI
+1. Go to the Konflux console: https://console-openshift-console.${APPS_DOMAIN}/preview/application-pipeline
+2. Select namespace: ${TENANT_NS}
+3. Click "Applications" → "my-sample-app"
+4. Click "Snapshots" tab
+5. Click on the most recent Snapshot
 
-Example:
-{
-  "appstudio.openshift.io/snapshot-release-ready": "true"
-}
+You'll see:
+- Snapshot name (e.g., my-sample-app-20260914-093615-000)
+- Triggered by commit and commit SHA
+- Vulnerabilities: 0 critical, 0 high, 0 medium, 0 low, 0 unknown
+- Components section showing:
+  - Component name: sample-component-golang
+  - Container image: ${QUAY_HOST}/tsf/${TENANT_NS}/sample-component-golang@sha256:...
+  - Git URL: ${LAB_USER}/sample-component-golang (GitLab repository path)
+  - Revision: commit SHA
 
-This label signals that the Snapshot passed policy checks and can be released.
+# Check if Snapshot is releasable via CLI
+oc get $LATEST_SNAPSHOT -n ${TENANT_NS} -o yaml | grep -A 5 "conditions:"
+
+Expected: Look for IntegrationTestSucceeded with status: "True"
+This indicates the Snapshot passed policy checks and can be released.
 ```
 
-**Expected**: Snapshot is marked as releasable
+**Expected**: Snapshot shows vulnerability scan and integration test results
 
 ---
 
