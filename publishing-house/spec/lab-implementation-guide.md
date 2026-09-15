@@ -1369,7 +1369,7 @@ https://tekton.dev/chains/v2
 # Count total materials (task images + git repo)
 jq '.predicate.materials | length' pipeline-provenance.json
 
-Expected: ~30 items (task container images + git repository)
+Expected: ~20 items (task container images + git repository)
 
 # Extract just the git repository
 jq -r '.predicate.materials[] | select(.uri | startswith("git+"))' pipeline-provenance.json
