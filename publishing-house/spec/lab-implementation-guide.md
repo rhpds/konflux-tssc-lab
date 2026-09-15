@@ -2158,19 +2158,22 @@ oc get snapshots -n ${TENANT_NS} --sort-by=.metadata.creationTimestamp
 
 You'll see Snapshots from both pull requests and pushes.
 
+# Check what labels exist on Snapshots to identify push vs pull request
+oc get snapshots -n ${TENANT_NS} -o json | jq '.items[0].metadata.labels'
+
 # Get the latest Snapshot created by a push build
-# These are created by "on-push" PipelineRuns, not "on-pull-request" PipelineRuns
+# Filter by annotation that references the on-push PipelineRun
 SNAPSHOT_NAME=$(oc get snapshots -n ${TENANT_NS} -o json | \
-  jq -r '[.items[] | select(.metadata.labels["build.appstudio.redhat.com/pipeline"] == "sample-component-golang-on-push")] | 
-  sort_by(.metadata.creationTimestamp) | last | .metadata.name')
+  jq -r '[.items[] | select(.metadata.annotations["build.appstudio.openshift.io/pipeline_run_name"] | 
+  contains("on-push"))] | sort_by(.metadata.creationTimestamp) | last | .metadata.name')
 
 echo "Releasing Snapshot: $SNAPSHOT_NAME"
 
 # Verify this is from a push build
 oc get snapshot $SNAPSHOT_NAME -n ${TENANT_NS} \
-  -o jsonpath='{.metadata.labels.build\.appstudio\.redhat\.com/pipeline}'
+  -o jsonpath='{.metadata.annotations.build\.appstudio\.openshift\.io/pipeline_run_name}'
 
-Expected output: sample-component-golang-on-push
+Expected output: sample-component-golang-on-push-xxxxx
 ```
 
 **Expected**: Snapshot from push build is obtained
