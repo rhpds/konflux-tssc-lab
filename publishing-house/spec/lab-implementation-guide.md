@@ -1645,14 +1645,15 @@ This proves:
 oc get integrationtestscenarios -n ${TENANT_NS}
 
 Expected output:
-NAME                              APPLICATION      AGE
-sample-app-default-integration    my-sample-app    15m
+NAME                                 APPLICATION      AGE
+my-sample-app-enterprise-contract    my-sample-app    15m
 
 Note: Konflux auto-creates a default IntegrationTestScenario when you 
-create a Component. This scenario runs policy checks on every build.
+create a Component. This scenario runs Enterprise Contract policy checks 
+on every build.
 ```
 
-**Expected**: Default IntegrationTestScenario exists
+**Expected**: IntegrationTestScenario exists for Enterprise Contract validation
 
 ---
 
@@ -1660,7 +1661,7 @@ create a Component. This scenario runs policy checks on every build.
 
 ```
 # Get details
-oc get integrationtestscenario sample-app-default-integration \
+oc get integrationtestscenario my-sample-app-enterprise-contract \
   -n ${TENANT_NS} -o yaml > integration-test-scenario.yaml
 
 # View the spec
@@ -1672,7 +1673,7 @@ Key fields to note:
 - spec.params: Parameters passed to the test pipeline
 
 # View just the resolver reference
-oc get integrationtestscenario sample-app-default-integration \
+oc get integrationtestscenario my-sample-app-enterprise-contract \
   -n ${TENANT_NS} -o jsonpath='{.spec.resolverRef}' | jq .
 
 Expected output (example):
@@ -1804,7 +1805,7 @@ Success: 5 checks passed, 0 failures
 The Enterprise Contract policy is defined in a policy bundle.
 
 # Get the policy reference from the IntegrationTestScenario
-oc get integrationtestscenario sample-app-default-integration \
+oc get integrationtestscenario my-sample-app-enterprise-contract \
   -n ${TENANT_NS} -o yaml | grep -A 10 "policy"
 
 Expected output (example):
