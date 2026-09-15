@@ -1927,11 +1927,38 @@ You'll see the Snapshot Overview tab showing:
   - Git URL: ${LAB_USER}/sample-component-golang (GitLab repository path)
   - Revision: commit SHA
 
-6. Click the "Pipeline runs" tab to see:
-   - Build PipelineRuns (sample-component-golang-on-push)
-   - Integration test PipelineRuns (my-sample-app-enterprise-contract)
+6. Click the "Pipeline runs" tab to see a table of all PipelineRuns:
+   
+   Columns:
+   - Name: PipelineRun name
+   - Started: Timestamp
+   - Fixable vulnerabilities: Scan results (for Build type)
+   - Duration: How long the pipeline took
+   - Status: Succeeded or Failed
+   - Type: "Build" or "Test"
+   - Trigger: What triggered the run
+   - Reference: Commit SHA
+   
+   You'll see:
+   - Build type: sample-component-golang-on-pull-request-* (Succeeded)
+   - Test type: my-sample-app-enterprise-contract-* (Succeeded)
+   
+   The Test type runs are the integration tests (Enterprise Contract policy checks).
 
-7. Click on an integration test PipelineRun to view policy check logs in the UI
+7. Click on an integration test PipelineRun (Type: Test) to view details:
+   
+   You'll see:
+   - Pipeline graph: collect-keyless-params → verify (both tasks with green checkmarks)
+   - Status: Succeeded
+   - Pipeline: enterprise-contract-low-resources
+   - Snapshot: my-sample-app-20260914-093615-000
+   - Application: my-sample-app
+   - Component: sample-component-golang
+   - Commit: commit SHA
+   - Source: ${LAB_USER}/sample-component-golang
+   - Integration test: my-sample-app-enterprise-contract
+   
+8. Optional: Click on the "verify" task in the pipeline graph to view policy check logs
 ```
 
 **Expected**: Snapshot shows vulnerability scan results and links to pipeline runs
