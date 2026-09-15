@@ -1135,7 +1135,7 @@ Let's reveal them to see what Konflux attached to your image.
 
 2. On the far right of the tag row, find the "Pull" column with a download icon (⬇️)
 
-3. Click the download icon
+3. Hover your mouse over the download icon
 
 4. A popup menu appears with options:
    - Fetch Tag
