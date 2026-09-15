@@ -2164,42 +2164,40 @@ to the production namespace (${MANAGED_NS})
 
 ### Section 3: Trigger a Release (3 min)
 
-**Step 4: Create a Release via Konflux UI**
+**Step 4: Trigger a Release via Konflux UI**
 
 ```
 Now we'll trigger a release using the Konflux web UI.
 
-1. Go to the Konflux console: ${KONFLUX_UI}
+1. In the Konflux UI, make sure you're in the tenant namespace: ${TENANT_NS}
 
-2. Select namespace: ${TENANT_NS}
+2. Click "Applications" → "my-sample-app"
 
-3. Click "Applications" → "my-sample-app"
+3. Click the "Snapshots" tab
 
-4. Click the "Snapshots" tab
+4. You'll see a list of Snapshots. Look at the "Commit message" column:
+   
+   - Pull request Snapshots show: "Edit sample-component-golang-pull-request.yaml"
+   - Push Snapshots (after merge) show: "Merge branch 'konflux-sample-component-golang' into 'main'"
+   
+   We want to release the PUSH Snapshot (the one with the merge commit message).
 
-5. Look for the most recent Snapshot that was triggered by a "push" event (after merge)
-   - The "Triggered by" field will show the merge commit message
-   - Example: "Merge branch 'konflux-sample-component-golang' into 'main'"
-   - This is different from pull request Snapshots which show "Edit ... yaml"
+5. Click the "..." menu on the right side of the Snapshot row with the merge commit
 
-6. Click on that Snapshot to open it
+6. Select "Trigger release" from the dropdown menu
 
-7. Click the "Actions" button (top right)
-
-8. Select "Release" from the dropdown menu
-
-9. In the Release dialog:
+7. In the Release dialog:
    - Release plan: Select "production-release"
    - The Snapshot is already pre-selected
-   - Click "Release"
+   - Click "Trigger"
 
-10. You'll be taken to the Releases view showing your newly created Release
+8. You'll be taken to the Releases view showing your newly created Release
 
 You should see:
 - Release name: production-release-<timestamp>
 - Status: Starting / Running
-- ReleasePlan: production-release
-- Snapshot: The Snapshot you selected
+- Release plan: production-release
+- Snapshot: The Snapshot you selected (with merge commit)
 ```
 
 **Expected**: Release is created via the UI
