@@ -1676,18 +1676,20 @@ Key fields to note:
 oc get integrationtestscenario my-sample-app-enterprise-contract \
   -n ${TENANT_NS} -o jsonpath='{.spec.resolverRef}' | jq .
 
-Expected output (example):
+Expected output:
 {
   "resolver": "git",
+  "resourceKind": "pipeline",
   "params": [
-    {"name": "url", "value": "https://github.com/konflux-ci/integration-examples"},
+    {"name": "url", "value": "https://github.com/rhpds/konflux-tssc-lab.git"},
     {"name": "revision", "value": "main"},
-    {"name": "pathInRepo", "value": "pipelines/enterprise-contract.yaml"}
+    {"name": "pathInRepo", "value": "tekton/pipelines/enterprise-contract-low-resources.yaml"}
   ]
 }
 
-This means the integration test uses an Enterprise Contract (Conforma) 
-pipeline from the Konflux integration examples repository.
+Note: The integration-test-patcher automatically updates new IntegrationTestScenarios
+to use our custom low-resource Enterprise Contract pipeline instead of the default
+Konflux pipeline. This pipeline has reduced CPU limits for lab environments.
 ```
 
 **Expected**: IntegrationTestScenario references a policy pipeline
