@@ -90,6 +90,8 @@ spec:
           - name: validate
             image: quay.io/conforma/cli@sha256:b87bab27cdbb6abdc9e41106629a5ae8c5d04c1e2d859d67bc4fc76c5f7f277a
             env:
+              - name: HOME
+                value: /tekton/home
               - name: OIDC_ISSUER
                 value: "$(tasks.collect-keyless-params.results.defaultOIDCIssuer)"
               - name: CERTIFICATE_IDENTITY
