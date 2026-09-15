@@ -1159,23 +1159,30 @@ Let's reveal them to see what Konflux attached to your image.
 ```
 In the terminal:
 
-# Set your image reference (replace {digest} with the actual digest from Module 03)
-export IMAGE="${QUAY_HOST}/tsf/user-${GUID}-tenant/sample-component-golang@sha256:{digest}"
+# Get the image digest from the on-push pipeline
+IMAGE_DIGEST=$(oc get pipelinerun -n ${TENANT_NS} \
+  --sort-by=.metadata.creationTimestamp -o json | \
+  jq -r '.items[] | select(.metadata.name | contains("on-push")) | 
+  .status.results[] | select(.name == "IMAGE_DIGEST") | .value' | tail -1)
 
-# Verify environment variables (REKOR_URL, FULCIO_URL, TUF_URL were set in Module 01)
-echo "Image: ${IMAGE}"
+# Construct full image reference with digest
+export IMAGE="${QUAY_HOST}/tsf/${TENANT_NS}/sample-component-golang@${IMAGE_DIGEST}"
+
+# Verify environment variables
+echo "Image digest: ${IMAGE_DIGEST}"
+echo "Full image reference: ${IMAGE}"
 echo "Rekor: ${REKOR_URL}"
 echo "Fulcio: ${FULCIO_URL}"
 echo "TUF: ${TUF_URL}"
 
 Expected output:
-Image: quay-7vlc4-1.apps.cluster-7vlc4.dyn.redhatworkshops.io/tsf/user-dbkkx-tenant/sample-component-golang@sha256:8e5ebb...
+Image digest: sha256:8e5ebb578615ae314fb8ed3e37fac0232168e4de4e12a582e23e1a2d2a06c5d6
+Full image reference: quay-7vlc4-1.apps.cluster-7vlc4.dyn.redhatworkshops.io/tsf/user-dbkkx-tenant/sample-component-golang@sha256:8e5ebb...
 Rekor: https://rekor-server-tsf-tas.apps.cluster-7vlc4.dyn.redhatworkshops.io
 Fulcio: https://fulcio-server-tsf-tas.apps.cluster-7vlc4.dyn.redhatworkshops.io
 TUF: https://tuf-tsf-tas.apps.cluster-7vlc4.dyn.redhatworkshops.io
 
-Note: Replace {digest} with the full sha256 digest you copied in Module 03.
-The repository path is tsf/user-{guid}-tenant/sample-component-golang (shared org).
+Note: The digest is automatically extracted from the latest on-push PipelineRun.
 ```
 
 **Expected**: IMAGE variable is set with your actual image digest
