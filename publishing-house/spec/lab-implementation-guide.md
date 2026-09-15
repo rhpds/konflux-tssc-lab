@@ -1838,7 +1838,7 @@ lab-policy    2h
 
 # Get policy details
 oc get enterprisecontractpolicy lab-policy \
-  -n enterprise-contract-service -o yaml | grep -A 15 "spec:"
+  -n enterprise-contract-service -o yaml | grep -A 25 "spec:"
 
 Expected output (partial):
 spec:
@@ -1857,11 +1857,17 @@ spec:
       - sbom_spdx.hermeto_attribution_required
       include:
       - '@redhat'
+    data:
+    - github.com/rhpds/konflux-tssc-lab.git//tekton/data?ref=main
+    name: Lab
+    policy:
+    - oci::quay.io/conforma/release-policy:latest@sha256:10de4ff...
 
 This policy:
-- Uses the standard Red Hat policy rules (@redhat)
+- Uses the standard Red Hat Conforma release policy (OCI image)
+- Includes only @redhat rules
 - Excludes checks not relevant for the lab (hermetic builds, RPM signatures, etc.)
-- References custom trusted tasks (quay.io/rhpds/pipeline-docker-build-lab)
+- Loads custom data from this repo's tekton/data directory
 - Uses the cluster's public key for signature verification
 ```
 
