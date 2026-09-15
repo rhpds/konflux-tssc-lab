@@ -1668,9 +1668,8 @@ oc get integrationtestscenario my-sample-app-enterprise-contract \
 cat integration-test-scenario.yaml
 
 Key fields to note:
-- spec.application: Links to your Application
-- spec.resolverRef: Points to the test pipeline definition
-- spec.params: Parameters passed to the test pipeline
+- spec.application: Links to your Application (my-sample-app)
+- spec.resolverRef: Points to the test pipeline definition (patched by integration-test-patcher)
 
 # View just the resolver reference
 oc get integrationtestscenario my-sample-app-enterprise-contract \
