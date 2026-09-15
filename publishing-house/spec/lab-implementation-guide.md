@@ -2278,11 +2278,10 @@ The page shows:
 
 Wait for the Status to show "Succeeded" (typically 2-5 minutes)
 
-You can also:
-1. Click "View logs" to see the release pipeline execution
-2. Monitor the progress in real-time
+Note: The Konflux UI does not auto-refresh. You may need to manually refresh 
+your browser (F5 or Ctrl+R) to see status updates and pipeline runs.
 
-Or use CLI to watch:
+You can also use CLI to watch:
 oc get releases -n ${TENANT_NS} -w
 
 Press Ctrl+C to stop watching after status shows "Succeeded"
@@ -2298,6 +2297,9 @@ Press Ctrl+C to stop watching after status shows "Succeeded"
 In the Konflux UI, on the Release details page:
 
 1. Scroll down to see the "Pipeline runs" section
+   
+   Note: If you don't see any pipeline runs, refresh your browser (F5 or Ctrl+R).
+   The UI does not auto-refresh.
 
 2. You'll see the release PipelineRun that was triggered
    - Name: Usually starts with the release name
