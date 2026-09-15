@@ -74,6 +74,23 @@
     - r_sa_patch.rc != 0
     - '"already exists" not in r_sa_patch.stderr'
 
+- name: Create dummy public key secret for EC policy
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: dummy-public-key
+        namespace: "{{ ocp4_workload_konflux_tssc_tenant_user }}-managed"
+      type: Opaque
+      stringData:
+        cosign.pub: |
+          -----BEGIN PUBLIC KEY-----
+          MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEDummyKeyNotReal1234567890abc
+          defghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890+/==
+          -----END PUBLIC KEY-----
+
 - name: Create simple Enterprise Contract policy for releases
   kubernetes.core.k8s:
     state: present
@@ -86,7 +103,7 @@
       spec:
         description: Simple release policy for lab environment
         name: Lab Release Policy
-        publicKey: ""
+        publicKey: "k8s://{{ ocp4_workload_konflux_tssc_tenant_user }}-managed/dummy-public-key"
         sources:
         - name: Release Policy
           policy:

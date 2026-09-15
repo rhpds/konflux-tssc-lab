@@ -2065,7 +2065,24 @@ In this lab:
 **Step 1: Create Enterprise Contract Policy and ReleasePlanAdmission**
 
 ```
-First, create an Enterprise Contract policy that the managed pipeline will use to validate releases.
+First, create a dummy public key secret and an Enterprise Contract policy that the 
+managed pipeline will use to validate releases.
+
+# Create a dummy public key secret (required by EC schema but not used for verification)
+cat <<EOF | oc apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dummy-public-key
+  namespace: ${MANAGED_NS}
+type: Opaque
+stringData:
+  cosign.pub: |
+    -----BEGIN PUBLIC KEY-----
+    MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEDummyKeyNotReal1234567890abc
+    defghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890+/==
+    -----END PUBLIC KEY-----
+EOF
 
 # Create the EC Policy
 cat <<EOF | oc apply -f -
@@ -2077,7 +2094,7 @@ metadata:
 spec:
   description: Simple release policy - validates snapshot passed integration tests
   name: Simple Release Policy
-  publicKey: ""
+  publicKey: k8s://${MANAGED_NS}/dummy-public-key
   sources:
   - name: Release Policy
     policy:
@@ -2089,9 +2106,9 @@ spec:
       - slsa_provenance_available
 EOF
 
-# Note: publicKey is set to empty string ("") because we use keyless verification.
-# The managed pipeline passes OIDC issuer and certificate identity parameters
-# to EC via the collect-keyless-params task.
+# Note: The publicKey references a dummy secret to satisfy EC schema validation.
+# Actual signature verification uses keyless verification with OIDC parameters
+# passed to the EC CLI via the managed pipeline.
 
 # Verify it was created
 oc get enterprisecontractpolicy -n ${MANAGED_NS}
