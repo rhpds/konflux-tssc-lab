@@ -1842,20 +1842,27 @@ oc get enterprisecontractpolicy lab-policy \
 
 Expected output (partial):
 spec:
-  description: Lab policy with custom trusted tasks
+  description: Lab policy with custom trusted tasks from quay.io/rhpds/pipeline-docker-build-lab
   name: Lab
   publicKey: k8s://openshift-pipelines/public-key
   sources:
-  - name: Lab
-    policy:
-    - oci::quay.io/conforma/release-policy:latest@sha256:...
-    data:
-    - github.com/rhpds/konflux-tssc-lab.git//tekton/data?ref=main
+  - config:
+      exclude:
+      - hermetic_task
+      - source_image
+      - rpm_repos
+      - labels.required
+      - rpm_signature.rule_data_provided
+      - base_image_registries.allowed_registries_provided
+      - sbom_spdx.hermeto_attribution_required
+      include:
+      - '@redhat'
 
 This policy:
-- References our custom trusted task rules (from this repo)
-- Uses the standard Conforma release policy
-- Excludes certain checks not relevant for the lab (hermetic builds, etc.)
+- Uses the standard Red Hat policy rules (@redhat)
+- Excludes checks not relevant for the lab (hermetic builds, RPM signatures, etc.)
+- References custom trusted tasks (quay.io/rhpds/pipeline-docker-build-lab)
+- Uses the cluster's public key for signature verification
 ```
 
 **Expected**: Lab-specific policy configuration is visible
