@@ -2118,8 +2118,7 @@ To view it in the Konflux UI:
 ```
 Now create a ReleasePlan in your tenant namespace that references the ReleasePlanAdmission.
 
-1. In the Konflux UI, switch to your tenant namespace: ${TENANT_NS}
-   (Use the namespace dropdown at the top)
+1. In the Konflux UI, make sure you're in namespace: ${TENANT_NS}
 
 2. Click "Releases" in the left navigation
 
@@ -2134,18 +2133,26 @@ Now create a ReleasePlan in your tenant namespace that references the ReleasePla
    - Auto release: false (leave unchecked for manual releases)
    - Click "Create"
 
-6. Verify it was created:
+6. Verify it was created in the UI:
    You should see "production-release" listed in the Release plans tab
 
-Or verify via CLI:
-oc get releaseplans -n ${TENANT_NS}
+7. Fix the empty pipeline configuration via CLI:
 
-Expected output:
-NAME                 APPLICATION     COMPONENTGROUP   TARGET
-production-release   my-sample-app                    ${MANAGED_NS}
+The UI automatically adds an empty tenantPipeline section which causes release failures.
+We need to remove it:
+
+oc patch releaseplan production-release -n ${TENANT_NS} \
+  --type=json -p='[{"op": "remove", "path": "/spec/tenantPipeline"}]'
+
+Expected output: releaseplan.appstudio.redhat.com/production-release patched
+
+# Verify the fix
+oc get releaseplan production-release -n ${TENANT_NS} -o yaml | grep tenantPipeline
+
+Expected: No output (tenantPipeline section removed)
 ```
 
-**Expected**: ReleasePlan is created in tenant namespace
+**Expected**: ReleasePlan is created and fixed
 
 ---
 
