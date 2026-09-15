@@ -902,14 +902,15 @@ attached to the image in Quay and can be retrieved with cosign.
    
    The digest is the sha256:... part at the beginning of the line after the 
    SECOND "Writing manifest to image destination".
-
-5. Copy the full sha256 digest (you'll need this later in this module)
    Example: sha256:01ad2ac59ac87ee33aef018e101cc98833c5cf5906945906879d61329594bcb8
 
-6. Optional: Expand other tasks (clamav-scan, sast-shell-check, tpa-scan) to see their logs
+5. Optional: Expand other tasks (clamav-scan, sast-shell-check, tpa-scan) to see their logs
+
+Note: You don't need to copy the digest manually - it will be automatically 
+extracted from the pipeline in Module 04.
 ```
 
-**Expected**: Image digest is obtained from build logs
+**Expected**: Build completed successfully with image digest visible in logs
 
 ---
 
