@@ -30,3 +30,83 @@
         - apiGroup: rbac.authorization.k8s.io
           kind: User
           name: "{{ ocp4_workload_konflux_tssc_tenant_user }}"
+
+- name: Get Quay credentials from image-controller secret
+  kubernetes.core.k8s_info:
+    kind: Secret
+    name: quaytoken
+    namespace: image-controller
+  register: r_quay_creds
+
+- name: Set Quay facts for release robot account creation
+  ansible.builtin.set_fact:
+    quay_token: "{{ r_quay_creds.resources[0].data.quaytoken | b64decode }}"
+    quay_api_url: "{{ r_quay_creds.resources[0].data.quayapiurl | b64decode }}"
+    quay_org: "{{ r_quay_creds.resources[0].data.organization | b64decode }}"
+    quay_registry_host: "{{ r_quay_creds.resources[0].data.quayapiurl | b64decode | regex_replace('^https?://', '') | regex_replace('/api/v1$', '') }}"
+
+- name: Create robot account for releases
+  ansible.builtin.uri:
+    url: "{{ quay_api_url }}/organization/{{ quay_org }}/robots/release_pipeline"
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ quay_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      description: "Robot account for release pipelines"
+    status_code: [200, 201, 400]
+  register: r_robot_account
+
+- name: Get robot account credentials
+  ansible.builtin.uri:
+    url: "{{ quay_api_url }}/organization/{{ quay_org }}/robots/release_pipeline"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ quay_token }}"
+    status_code: [200]
+  register: r_robot_creds
+
+- name: Create Quay push secret in managed namespace for release pipeline
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: quay-push-secret
+        namespace: "{{ ocp4_workload_konflux_tssc_tenant_user }}-managed"
+      type: kubernetes.io/dockerconfigjson
+      stringData:
+        .dockerconfigjson: |
+          {
+            "auths": {
+              "{{ quay_registry_host }}": {
+                "auth": "{{ (quay_org + '+release_pipeline:' + r_robot_creds.json.token) | b64encode }}"
+              }
+            }
+          }
+
+- name: Create simple Enterprise Contract policy for releases
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: appstudio.redhat.com/v1alpha1
+      kind: EnterpriseContractPolicy
+      metadata:
+        name: default-policy
+        namespace: "{{ ocp4_workload_konflux_tssc_tenant_user }}-managed"
+      spec:
+        description: Simple release policy for lab environment
+        name: Lab Release Policy
+        publicKey: k8s://openshift-pipelines/public-key
+        sources:
+        - name: Release Policy
+          policy:
+          - oci::quay.io/konflux-ci/tekton-catalog/policy-release:latest
+          config:
+            include:
+            - attestation_type
+            - attestation_task_bundle
+            - slsa_provenance_available
+            - slsa_build_build_service
