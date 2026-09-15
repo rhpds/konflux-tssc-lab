@@ -2113,8 +2113,8 @@ EOF
 oc get releaseplans -n ${TENANT_NS}
 
 Expected output:
-NAME                  APPLICATION      TARGET                    AGE
-production-release    my-sample-app    ${MANAGED_NS}             5s
+NAME                 APPLICATION     COMPONENTGROUP   TARGET
+production-release   my-sample-app                    ${MANAGED_NS}
 ```
 
 **Expected**: ReleasePlan is created
