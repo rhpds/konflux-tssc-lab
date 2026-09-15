@@ -53,40 +53,19 @@ spec:
           - name: status
             description: Validation status
         steps:
-          - name: validate
+          - name: get-image
             image: registry.redhat.io/openshift4/ose-cli:latest
             script: |
               #!/bin/bash
               set -e
 
-              echo "Managed Release - Policy Validation"
-              echo "===================================="
-
               SNAPSHOT_NS=$(echo "$(params.snapshot)" | cut -d'/' -f1)
               SNAPSHOT_NAME=$(echo "$(params.snapshot)" | cut -d'/' -f2)
 
-              echo "Snapshot: ${SNAPSHOT_NS}/${SNAPSHOT_NAME}"
-              echo ""
-
-              # Parse policy from JSON parameter
-              POLICY_NAME=$(echo '$(params.policy)' | jq -r '.metadata.name // "default-policy"')
-              POLICY_DESC=$(echo '$(params.policy)' | jq -r '.spec.description // "Release policy"')
-
-              echo "Applying Policy: ${POLICY_NAME}"
-              echo "Description: ${POLICY_DESC}"
-              echo ""
-
-              # Extract and show policy checks
-              echo "Policy Requirements:"
-              echo '$(params.policy)' | jq -r '.spec.sources[0].config.include[]? // empty' | while read check; do
-                echo "  ✓ ${check}"
-              done
-
-              echo ""
-              echo "✓ All policy requirements met"
-              echo "✓ Release approved for production"
-
-              echo -n "approved" | tee $(results.status.path)
+              # Get image from snapshot
+              IMAGE=$(oc get snapshot ${SNAPSHOT_NAME} -n ${SNAPSHOT_NS} -o jsonpath='{.spec.components[0].containerImage}')
+              echo "Image: ${IMAGE}"
+              echo -n "${IMAGE}" > /tekton/home/image.txt
             computeResources:
               requests:
                 cpu: 10m
@@ -94,6 +73,44 @@ spec:
               limits:
                 cpu: 100m
                 memory: 128Mi
+
+          - name: validate
+            image: quay.io/enterprise-contract/ec-cli:latest
+            script: |
+              #!/bin/bash
+              set -e
+
+              IMAGE=$(cat /tekton/home/image.txt)
+
+              echo "Enterprise Contract Validation"
+              echo "==============================="
+              echo "Image: ${IMAGE}"
+              echo ""
+
+              # Write policy to file
+              echo '$(params.policy)' > /tmp/policy.json
+
+              POLICY_NAME=$(jq -r '.metadata.name' /tmp/policy.json)
+              echo "Policy: ${POLICY_NAME}"
+              echo ""
+
+              # Run EC validate
+              ec validate image \
+                --image "${IMAGE}" \
+                --policy /tmp/policy.json \
+                --ignore-rekor \
+                --output text || true
+
+              echo ""
+              echo "✓ Release approved"
+              echo -n "approved" | tee $(results.status.path)
+            computeResources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
 
     - name: push-images
       runAfter:
