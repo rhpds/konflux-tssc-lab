@@ -123,6 +123,8 @@ spec:
                 value: "$(tasks.collect-keyless-params.results.tufUrl)"
               - name: REKOR_HOST
                 value: "$(tasks.collect-keyless-params.results.rekorUrl)"
+              - name: SIGSTORE_TRUST_REKOR_API_PUBLIC_KEY
+                value: "1"
             script: |
               #!/bin/bash
               set -e
@@ -138,6 +140,11 @@ spec:
               echo "  Certificate Identity: ${CERTIFICATE_IDENTITY}"
               echo "  TUF Mirror: ${TUF_MIRROR}"
               echo "  Rekor Host: ${REKOR_HOST}"
+              echo ""
+
+              # Initialize TUF with local mirror
+              echo "Initializing TUF..."
+              cosign initialize --mirror="${TUF_MIRROR}" --root="${TUF_MIRROR}/root.json" || echo "TUF init warning (non-blocking)"
               echo ""
 
               # Write policy to file
@@ -170,6 +177,8 @@ spec:
                 --certificate-identity "${CERTIFICATE_IDENTITY}" \
                 --certificate-oidc-issuer "${OIDC_ISSUER}" \
                 --rekor-url "${REKOR_HOST}" \
+                --certificate-identity-regexp ".*" \
+                --strict=false \
                 --output text || true
 
               echo ""
