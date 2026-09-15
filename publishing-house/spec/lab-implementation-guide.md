@@ -2062,15 +2062,12 @@ In this lab:
 
 ### Section 2: Create a ReleasePlan (4 min)
 
-**Step 1: Create ReleasePlanAdmission via CLI**
+**Step 1: Create ReleasePlanAdmission**
 
 ```
 A ReleasePlanAdmission controls what can be released to the managed (production) namespace.
 
-The managed namespace exists but is not visible in the Konflux UI because it has 
-no Application resource. All operations on the managed namespace must be done via CLI.
-
-# Create the ReleasePlanAdmission
+# Create the ReleasePlanAdmission via CLI
 cat <<EOF | oc apply -f -
 apiVersion: appstudio.redhat.com/v1alpha1
 kind: ReleasePlanAdmission
@@ -2093,9 +2090,16 @@ production-release                 ${TENANT_NS}
 
 This ReleasePlanAdmission allows the my-sample-app Application from ${TENANT_NS}
 to be released to the ${MANAGED_NS} production namespace.
+
+To view it in the Konflux UI:
+1. Go to: ${KONFLUX_UI}
+2. Switch to the managed namespace: ${MANAGED_NS} (use namespace dropdown at top)
+3. Click "Releases" in the left navigation
+4. Click the "Release Plan Admission" tab
+5. You should see "production-release" listed
 ```
 
-**Expected**: ReleasePlanAdmission is created in managed namespace
+**Expected**: ReleasePlanAdmission is created and visible in UI
 
 ---
 
@@ -2104,10 +2108,10 @@ to be released to the ${MANAGED_NS} production namespace.
 ```
 Now create a ReleasePlan in your tenant namespace that references the ReleasePlanAdmission.
 
-1. Switch back to your tenant namespace: ${TENANT_NS}
+1. In the Konflux UI, switch to your tenant namespace: ${TENANT_NS}
    (Use the namespace dropdown at the top)
 
-2. Click "Release" in the left navigation
+2. Click "Releases" in the left navigation
 
 3. Click "Release plans" tab
 
@@ -2117,13 +2121,13 @@ Now create a ReleasePlan in your tenant namespace that references the ReleasePla
    - Name: production-release
    - Application: my-sample-app
    - Target: ${MANAGED_NS}
-   - Auto release: false (optional - leave unchecked for manual releases)
+   - Auto release: false (leave unchecked for manual releases)
    - Click "Create"
 
 6. Verify it was created:
-   You should see it listed in the Release plans tab
+   You should see "production-release" listed in the Release plans tab
 
-Or use CLI:
+Or verify via CLI:
 oc get releaseplans -n ${TENANT_NS}
 
 Expected output:
