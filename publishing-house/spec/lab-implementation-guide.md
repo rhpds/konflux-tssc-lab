@@ -2062,12 +2062,43 @@ In this lab:
 
 ### Section 2: Create a ReleasePlan (4 min)
 
-**Step 1: Create ReleasePlanAdmission**
+**Step 1: Create Enterprise Contract Policy and ReleasePlanAdmission**
 
 ```
-A ReleasePlanAdmission controls what can be released to the managed (production) namespace.
+First, create an Enterprise Contract policy that the managed pipeline will use to validate releases.
 
-# Create the ReleasePlanAdmission via CLI
+# Create the EC Policy
+cat <<EOF | oc apply -f -
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: EnterpriseContractPolicy
+metadata:
+  name: default-policy
+  namespace: ${MANAGED_NS}
+spec:
+  description: Simple release policy - validates snapshot passed integration tests
+  name: Simple Release Policy
+  publicKey: k8s://integration-service/public-info-sigstore
+  sources:
+  - name: Release Policy
+    policy:
+    - github.com/enterprise-contract/ec-policies//policy/lib
+    - github.com/enterprise-contract/ec-policies//policy/release
+    config:
+      include:
+      - attestation_type
+      - slsa_provenance_available
+EOF
+
+# Verify it was created
+oc get enterprisecontractpolicy -n ${MANAGED_NS}
+
+Expected output:
+NAME             AGE
+default-policy   5s
+
+Now create the ReleasePlanAdmission which controls what can be released to production.
+
+# Create the ReleasePlanAdmission
 cat <<EOF | oc apply -f -
 apiVersion: appstudio.redhat.com/v1alpha1
 kind: ReleasePlanAdmission
@@ -2084,11 +2115,11 @@ spec:
       resolver: git
       params:
         - name: url
-          value: https://github.com/konflux-ci/release-service-catalog.git
+          value: https://github.com/rhpds/konflux-tssc-lab.git
         - name: revision
-          value: production
+          value: main
         - name: pathInRepo
-          value: pipelines/managed/push-to-external-registry/push-to-external-registry.yaml
+          value: tekton/pipelines/managed-release.yaml
 EOF
 
 # Verify it was created
@@ -2098,8 +2129,10 @@ Expected output:
 NAME                 ENVIRONMENT   ORIGIN
 production-release                 ${TENANT_NS}
 
-This ReleasePlanAdmission allows the my-sample-app Application from ${TENANT_NS}
-to be released to the ${MANAGED_NS} production namespace.
+This ReleasePlanAdmission:
+- Allows the my-sample-app Application from ${TENANT_NS} to be released
+- References the default-policy for validation
+- Uses our custom managed-release pipeline that validates and pushes images to Quay
 
 To view it in the Konflux UI:
 1. Go to: ${KONFLUX_UI}
@@ -2109,7 +2142,7 @@ To view it in the Konflux UI:
 5. You should see "production-release" listed
 ```
 
-**Expected**: ReleasePlanAdmission is created and visible in UI
+**Expected**: EC Policy and ReleasePlanAdmission are created and visible in UI
 
 ---
 
@@ -2130,35 +2163,38 @@ Now create a ReleasePlan in your tenant namespace that references the ReleasePla
    - Name: production-release
    - Application: my-sample-app
    - Target: ${MANAGED_NS}
-   - Git URL for the release pipeline: **Leave blank**
-   - Do NOT expand "Git options for the release pipeline"
+   - Expand "Git options for the release pipeline" section
+   - Git URL for the release pipeline: https://github.com/rhpds/konflux-tssc-lab.git
+   - Revision: main
+   - Path in repository: tekton/pipelines/tenant-release.yaml
    - Auto release: Off (leave toggled off for manual releases)
    - Standing attribution: Off (leave toggled off)
    - Click "Create"
    
-   Note: We leave the pipeline fields blank because we don't need a tenant pipeline.
-   The managed pipeline (configured in ReleasePlanAdmission) handles the release.
+   Note: The tenant pipeline runs before the managed pipeline. It performs a simple
+   validation check before the managed pipeline pushes images to production.
 
 6. Verify it was created in the UI:
    You should see "production-release" listed in the Release plans tab
 
-7. Fix the empty pipeline configuration via CLI:
+7. Verify the configuration via CLI:
 
-The UI automatically adds an empty tenantPipeline section which causes release failures.
-We need to remove it:
+oc get releaseplan production-release -n ${TENANT_NS} -o yaml | grep -A 10 "tenantPipeline:"
 
-oc patch releaseplan production-release -n ${TENANT_NS} \
-  --type=json -p='[{"op": "remove", "path": "/spec/tenantPipeline"}]'
-
-Expected output: releaseplan.appstudio.redhat.com/production-release patched
-
-# Verify the fix
-oc get releaseplan production-release -n ${TENANT_NS} -o yaml | grep tenantPipeline
-
-Expected: No output (tenantPipeline section removed)
+Expected output:
+  tenantPipeline:
+    pipelineRef:
+      params:
+      - name: url
+        value: https://github.com/rhpds/konflux-tssc-lab.git
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: tekton/pipelines/tenant-release.yaml
+      resolver: git
 ```
 
-**Expected**: ReleasePlan is created and fixed
+**Expected**: ReleasePlan is created with tenant pipeline
 
 ---
 
@@ -2288,23 +2324,30 @@ release-production-release-...    True        Succeeded   2m
 **Step 8: Verify Image in Production Quay Repository**
 
 ```
-1. Switch to the Quay browser tab
+The managed release pipeline tagged the image with ":production" in Quay.
 
-2. Navigate to your organization: user-{guid}
+1. Switch to the Quay browser tab (or open: https://${QUAY_HOST})
 
-3. Look for a NEW repository or NEW tag:
-   - Repository: sample-component-golang (same as dev)
-   - Tag: May have a "production" or "release" tag
+2. Navigate to organization: tsf
 
-4. Alternatively, check if images were promoted to a different Quay organization:
-   - Navigate to "Organizations" and check if a "user-{guid}-prod" org exists
+3. Search for: ${LAB_USER}
+   (This will show your repositories: tsf/${LAB_USER}-tenant/sample-component-golang)
 
-5. Click on the tag/image to verify:
-   - Digest matches the Snapshot's image digest
-   - Security scan results are present
-   - Pushed timestamp is recent (within last 5 minutes)
+4. Click on the repository: ${LAB_USER}-tenant/sample-component-golang
 
-Note: The exact target location depends on ReleasePlanAdmission configuration
+5. Look for the "production" tag in the Tags list:
+   - Tag: production
+   - Pushed: Recent (within last few minutes)
+   - Size: ~50 MB
+   - Digest: sha256:... (matches the Snapshot's image)
+
+6. Click on the "production" tag to view details:
+   - You should see the same digest as the Snapshot image
+   - Security scan results present
+   - SBOM and attestations attached
+
+The managed pipeline copied the validated image and tagged it as "production",
+marking it as ready for deployment.
 ```
 
 **Expected**: Image is present in production target
