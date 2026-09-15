@@ -114,6 +114,15 @@ spec:
 
           - name: validate
             image: quay.io/enterprise-contract/ec-cli:latest
+            env:
+              - name: OIDC_ISSUER
+                value: "$(tasks.collect-keyless-params.results.defaultOIDCIssuer)"
+              - name: CERTIFICATE_IDENTITY
+                value: "$(tasks.collect-keyless-params.results.tektonChainsIdentity)"
+              - name: TUF_MIRROR
+                value: "$(tasks.collect-keyless-params.results.tufUrl)"
+              - name: REKOR_HOST
+                value: "$(tasks.collect-keyless-params.results.rekorUrl)"
             script: |
               #!/bin/bash
               set -e
@@ -123,6 +132,12 @@ spec:
               echo "Enterprise Contract Validation"
               echo "==============================="
               echo "Image: ${IMAGE}"
+              echo ""
+              echo "Keyless Verification Parameters:"
+              echo "  OIDC Issuer: ${OIDC_ISSUER}"
+              echo "  Certificate Identity: ${CERTIFICATE_IDENTITY}"
+              echo "  TUF Mirror: ${TUF_MIRROR}"
+              echo "  Rekor Host: ${REKOR_HOST}"
               echo ""
 
               # Write policy to file
@@ -145,14 +160,18 @@ spec:
               done
               echo ""
 
-              # Run EC validate
-              echo "Running EC validation..."
+              # Run EC validate with keyless verification parameters
+              echo "Running EC validation with keyless verification..."
               ec validate image \
                 --image "${IMAGE}" \
                 --policy /tmp/policy.json \
-                --output text || echo "⚠ EC validation completed with warnings (non-blocking)"
+                --certificate-identity "${CERTIFICATE_IDENTITY}" \
+                --certificate-oidc-issuer "${OIDC_ISSUER}" \
+                --rekor-url "${REKOR_HOST}" \
+                --output text
 
               echo ""
+              echo "✓ EC validation passed"
               echo "✓ Release approved for production"
               echo -n "approved" | tee $(results.status.path)
             computeResources:
