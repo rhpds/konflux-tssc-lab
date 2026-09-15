@@ -119,6 +119,8 @@ spec:
 
               # Initialize TUF with local mirror
               echo "Initializing TUF..."
+              # Clear any existing TUF cache to avoid corruption
+              rm -rf ~/.sigstore
               cosign initialize --mirror="${TUF_MIRROR}" --root="${TUF_MIRROR}/root.json" || echo "TUF init warning (non-blocking)"
               echo ""
 
