@@ -88,7 +88,7 @@
       apiVersion: appstudio.redhat.com/v1alpha1
       kind: EnterpriseContractPolicy
       metadata:
-        name: tenant-policy
+        name: release-policy
         namespace: "{{ ocp4_workload_konflux_tssc_tenant_user }}-managed"
       spec:
         description: Simple release policy for lab environment

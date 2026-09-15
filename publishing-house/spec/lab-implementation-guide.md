@@ -2073,10 +2073,10 @@ oc get enterprisecontractpolicy -n ${MANAGED_NS}
 
 Expected output:
 NAME             AGE
-tenant-policy    <time>
+release-policy   <time>
 
 # View the policy details
-oc get enterprisecontractpolicy tenant-policy -n ${MANAGED_NS} -o yaml
+oc get enterprisecontractpolicy release-policy -n ${MANAGED_NS} -o yaml
 
 You should see:
 - publicKey: k8s://openshift-pipelines/public-key (same as integration tests)
@@ -2107,7 +2107,7 @@ spec:
   applications:
     - my-sample-app
   origin: ${TENANT_NS}
-  policy: tenant-policy
+  policy: release-policy
   pipeline:
     pipelineRef:
       resolver: git
@@ -2129,7 +2129,7 @@ production-release                 ${TENANT_NS}
 
 This ReleasePlanAdmission:
 - Allows the my-sample-app Application from ${TENANT_NS} to be released
-- References the tenant-policy for validation
+- References the release-policy for validation
 - Uses our custom managed-release pipeline that validates and pushes images to Quay
 
 To view it in the Konflux UI:
