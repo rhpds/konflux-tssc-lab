@@ -5,9 +5,10 @@ ocp4_workload_konflux_tssc_tenant_user: "user-{{ guid }}"
 # Namespace where the user's Konflux tenant resources live
 ocp4_workload_konflux_tssc_tenant_namespace: "{{ ocp4_workload_konflux_tssc_tenant_user }}"
 
-# Quay credentials for release pipeline (must be provided)
-ocp4_workload_konflux_tssc_quay_username: ""
-ocp4_workload_konflux_tssc_quay_password: ""
+# Lab user password (must be provided for Quay access)
+ocp4_workload_konflux_tssc_tenant_password: ""
+
+# Quay registry host (must be provided)
 ocp4_workload_konflux_tssc_quay_host: ""
 
 # Workload control

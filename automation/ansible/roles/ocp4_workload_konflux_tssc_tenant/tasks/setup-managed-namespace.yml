@@ -46,7 +46,7 @@
           {
             "auths": {
               "{{ ocp4_workload_konflux_tssc_quay_host }}": {
-                "auth": "{{ (ocp4_workload_konflux_tssc_quay_username + ':' + ocp4_workload_konflux_tssc_quay_password) | b64encode }}"
+                "auth": "{{ (ocp4_workload_konflux_tssc_tenant_user + ':' + ocp4_workload_konflux_tssc_tenant_password) | b64encode }}"
               }
             }
           }
