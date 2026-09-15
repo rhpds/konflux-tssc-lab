@@ -1787,7 +1787,8 @@ oc describe pipelinerun $INTEGRATION_RUN -n ${TENANT_NS}
 
 ```
 The integration test pipeline runs the "ec" (Enterprise Contract) CLI 
-to validate the artifact against policy rules.
+to validate the artifact against policy rules. The results are stored
+in the TaskRun's TEST_OUTPUT result.
 
 # Get the verify TaskRun from the PipelineRun
 VERIFY_TASKRUN=$(oc get taskruns -n ${TENANT_NS} \
@@ -1796,22 +1797,29 @@ VERIFY_TASKRUN=$(oc get taskruns -n ${TENANT_NS} \
 
 echo "Verify TaskRun: $VERIFY_TASKRUN"
 
-# View the logs from the verify task
-oc logs -n ${TENANT_NS} $VERIFY_TASKRUN --all-containers | grep -A 50 "ec validate"
+# View the TEST_OUTPUT result (contains EC policy report)
+oc get taskrun $VERIFY_TASKRUN -n ${TENANT_NS} \
+  -o jsonpath='{.status.results[?(@.name=="TEST_OUTPUT")].value}' | jq -r '.' | jq .
 
-Expected output (example):
-Running: ec validate image --image quay-...
-Policy check results:
-✓ Required SLSA provenance attestation found
-✓ Image signature verified
-✓ No critical CVEs found
-✓ Base image is from trusted source
-✓ Build materials recorded with digests
-
-Success: 5 checks passed, 0 failures
+Expected output:
+{
+  "result": "SUCCESS",
+  "namespace": "user-{guid}-tenant",
+  "successes": 15,
+  "failures": 0,
+  "warnings": 2,
+  "components": [
+    {
+      "name": "sample-component-golang",
+      "containerImage": "quay-...",
+      "success": true,
+      "violations": []
+    }
+  ]
+}
 ```
 
-**Expected**: Policy check output shows passed rules
+**Expected**: TEST_OUTPUT shows policy validation results
 
 ---
 
