@@ -1,1 +1,255 @@
 = Orientation
+:navtitle: Orientation
+
+Estimated time: *10 minutes*
+
+This module sets the context for everything that follows.
+You learn what a software supply chain attack looks like, why building an image is not enough to trust it, and what each tool in this lab does to close that gap.
+You then tour your pre-provisioned environment and confirm that every service is reachable before hands-on work begins in Module 2.
+
+== Learning Objectives
+
+By the end of this module, you will be able to:
+
+* Locate your personal GitLab repository, Quay organization, and Konflux workspace in the pre-provisioned lab environment.
+* Explain the gap between "image is built" and "image is trusted" and why that gap matters for production deployments.
+* Identify the role each tool plays in the end-to-end supply chain: Konflux, GitLab, Red Hat Quay, and Red Hat Trusted Artifact Signer with Rekor.
+
+== 1. The Supply Chain Security Problem
+
+Building a container image is not the same as trusting it.
+
+In a typical CI/CD pipeline, a developer pushes code, a pipeline builds an image, and that image is deployed.
+Fast, repeatable, and completely blind to anything that may have happened between the source commit and the running container.
+
+Supply chain attacks exploit that blindness.
+An attacker who can alter the build system, inject a malicious dependency, or swap an image in a registry can deliver harmful software that passes all functional tests.
+The artifact looks valid — it just is not what the developer wrote.
+
+This lab addresses that problem directly.
+By the end, every artifact you produce will carry three independently verifiable guarantees:
+
+. *Provenance* — the image was built from a known, specific source commit on a trusted build system.
+. *Integrity* — no unauthorized party altered the image after the build completed.
+. *Policy compliance* — the image passed a defined set of security checks before it was allowed into production.
+
+=== The End-to-End Pipeline
+
+The following stages make up the supply chain you will build and observe throughout this lab:
+
+[cols="20h,~", options="header"]
+|===
+|Stage |What happens
+
+|Source commit
+|You push code to GitLab. A merge request triggers Pipelines-as-Code.
+
+|Build
+|Konflux runs a Tekton pipeline that compiles the application and produces a container image.
+
+|SBOM generation
+|The pipeline automatically generates a Software Bill of Materials (SBOM) in CycloneDX format, listing every dependency in the image.
+
+|Sign
+|Red Hat Trusted Artifact Signer signs the image using a short-lived certificate. The signature is recorded in the Rekor transparency log.
+
+|Attest
+|Konflux generates a SLSA Level 3 provenance attestation — a machine-readable record of how, where, and from what source the image was built.
+
+|Policy check
+|Conforma evaluates the image against a policy bundle. Only images that pass all checks advance to the next stage.
+
+|Release
+|A verified, signed image is promoted to your production Quay organization.
+|===
+
+You will build, observe, and stress-test this pipeline across the next seven modules.
+
+== 2. Tour the Lab Environment
+
+You have four browser-accessible services in this lab.
+Open each one now and confirm you can log in before moving to the terminal verification in the next section.
+
+Your lab card (provided by the instructor or shown in the lab portal) lists the URL and credentials for each service.
+
+=== 2.1 Konflux
+
+Konflux is the build and release orchestration platform.
+It manages your application onboarding, pipeline runs, and the release pipeline that gates promotion to production.
+
+. Open the Konflux URL from your lab card in a browser tab.
+. Log in with the credentials on your lab card.
+. Confirm the *Applications* overview page loads.
+. Locate your workspace in the top navigation.
+It is named after your assigned user ID.
++
+You should see an empty workspace — no applications yet.
+That changes in Module 2.
+
+=== 2.2 GitLab
+
+GitLab hosts the sample application repository.
+Merge requests to this repository trigger Pipelines-as-Code builds in Konflux.
+
+. Open the GitLab URL from your lab card in a new browser tab.
+. Log in with your GitLab credentials.
+. Navigate to *Projects* and locate the pre-provisioned sample application repository under your user or group.
++
+Note the repository URL — you will use it when you onboard the application in Module 2.
+
+=== 2.3 Red Hat Quay
+
+Red Hat Quay is the image registry for this lab.
+Your signed, policy-verified images will be promoted here in Module 6.
+
+. Open the Quay URL from your lab card in a new browser tab.
+. Log in with your Quay credentials.
+. Confirm your pre-provisioned organization appears on the dashboard.
++
+Note the organization name — you will reference it when configuring the release pipeline.
+
+=== 2.4 Red Hat Trusted Artifact Signer
+
+Red Hat Trusted Artifact Signer provides the cryptographic signing infrastructure for this lab.
+Rekor is its transparency log: every signature event is recorded there in a tamper-evident, append-only structure.
+
+. Open the Trusted Artifact Signer URL from your lab card in a new browser tab.
+. Confirm the Rekor UI loads and shows recent transparency log entries.
++
+[NOTE]
+====
+If your lab card does not list a separate Rekor UI URL, note that Rekor is also accessible via the `cosign` CLI.
+You will use it that way in Module 4.
+====
+
+=== Verify
+
+All four services should now be reachable.
+Before moving on, confirm each item:
+
+[%interactive]
+* [ ] Konflux is accessible and your workspace is visible.
+* [ ] GitLab is accessible and your sample application repository is listed.
+* [ ] Red Hat Quay is accessible and your organization appears on the dashboard.
+* [ ] Red Hat Trusted Artifact Signer is accessible (UI or noted as CLI-only for this lab).
+
+If any service is unreachable, notify the instructor now.
+All four services are required to complete subsequent modules.
+
+== 3. Verify Your Personal Resources
+
+With browser access confirmed, you now verify your OpenShift CLI access and confirm that the pre-provisioned resources in your tenant namespace are present.
+
+. Open a terminal.
+Log in to the OpenShift cluster using the API URL and token from your lab card:
++
+[source,bash]
+----
+oc login <api-url> --token=<your-token>
+----
++
+Replace `<api-url>` and `<your-token>` with the values from your lab card.
+
+. Confirm your identity:
++
+[source,bash,role="execute"]
+----
+oc whoami
+----
++
+Expected output: your assigned lab user ID.
+
+. Confirm your active project:
++
+[source,bash,role="execute"]
+----
+oc project
+----
++
+Expected output: a line indicating your pre-provisioned tenant namespace, for example `Using project "{guid}-tenant" on server ...`.
+
+. List the resources in your tenant namespace:
++
+[source,bash,role="execute"]
+----
+oc get all -n {guid}-tenant
+----
++
+You should see a set of pre-provisioned resources.
+An empty namespace at this point indicates a setup problem — flag it to the instructor before continuing.
+
+. Confirm that a `ReleasePlan` object exists in your tenant namespace:
++
+[source,bash,role="execute"]
+----
+oc get releaseplan -n {guid}-tenant
+----
++
+Expected output: one `ReleasePlan` entry listed.
+You will use this object in Module 6 when you trigger the release pipeline.
+
+[NOTE]
+====
+The exact tenant namespace name is shown in your Konflux workspace and on your lab card.
+If your namespace does not match `{guid}-tenant`, substitute the correct name in all `oc` commands above.
+====
+
+=== Verify
+
+Before moving to Module 2, confirm all of the following:
+
+[%interactive]
+* [ ] `oc whoami` returns your assigned user ID.
+* [ ] `oc project` confirms your tenant namespace.
+* [ ] `oc get all -n {guid}-tenant` returns pre-provisioned resources.
+* [ ] `oc get releaseplan -n {guid}-tenant` returns one `ReleasePlan` entry.
+
+If any check fails, do not proceed.
+Unresolved environment issues will block all subsequent modules.
+
+== Learning Outcomes Checkpoint
+
+Before moving on, check that you can answer the following:
+
+*What is the difference between building an image and trusting it?*
+
+An image produced by a build pipeline carries no inherent proof of where it came from, whether it was altered after the build, or whether it meets your organization's security policy.
+Trust requires provenance, integrity, and policy compliance — all of which the pipeline you are building in this lab provides.
+
+*What does each tool in this lab do?*
+
+[cols="20h,~", options="header"]
+|===
+|Tool |Role in the supply chain
+
+|Konflux
+|Orchestrates the full build-sign-attest-release pipeline. Provides the application model, pipeline runs, and release gating.
+
+|GitLab
+|Hosts source code and triggers Pipelines-as-Code builds via merge requests.
+
+|Red Hat Quay
+|Image registry. Receives signed, policy-verified images after a successful release.
+
+|Red Hat Trusted Artifact Signer / Rekor
+|Signs images with short-lived certificates and records every signature in a tamper-evident transparency log.
+
+|Conforma
+|Policy engine. Evaluates images against a policy bundle and blocks promotion of non-compliant artifacts.
+|===
+
+*Are your personal resources ready?*
+
+You confirmed your tenant namespace, `ReleasePlan`, and access to all four services.
+If any check failed, resolve it before continuing.
+
+== Key Takeaways
+
+* A container image built without signing and attestation cannot be trusted at deploy time — there is no proof of where it came from or whether it was altered.
+* SLSA Level 3 provenance proves that an image was built from a specific source commit on a trusted, isolated build system.
+* SBOMs enumerate every dependency inside an image, enabling vulnerability tracking and compliance reporting.
+* Red Hat Trusted Artifact Signer and Rekor provide the cryptographic infrastructure for signing and a tamper-evident log of every signature event.
+* Konflux orchestrates the full pipeline and enforces Conforma policy checks before any artifact reaches production.
+* Your tenant namespace is isolated — actions in one namespace do not affect other participants.
+
+xref:module-02-onboard-application.adoc[Next: Module 2 — Onboard Your Application →]
