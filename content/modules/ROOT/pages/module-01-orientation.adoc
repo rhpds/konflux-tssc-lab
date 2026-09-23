@@ -194,18 +194,9 @@ Expected output: `Now using project "{openshift_username}-tenant" on server ...`
 oc get all -n {openshift_username}-tenant
 ----
 +
-You should see a set of pre-provisioned resources.
-An empty namespace at this point indicates a setup problem — flag it to the instructor before continuing.
-
-. Confirm that a `ReleasePlan` object exists in your tenant namespace:
-+
-[source,bash,role="execute",subs="attributes+"]
-----
-oc get releaseplan -n {openshift_username}-tenant
-----
-+
-Expected output: one `ReleasePlan` entry listed.
-You will use this object in Module 6 when you trigger the release pipeline.
+You should see a setup pod and job (`setup-konflux-integration`).
+The job may still be running — that is normal at this stage.
+If the namespace is completely empty, flag it to the instructor before continuing.
 
 [NOTE]
 ====
@@ -219,9 +210,8 @@ Before moving to Module 2, confirm all of the following:
 
 [%interactive]
 * [ ] `oc whoami` returns your assigned user ID.
-* [ ] `oc project` confirms your tenant namespace.
-* [ ] `oc get all -n {openshift_username}-tenant` returns pre-provisioned resources.
-* [ ] `oc get releaseplan -n {openshift_username}-tenant` returns one `ReleasePlan` entry.
+* [ ] `oc project {openshift_username}-tenant` switches to your tenant namespace.
+* [ ] `oc get all -n {openshift_username}-tenant` returns the setup pod and/or job.
 
 If any check fails, do not proceed.
 Unresolved environment issues will block all subsequent modules.
@@ -259,7 +249,7 @@ Trust requires provenance, integrity, and policy compliance — all of which the
 
 *Are your personal resources ready?*
 
-You confirmed your tenant namespace, `ReleasePlan`, and access to all four services.
+You confirmed your tenant namespace and access to all four services.
 If any check failed, resolve it before continuing.
 
 == Key Takeaways
