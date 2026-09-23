@@ -97,11 +97,10 @@ image::module-01-konflux-permissions.png[Konflux OAuth permissions authorization
 +
 NOTE: _Screenshot to be captured on next lab run. Save as `content/modules/ROOT/assets/images/module-01-konflux-permissions.png`._
 
-. Confirm the *Applications* overview page loads.
-. Locate your workspace in the top navigation.
-It is named after your assigned user ID.
+. Confirm the Konflux overview page loads.
+. Locate your workspace in the top navigation — it is named after your assigned user ID.
 +
-You should see an empty workspace — no applications yet.
+You should see an empty workspace with no applications yet.
 That changes in Module 2.
 
 .Konflux Applications overview — empty workspace
