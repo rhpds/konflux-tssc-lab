@@ -145,14 +145,14 @@ NOTE: Your username appears in place of the one shown in the screenshot above. L
 Red Hat Trusted Artifact Signer provides the cryptographic signing infrastructure for this lab.
 Rekor is its transparency log: every signature event is recorded there in a tamper-evident, append-only structure.
 
-. Open the Trusted Artifact Signer URL from your lab card in a new browser tab.
-. Confirm the Rekor UI loads and shows recent transparency log entries.
+. Open link:https://rekor-search-ui-tsf-tas.{openshift_apps_domain}[Rekor Search UI,window=_blank] in a new browser tab.
+. Confirm the search interface loads.
 +
-[NOTE]
-====
-If your lab card does not list a separate Rekor UI URL, note that Rekor is also accessible via the `cosign` CLI.
-You will use it that way in Module 4.
-====
+In Module 4, you will use this UI to look up the transparency log entry for your signed image by digest.
+For now, just confirm it is reachable.
+
+.Red Hat Trusted Artifact Signer — Rekor search UI
+image::module-01-tas-rekor.png[Rekor search UI showing the attribute search form,800]
 
 === Verify
 
