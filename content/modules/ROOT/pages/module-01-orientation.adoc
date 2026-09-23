@@ -91,11 +91,6 @@ It manages your application onboarding, pipeline runs, and the release pipeline 
 . Open link:{konflux_ui_url}[Konflux,window=_blank] in a browser tab.
 . Log in with username `{openshift_username}` and password `{openshift_password}`.
 . If prompted to authorize access, review the requested permissions and click *Allow*.
-+
-.Konflux — permissions authorization prompt
-image::module-01-konflux-permissions.png[Konflux OAuth permissions authorization prompt,800]
-+
-NOTE: _Screenshot to be captured on next lab run. Save as `content/modules/ROOT/assets/images/module-01-konflux-permissions.png`._
 
 . Confirm the Konflux overview page loads.
 
