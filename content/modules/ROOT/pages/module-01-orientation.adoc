@@ -39,6 +39,7 @@ The following stages make up the supply chain you will build and observe through
 
 [mermaid]
 ....
+%%{init: {'flowchart': {'useMaxWidth': true}}}%%
 flowchart LR
     A("Source\nCommit") --> B("Build\nKonflux/Tekton")
     B --> C("SBOM\nCycloneDX")
