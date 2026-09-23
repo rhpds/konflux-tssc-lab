@@ -110,9 +110,9 @@ Merge requests to this repository trigger Pipelines-as-Code builds in Konflux.
 
 . Open link:{gitlab_url}[GitLab,window=_blank] in a new browser tab.
 . Log in with username `{gitlab_username}` and password `{gitlab_password}`.
-. Navigate to *Projects* and locate the pre-provisioned sample application repository under the `{gitlab_user_group}` group.
+. Navigate to *Projects → Personal* and locate the `{gitlab_username}/sample-component-golang` repository.
 +
-Note the repository URL — you will use it when you onboard the application in Module 2.
+Note the repository URL (`{gitlab_url}/{gitlab_username}/sample-component-golang`) — you will use it when you onboard the application in Module 2.
 
 .GitLab — sample application repository
 image::module-01-gitlab-repo.png[GitLab projects page showing the pre-provisioned sample application repository,800]
