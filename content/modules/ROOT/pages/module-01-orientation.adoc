@@ -199,11 +199,6 @@ You should see a setup pod and job (`setup-konflux-integration`).
 The job may still be running — that is normal at this stage.
 If the namespace is completely empty, flag it to the instructor before continuing.
 
-[NOTE]
-====
-The exact tenant namespace name is shown in your Konflux workspace.
-If your namespace does not match `{openshift_username}-tenant`, substitute the correct name in the `oc` commands above.
-====
 
 === Verify
 
