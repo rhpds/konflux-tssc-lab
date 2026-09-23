@@ -39,14 +39,13 @@ The following stages make up the supply chain you will build and observe through
 
 [mermaid]
 ....
-%%{init: {'flowchart': {'useMaxWidth': true}}}%%
-flowchart LR
-    A("Source\nCommit") --> B("Build\nKonflux/Tekton")
-    B --> C("SBOM\nCycloneDX")
-    C --> D("Sign\nTrusted Artifact Signer")
-    D --> E("Attest\nSLSA Level 3")
-    E --> F("Policy Check\nConforma")
-    F --> G("Release\nProduction Quay")
+flowchart TD
+    A("Source Commit") --> B("Build — Konflux/Tekton")
+    B --> C("SBOM — CycloneDX")
+    C --> D("Sign — Trusted Artifact Signer")
+    D --> E("Attest — SLSA Level 3")
+    E --> F("Policy Check — Conforma")
+    F --> G("Release — Production Quay")
 ....
 
 [cols="20h,~", options="header"]
