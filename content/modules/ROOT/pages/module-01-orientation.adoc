@@ -88,7 +88,7 @@ Your lab card (provided by the instructor or shown in the lab portal) lists the 
 Konflux is the build and release orchestration platform.
 It manages your application onboarding, pipeline runs, and the release pipeline that gates promotion to production.
 
-. Open link:{konflux_ui_url}[Konflux,window=_blank] in a browser tab.
+. Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_blank] in a browser tab.
 . Log in with username `{openshift_username}` and password `{openshift_password}`.
 . If prompted to authorize access, review the requested permissions and click *Allow*.
 
