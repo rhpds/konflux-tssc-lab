@@ -98,13 +98,9 @@ image::module-01-konflux-permissions.png[Konflux OAuth permissions authorization
 NOTE: _Screenshot to be captured on next lab run. Save as `content/modules/ROOT/assets/images/module-01-konflux-permissions.png`._
 
 . Confirm the Konflux overview page loads.
-. Locate your workspace in the top navigation — it is named after your assigned user ID.
-+
-You should see an empty workspace with no applications yet.
-That changes in Module 2.
 
-.Konflux Applications overview — empty workspace
-image::module-01-konflux-workspace.png[Konflux Applications overview page showing an empty workspace,800]
+.Konflux overview page
+image::module-01-konflux-workspace.png[Konflux overview page after login,800]
 
 === 2.2 GitLab
 
