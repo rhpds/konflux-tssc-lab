@@ -126,14 +126,14 @@ Your signed, policy-verified images will be promoted here in Module 6.
 
 . Open link:{quay_url}[Red Hat Quay,window=_blank] in a new browser tab.
 . Log in with username `{quay_user}` and password `{quay_password}`.
-. Confirm your pre-provisioned organization appears on the dashboard.
+. Confirm the Organizations page lists an organization named after your username (`{quay_user}`).
 +
-Note the organization name — you will reference it when configuring the release pipeline.
+This is your pre-provisioned Quay organization — note the name, as you will reference it when configuring the release pipeline in Module 6.
 
-.Red Hat Quay — your pre-provisioned organization
-image::module-01-quay-org.png[Quay dashboard showing the pre-provisioned organization,800]
+.Red Hat Quay — Organizations page showing your pre-provisioned organization
+image::module-01-quay-org.png[Quay Organizations page listing the student personal organization alongside the shared tsf organization,800]
 
-NOTE: _Screenshot to be captured from the lab environment. Save as `content/modules/ROOT/assets/images/module-01-quay-org.png`._
+NOTE: Your username appears in place of the one shown in the screenshot above. Look for the organization that matches `{quay_user}`.
 
 === 2.4 Red Hat Trusted Artifact Signer
 
