@@ -37,6 +37,17 @@ By the end, every artifact you produce will carry three independently verifiable
 
 The following stages make up the supply chain you will build and observe throughout this lab:
 
+[mermaid]
+....
+flowchart LR
+    A("Source\nCommit") --> B("Build\nKonflux/Tekton")
+    B --> C("SBOM\nCycloneDX")
+    C --> D("Sign\nTrusted Artifact Signer")
+    D --> E("Attest\nSLSA Level 3")
+    E --> F("Policy Check\nConforma")
+    F --> G("Release\nProduction Quay")
+....
+
 [cols="20h,~", options="header"]
 |===
 |Stage |What happens
@@ -86,27 +97,42 @@ It is named after your assigned user ID.
 You should see an empty workspace — no applications yet.
 That changes in Module 2.
 
+.Konflux Applications overview — empty workspace
+image::module-01-konflux-workspace.png[Konflux Applications overview page showing an empty workspace,800]
+
+NOTE: _Screenshot to be captured from the lab environment. Save as `content/modules/ROOT/assets/images/module-01-konflux-workspace.png`._
+
 === 2.2 GitLab
 
 GitLab hosts the sample application repository.
 Merge requests to this repository trigger Pipelines-as-Code builds in Konflux.
 
-. Open the GitLab URL from your lab card in a new browser tab.
-. Log in with your GitLab credentials.
-. Navigate to *Projects* and locate the pre-provisioned sample application repository under your user or group.
+. Open link:{gitlab_url}[GitLab,window=_blank] in a new browser tab.
+. Log in with username `{gitlab_username}` and password `{gitlab_password}`.
+. Navigate to *Projects* and locate the pre-provisioned sample application repository under the `{gitlab_user_group}` group.
 +
 Note the repository URL — you will use it when you onboard the application in Module 2.
+
+.GitLab — sample application repository
+image::module-01-gitlab-repo.png[GitLab projects page showing the pre-provisioned sample application repository,800]
+
+NOTE: _Screenshot to be captured from the lab environment. Save as `content/modules/ROOT/assets/images/module-01-gitlab-repo.png`._
 
 === 2.3 Red Hat Quay
 
 Red Hat Quay is the image registry for this lab.
 Your signed, policy-verified images will be promoted here in Module 6.
 
-. Open the Quay URL from your lab card in a new browser tab.
-. Log in with your Quay credentials.
+. Open link:{quay_url}[Red Hat Quay,window=_blank] in a new browser tab.
+. Log in with username `{quay_user}` and password `{quay_password}`.
 . Confirm your pre-provisioned organization appears on the dashboard.
 +
 Note the organization name — you will reference it when configuring the release pipeline.
+
+.Red Hat Quay — your pre-provisioned organization
+image::module-01-quay-org.png[Quay dashboard showing the pre-provisioned organization,800]
+
+NOTE: _Screenshot to be captured from the lab environment. Save as `content/modules/ROOT/assets/images/module-01-quay-org.png`._
 
 === 2.4 Red Hat Trusted Artifact Signer
 
@@ -141,14 +167,12 @@ All four services are required to complete subsequent modules.
 With browser access confirmed, you now verify your OpenShift CLI access and confirm that the pre-provisioned resources in your tenant namespace are present.
 
 . Open a terminal.
-Log in to the OpenShift cluster using the API URL and token from your lab card:
+Log in to the OpenShift cluster:
 +
-[source,bash]
+[source,bash,role="execute"]
 ----
-oc login <api-url> --token=<your-token>
+oc login {openshift_api_url} -u {openshift_username} -p {openshift_password}
 ----
-+
-Replace `<api-url>` and `<your-token>` with the values from your lab card.
 
 . Confirm your identity:
 +
@@ -157,7 +181,7 @@ Replace `<api-url>` and `<your-token>` with the values from your lab card.
 oc whoami
 ----
 +
-Expected output: your assigned lab user ID.
+Expected output: `{openshift_username}`
 
 . Confirm your active project:
 +
@@ -166,13 +190,13 @@ Expected output: your assigned lab user ID.
 oc project
 ----
 +
-Expected output: a line indicating your pre-provisioned tenant namespace, for example `Using project "{guid}-tenant" on server ...`.
+Expected output: a line indicating your pre-provisioned tenant namespace, for example `Using project "{openshift_username}-tenant" on server ...`.
 
 . List the resources in your tenant namespace:
 +
 [source,bash,role="execute"]
 ----
-oc get all -n {guid}-tenant
+oc get all -n {openshift_username}-tenant
 ----
 +
 You should see a set of pre-provisioned resources.
@@ -182,7 +206,7 @@ An empty namespace at this point indicates a setup problem — flag it to the in
 +
 [source,bash,role="execute"]
 ----
-oc get releaseplan -n {guid}-tenant
+oc get releaseplan -n {openshift_username}-tenant
 ----
 +
 Expected output: one `ReleasePlan` entry listed.
@@ -190,8 +214,8 @@ You will use this object in Module 6 when you trigger the release pipeline.
 
 [NOTE]
 ====
-The exact tenant namespace name is shown in your Konflux workspace and on your lab card.
-If your namespace does not match `{guid}-tenant`, substitute the correct name in all `oc` commands above.
+The exact tenant namespace name is shown in your Konflux workspace.
+If your namespace does not match `{openshift_username}-tenant`, substitute the correct name in the `oc` commands above.
 ====
 
 === Verify
@@ -201,8 +225,8 @@ Before moving to Module 2, confirm all of the following:
 [%interactive]
 * [ ] `oc whoami` returns your assigned user ID.
 * [ ] `oc project` confirms your tenant namespace.
-* [ ] `oc get all -n {guid}-tenant` returns pre-provisioned resources.
-* [ ] `oc get releaseplan -n {guid}-tenant` returns one `ReleasePlan` entry.
+* [ ] `oc get all -n {openshift_username}-tenant` returns pre-provisioned resources.
+* [ ] `oc get releaseplan -n {openshift_username}-tenant` returns one `ReleasePlan` entry.
 
 If any check fails, do not proceed.
 Unresolved environment issues will block all subsequent modules.
