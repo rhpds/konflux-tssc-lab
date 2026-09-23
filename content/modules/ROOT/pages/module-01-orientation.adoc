@@ -89,8 +89,15 @@ Your lab card (provided by the instructor or shown in the lab portal) lists the 
 Konflux is the build and release orchestration platform.
 It manages your application onboarding, pipeline runs, and the release pipeline that gates promotion to production.
 
-. Open the Konflux URL from your lab card in a browser tab.
-. Log in with the credentials on your lab card.
+. Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_blank] in a browser tab.
+. Log in with username `{openshift_username}` and password `{openshift_password}`.
+. If prompted to authorize access, review the requested permissions and click *Allow*.
++
+.Konflux — permissions authorization prompt
+image::module-01-konflux-permissions.png[Konflux OAuth permissions authorization prompt,800]
++
+NOTE: _Screenshot to be captured on next lab run. Save as `content/modules/ROOT/assets/images/module-01-konflux-permissions.png`._
+
 . Confirm the *Applications* overview page loads.
 . Locate your workspace in the top navigation.
 It is named after your assigned user ID.
@@ -100,8 +107,6 @@ That changes in Module 2.
 
 .Konflux Applications overview — empty workspace
 image::module-01-konflux-workspace.png[Konflux Applications overview page showing an empty workspace,800]
-
-NOTE: _Screenshot to be captured from the lab environment. Save as `content/modules/ROOT/assets/images/module-01-konflux-workspace.png`._
 
 === 2.2 GitLab
 
