@@ -161,8 +161,9 @@ All four services are required to complete subsequent modules.
 
 With browser access confirmed, you now verify your OpenShift CLI access and confirm that the pre-provisioned resources in your tenant namespace are present.
 
-. Open a terminal.
-Log in to the OpenShift cluster:
+. In the right-hand panel, click the *>_ Terminal* tab to open a terminal session.
+
+. Log in to the OpenShift cluster:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
