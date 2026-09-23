@@ -37,6 +37,17 @@ By the end, every artifact you produce will carry three independently verifiable
 
 The following stages make up the supply chain you will build and observe throughout this lab:
 
+[mermaid]
+....
+flowchart TD
+    A("Source Commit") --> B("Build — Konflux/Tekton")
+    B --> C("SBOM — CycloneDX")
+    C --> D("Sign — Trusted Artifact Signer")
+    D --> E("Attest — SLSA Level 3")
+    E --> F("Policy Check — Conforma")
+    F --> G("Release — Production Quay")
+....
+
 [cols="20h,~", options="header"]
 |===
 |Stage |What happens
@@ -77,50 +88,60 @@ Your lab card (provided by the instructor or shown in the lab portal) lists the 
 Konflux is the build and release orchestration platform.
 It manages your application onboarding, pipeline runs, and the release pipeline that gates promotion to production.
 
-. Open the Konflux URL from your lab card in a browser tab.
-. Log in with the credentials on your lab card.
-. Confirm the *Applications* overview page loads.
-. Locate your workspace in the top navigation.
-It is named after your assigned user ID.
-+
-You should see an empty workspace — no applications yet.
-That changes in Module 2.
+. Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_blank] in a browser tab.
+. Log in with username `{openshift_username}` and password `{openshift_password}`.
+. If prompted to authorize access, review the requested permissions and click *Allow*.
+
+. Confirm the Konflux overview page loads.
+
+.Konflux overview page
+image::module-01-konflux-workspace.png[Konflux overview page after login,800]
 
 === 2.2 GitLab
 
 GitLab hosts the sample application repository.
 Merge requests to this repository trigger Pipelines-as-Code builds in Konflux.
 
-. Open the GitLab URL from your lab card in a new browser tab.
-. Log in with your GitLab credentials.
-. Navigate to *Projects* and locate the pre-provisioned sample application repository under your user or group.
+. Open link:{gitlab_url}[GitLab,window=_blank] in a new browser tab.
+. Log in with username `{gitlab_username}` and password `{gitlab_password}`.
+. Navigate to *Projects → Personal* and locate the `{gitlab_username}/sample-component-golang` repository.
 +
-Note the repository URL — you will use it when you onboard the application in Module 2.
+Note the repository URL (`{gitlab_url}/{gitlab_username}/sample-component-golang`) — you will use it when you onboard the application in Module 2.
+
+.GitLab Projects — Personal tab showing your sample repository
+image::module-01-gitlab-repo.png[GitLab Projects page with the Personal tab selected, showing the sample-component-golang repository listed under the student username,800]
+
+NOTE: Your username appears in place of the one shown in the screenshot above.
 
 === 2.3 Red Hat Quay
 
 Red Hat Quay is the image registry for this lab.
 Your signed, policy-verified images will be promoted here in Module 6.
 
-. Open the Quay URL from your lab card in a new browser tab.
-. Log in with your Quay credentials.
-. Confirm your pre-provisioned organization appears on the dashboard.
+. Open link:{quay_url}[Red Hat Quay,window=_blank] in a new browser tab.
+. Log in with username `{quay_user}` and password `{quay_password}`.
+. Confirm the Organizations page lists an organization named after your username (`{quay_user}`).
 +
-Note the organization name — you will reference it when configuring the release pipeline.
+This is your pre-provisioned Quay organization — note the name, as you will reference it when configuring the release pipeline in Module 6.
+
+.Red Hat Quay — Organizations page showing your pre-provisioned organization
+image::module-01-quay-org.png[Quay Organizations page listing the student personal organization alongside the shared tsf organization,800]
+
+NOTE: Your username appears in place of the one shown in the screenshot above. Look for the organization that matches `{quay_user}`.
 
 === 2.4 Red Hat Trusted Artifact Signer
 
 Red Hat Trusted Artifact Signer provides the cryptographic signing infrastructure for this lab.
 Rekor is its transparency log: every signature event is recorded there in a tamper-evident, append-only structure.
 
-. Open the Trusted Artifact Signer URL from your lab card in a new browser tab.
-. Confirm the Rekor UI loads and shows recent transparency log entries.
+. Open link:https://rekor-search-ui-tsf-tas.{openshift_apps_domain}[Rekor Search UI,window=_blank] in a new browser tab.
+. Confirm the search interface loads.
 +
-[NOTE]
-====
-If your lab card does not list a separate Rekor UI URL, note that Rekor is also accessible via the `cosign` CLI.
-You will use it that way in Module 4.
-====
+In Module 4, you will use this UI to look up the transparency log entry for your signed image by digest.
+For now, just confirm it is reachable.
+
+.Red Hat Trusted Artifact Signer — Rekor search UI
+image::module-01-tas-rekor.png[Rekor search UI showing the attribute search form,800]
 
 === Verify
 
@@ -140,15 +161,14 @@ All four services are required to complete subsequent modules.
 
 With browser access confirmed, you now verify your OpenShift CLI access and confirm that the pre-provisioned resources in your tenant namespace are present.
 
-. Open a terminal.
-Log in to the OpenShift cluster using the API URL and token from your lab card:
+. In the right-hand panel, click the *>_ Terminal* tab to open a terminal session.
+
+. Log in to the OpenShift cluster:
 +
-[source,bash]
+[source,bash,role="execute",subs="attributes+"]
 ----
-oc login <api-url> --token=<your-token>
+oc login {openshift_api_url} -u {openshift_username} -p {openshift_password} --insecure-skip-tls-verify=true
 ----
-+
-Replace `<api-url>` and `<your-token>` with the values from your lab card.
 
 . Confirm your identity:
 +
@@ -157,42 +177,28 @@ Replace `<api-url>` and `<your-token>` with the values from your lab card.
 oc whoami
 ----
 +
-Expected output: your assigned lab user ID.
+Expected output: `{openshift_username}`
 
-. Confirm your active project:
+. Switch to your pre-provisioned tenant namespace:
 +
-[source,bash,role="execute"]
+[source,bash,role="execute",subs="attributes+"]
 ----
-oc project
+oc project {openshift_username}-tenant
 ----
 +
-Expected output: a line indicating your pre-provisioned tenant namespace, for example `Using project "{guid}-tenant" on server ...`.
+Expected output: `Now using project "{openshift_username}-tenant" on server ...`
 
 . List the resources in your tenant namespace:
 +
-[source,bash,role="execute"]
+[source,bash,role="execute",subs="attributes+"]
 ----
-oc get all -n {guid}-tenant
+oc get all -n {openshift_username}-tenant
 ----
 +
-You should see a set of pre-provisioned resources.
-An empty namespace at this point indicates a setup problem — flag it to the instructor before continuing.
+You should see a setup pod and job (`setup-konflux-integration`).
+The job may still be running — that is normal at this stage.
+If the namespace is completely empty, flag it to the instructor before continuing.
 
-. Confirm that a `ReleasePlan` object exists in your tenant namespace:
-+
-[source,bash,role="execute"]
-----
-oc get releaseplan -n {guid}-tenant
-----
-+
-Expected output: one `ReleasePlan` entry listed.
-You will use this object in Module 6 when you trigger the release pipeline.
-
-[NOTE]
-====
-The exact tenant namespace name is shown in your Konflux workspace and on your lab card.
-If your namespace does not match `{guid}-tenant`, substitute the correct name in all `oc` commands above.
-====
 
 === Verify
 
@@ -200,9 +206,8 @@ Before moving to Module 2, confirm all of the following:
 
 [%interactive]
 * [ ] `oc whoami` returns your assigned user ID.
-* [ ] `oc project` confirms your tenant namespace.
-* [ ] `oc get all -n {guid}-tenant` returns pre-provisioned resources.
-* [ ] `oc get releaseplan -n {guid}-tenant` returns one `ReleasePlan` entry.
+* [ ] `oc project {openshift_username}-tenant` switches to your tenant namespace.
+* [ ] `oc get all -n {openshift_username}-tenant` returns the setup pod and/or job.
 
 If any check fails, do not proceed.
 Unresolved environment issues will block all subsequent modules.
@@ -240,7 +245,7 @@ Trust requires provenance, integrity, and policy compliance — all of which the
 
 *Are your personal resources ready?*
 
-You confirmed your tenant namespace, `ReleasePlan`, and access to all four services.
+You confirmed your tenant namespace and access to all four services.
 If any check failed, resolve it before continuing.
 
 == Key Takeaways
