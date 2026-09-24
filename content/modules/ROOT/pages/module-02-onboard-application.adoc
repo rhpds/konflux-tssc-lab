@@ -47,18 +47,16 @@ Record this name — you will reference it in later modules.
 
 . Leave all other fields at their defaults and click *Create*.
 
-. Confirm the new Application appears in the Applications list.
-The status shows *No components yet* or similar — that is expected at this point.
+. After creation, Konflux takes you directly to the new Application page.
 +
-.Konflux Applications list after creation
-image::module-02-application-created.png[Konflux Applications page listing the newly created my-sample-app application with a status indicating no components have been added yet,800]
+.Konflux Application page after creation
+image::module-02-konflux-app.png[Konflux Application detail page for my-sample-app immediately after creation,800]
 
 === Verify
 
 [%interactive]
 * [ ] You are inside the `{openshift_username}-tenant` namespace in Konflux.
-* [ ] The Applications list shows `my-sample-app`.
-* [ ] The Application status reads "No components yet" or similar.
+* [ ] Konflux has taken you to the `my-sample-app` Application page.
 
 == 2. Add the Component and Connect GitLab
 
