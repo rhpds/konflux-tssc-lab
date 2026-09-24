@@ -68,9 +68,12 @@ Before adding the Component, you must give Konflux permission to open merge requ
 This requires a GitLab Personal Access Token (PAT) stored as a Kubernetes secret in your tenant namespace.
 
 . Switch to your GitLab browser tab.
-In the top-right corner, click your avatar and select *Preferences*.
+In the top-right corner, click your avatar and select *Access → Personal access tokens*.
++
+.GitLab Personal access tokens page
+image::module-02-pat.png[GitLab Personal access tokens page accessed via the user avatar menu,800]
 
-. In the left sidebar, click *Access Tokens*, then click *Add new token*.
+. Click *Add new token*.
 
 . Fill in the form:
 ** *Token name*: `konflux-pac`
