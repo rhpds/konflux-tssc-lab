@@ -1,1 +1,188 @@
-= Onboard Application
+= Onboard Your Application
+:navtitle: Onboard Your Application
+
+Estimated time: *15 minutes*
+
+In this module you register your pre-provisioned GitLab sample application with Konflux.
+You create a Konflux Application and Component, link the Component to your GitLab repository, and wire up Pipelines-as-Code so that every push or merge request automatically triggers a build pipeline.
+By the end, the Konflux UI shows your Component linked to the repository and a PipelineRun is running or has completed in your tenant namespace.
+
+== Learning Objectives
+
+By the end of this module, you will be able to:
+
+* Create a Konflux Application and Component linked to your pre-provisioned GitLab repository.
+* Configure Pipelines-as-Code integration so that GitLab merge request and push events automatically trigger Konflux build pipelines.
+* Verify the onboarding by observing the first PipelineRun created in your tenant namespace.
+
+== 1. Create a Konflux Application
+
+A Konflux Application is the top-level grouping for one or more related components.
+Think of it as the logical boundary around a service or product you own.
+You create the Application first, then add the Component that points at your source code.
+
+. Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_blank].
+Log in with `{openshift_username}` / `{openshift_password}` if prompted.
+
+. In the top-left workspace selector, confirm you are in your personal workspace.
+The selector should display your assigned user ID.
++
+.Konflux workspace selector showing your personal workspace
+image::module-02-workspace-selector.png[Konflux workspace selector in the top-left corner of the UI showing the current user's personal workspace is selected,800]
+
+. On the *Applications* overview page, click *Create application*.
+
+. In the *Application name* field, enter `my-sample-app`.
++
+Record this name — you will reference it in later modules.
+
+. Leave all other fields at their defaults and click *Create*.
+
+. Confirm the new Application appears in the Applications list.
+The status shows *No components yet* or similar — that is expected at this point.
++
+.Konflux Applications list after creation
+image::module-02-application-created.png[Konflux Applications page listing the newly created my-sample-app application with a status indicating no components have been added yet,800]
+
+=== Verify
+
+[%interactive]
+* [ ] The Applications list shows `my-sample-app`.
+* [ ] The Application status reads "No components yet" or similar.
+
+== 2. Add the Component and Connect GitLab
+
+A Konflux Component represents a single buildable unit — in this case, the Go sample application in your GitLab repository.
+When you create the Component, Konflux opens a merge request against your repository that adds a `.tekton/` directory containing Tekton PipelineRun definitions.
+Merging that commit completes the Pipelines-as-Code wiring.
+
+. Inside the `my-sample-app` Application detail page, click *Add component*.
+
+. In the *Source* field, select *Git repository* and paste your GitLab repository URL:
++
+[source,subs="attributes+"]
+----
+{gitlab_url}/{gitlab_username}/sample-component-golang
+----
+
+. When prompted for repository credentials, enter `{gitlab_password}` as the GitLab personal access token.
+
+. Wait while Konflux inspects the repository.
+Confirm that Konflux detects the repository and identifies a build strategy automatically.
+The sample app includes a `Dockerfile` at the repository root, so Konflux selects a Docker build.
++
+.Konflux component source detection
+image::module-02-component-detection.png[Konflux Add component page showing the GitLab repository URL entered and Konflux reporting that a Dockerfile build strategy was detected automatically,800]
+
+. In the *Component name* field, accept the auto-generated name or enter `sample-component-golang`.
+
+. In the *Target image repository* field, set the registry destination to your pre-provisioned Quay organization:
++
+[source,subs="attributes+"]
+----
+{quay_url}/{quay_user}/sample-component-golang
+----
+
+. Click *Create component*.
++
+Konflux now opens a merge request against your GitLab repository that adds the `.tekton/` directory.
+This step may take 15–30 seconds.
+
+. Switch to your GitLab browser tab.
+Open link:{gitlab_url}/{gitlab_username}/sample-component-golang[your repository,window=_blank] and navigate to *Merge Requests*.
+
+. Locate the merge request opened by Konflux.
+The title reads something like *Konflux — initial PipelineRun configuration*.
++
+.GitLab merge request created by Konflux
+image::module-02-gitlab-mr.png[GitLab Merge Requests page showing an open merge request titled Konflux initial PipelineRun configuration with a green Open badge,800]
+
+. Click into the merge request and review the files under `.tekton/`.
+These are the Tekton PipelineRun definitions that Pipelines-as-Code will execute on future push and merge-request events.
+
+. Click *Merge* to merge the request into the default branch.
++
+NOTE: Use the default merge strategy. Do not squash or rebase — Pipelines-as-Code reads the merge commit to identify the triggering event.
+
+=== Verify
+
+[%interactive]
+* [ ] The Konflux Component detail page shows `sample-component-golang` linked to your GitLab repository URL.
+* [ ] The GitLab merge request from Konflux is merged into the default branch.
+* [ ] The `.tekton/` directory is visible in the repository root on the default branch.
+
+== 3. Trigger and Verify the First PipelineRun
+
+Merging the `.tekton/` directory into the default branch triggers Pipelines-as-Code immediately.
+A PipelineRun is created in your tenant namespace in response to that merge event.
+You now confirm that the run was created and is progressing.
+
+. Return to the Konflux UI.
+Inside `my-sample-app`, navigate to the *Activity* or *Pipelines* tab.
+
+. Observe that a PipelineRun appears automatically in response to the merge event.
++
+.Konflux Activity tab showing the first PipelineRun
+image::module-02-first-pipelinerun.png[Konflux Activity tab listing one PipelineRun entry for sample-component-golang in a Running state with a pipeline stage breakdown visible,800]
+
+. Click the *Terminal* tab in the right-hand panel.
+List the PipelineRuns in your tenant namespace:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+oc get pipelineruns -n {openshift_username}-tenant
+----
++
+Expected output: one PipelineRun with a `Running` or `Succeeded` status.
+
+. Return to the Konflux UI and click the PipelineRun name to open its detail view.
+Observe the pipeline stages — they include a build task and at least one scan task, reflecting the supply-chain pipeline you explored in Module 1.
+
+. Wait for the PipelineRun to reach *Running* or *Succeeded* before moving to Module 3.
++
+TIP: A first build typically takes 3–8 minutes. Use the time to review the stage breakdown in the UI.
++
+If the run fails, read the task logs displayed in the UI and report the error to the instructor.
+Do not proceed to Module 3 with a failed PipelineRun — later modules depend on artifacts produced by this run.
+
+. Return to the *Applications* view and confirm the `sample-component-golang` Component card shows:
++
+** The linked GitLab repository URL.
+** The target Quay image path (`{quay_url}/{quay_user}/sample-component-golang`).
+
+=== Verify
+
+[%interactive]
+* [ ] `oc get pipelineruns -n {openshift_username}-tenant` returns at least one PipelineRun.
+* [ ] The PipelineRun status in the Konflux UI is `Running` or `Succeeded`.
+* [ ] The Component card in the Applications view shows the GitLab URL and the target Quay image path.
+
+== Learning Outcomes Checkpoint
+
+Before moving on, check that you can answer the following:
+
+*How does Konflux wire up Pipelines-as-Code without manual webhook configuration?*
+
+When you create a Component, Konflux commits PipelineRun manifests into your GitLab repository via a merge request.
+Pipelines-as-Code reads those manifests from the `.tekton/` directory and registers the webhook automatically.
+From that point on, every push and merge-request event triggers a new run — no manual pipeline invocation needed.
+
+*Where does the build pipeline send its output?*
+
+The target image repository is declared at the Component level (`{quay_url}/{quay_user}/sample-component-golang`).
+The build pipeline pushes the container image, the SBOM, and all attestations to that Quay repository automatically.
+You will inspect those artifacts in Module 3 and Module 4.
+
+*Why is your view of PipelineRuns isolated from other participants?*
+
+Each participant has their own tenant namespace (`{openshift_username}-tenant`).
+Pipelines-as-Code creates PipelineRuns in that namespace, so your runs and artifacts do not appear in anyone else's view — and vice versa.
+
+== Key Takeaways
+
+* Konflux uses a GitOps model for onboarding: creating a Component causes Konflux to commit Tekton PipelineRun manifests directly into your source repository.
+* Pipelines-as-Code reads those manifests from the `.tekton/` directory and triggers runs on push and merge-request events — no manual pipeline execution is required.
+* The target image registry (Quay) is declared at the Component level; the build pipeline pushes all images and attestations there automatically.
+* Each participant's PipelineRuns run in their own tenant namespace, keeping workloads and artifacts isolated across the shared cluster.
+
+xref:module-03-build-and-scan.adoc[Next: Module 3 — Build and Scan →]
