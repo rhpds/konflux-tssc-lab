@@ -157,6 +157,9 @@ image::module-02-add-component.png[Konflux Add component page with the Git repos
 ----
 +
 If it is not already set, enter it now.
++
+.Add component form — top section
+image::module-02-component-1.png[Konflux Add component form showing the Git repository URL, Git provider annotation set to gitlab, and Git url annotation fields,800]
 
 . Leave the *Dockerfile path* field blank — Konflux will look for a `Dockerfile` in the repository root, which is where the sample app's `Dockerfile` lives.
 
@@ -166,6 +169,9 @@ Accept the default or change it to `sample-component-golang`.
 . In the *Pipeline* field, select `docker-build-oci-ta-min`.
 +
 NOTE: This pipeline is optimised for shared-cluster tenant namespaces and is required for this lab.
++
+.Add component form — bottom section showing pipeline selection
+image::module-02-component-2.png[Konflux Add component form showing the Dockerfile path, Component name, and Pipeline fields with docker-build-oci-ta-min selected,800]
 
 . Click *Create component*.
 +
