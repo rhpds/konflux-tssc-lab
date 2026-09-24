@@ -65,9 +65,30 @@ When you create the Component, Konflux opens a merge request against your reposi
 Merging that commit completes the Pipelines-as-Code wiring.
 
 Before adding the Component, you must give Konflux permission to open merge requests on your GitLab repository.
-This requires creating a Kubernetes secret containing your GitLab access token.
+This requires a GitLab Personal Access Token (PAT) stored as a Kubernetes secret in your tenant namespace.
+
+. Switch to your GitLab browser tab.
+In the top-right corner, click your avatar and select *Preferences*.
+
+. In the left sidebar, click *Access Tokens*, then click *Add new token*.
+
+. Fill in the form:
+** *Token name*: `konflux-pac`
+** *Expiration date*: leave blank or set to end of lab
+** *Scopes*: select *api*
+
+. Click *Create personal access token* and copy the generated token.
++
+IMPORTANT: Copy the token now — GitLab will not show it again after you leave this page.
 
 . Click the *>_ Terminal* tab in the right-hand panel.
+
+. Store the token in a shell variable (replace `<YOUR_TOKEN>` with the token you just copied):
++
+[source,bash]
+----
+export GITLAB_PAT=<YOUR_TOKEN>
+----
 
 . Extract your GitLab hostname from the lab URL:
 +
@@ -91,7 +112,7 @@ metadata:
     appstudio.redhat.com/scm.host: ${PAC_GITLAB_HOST}
 type: kubernetes.io/basic-auth
 stringData:
-  password: {gitlab_password}
+  password: ${GITLAB_PAT}
 EOF
 ----
 
