@@ -29,6 +29,8 @@ Log in with `{openshift_username}` / `{openshift_password}` if prompted.
 .Konflux Namespaces page
 image::module-02-namespaces.png[Konflux Namespaces page listing the available namespaces for the logged-in user,800]
 
+NOTE: The username shown in the screenshot will differ from yours. Your namespaces are named after your assigned username (`{openshift_username}`), which Showroom substitutes automatically wherever you see it in this guide.
+
 . Click your tenant namespace (`{openshift_username}-tenant`) to enter it.
 +
 NOTE: You will see multiple namespaces listed — `default-tenant`, `{openshift_username}-managed`, and `{openshift_username}-tenant`. Always work in the `-tenant` namespace for this lab. The `-managed` namespace is controlled by the release pipeline and should not be modified directly.
