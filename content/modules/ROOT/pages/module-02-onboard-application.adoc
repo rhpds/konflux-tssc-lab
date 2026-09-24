@@ -147,21 +147,25 @@ image::module-02-add-component.png[Konflux Add component page with the Git repos
 {gitlab_url}/{gitlab_username}/sample-component-golang
 ----
 
-. Wait while Konflux inspects the repository.
-Confirm that Konflux detects the repository and identifies a build strategy automatically.
-The sample app includes a `Dockerfile` at the repository root, so Konflux selects a Docker build.
-+
-.Konflux component source detection
-image::module-02-component-detection.png[Konflux Add component page showing the GitLab repository URL entered and Konflux reporting that a Dockerfile build strategy was detected automatically,800]
+. In the *Git provider annotation* field, select *gitlab*.
 
-. In the *Component name* field, accept the auto-generated name or enter `sample-component-golang`.
-
-. In the *Target image repository* field, set the registry destination to your pre-provisioned Quay organization:
+. In the *Git url annotation* field, confirm the value is pre-filled with your base GitLab URL:
 +
 [source,subs="attributes+"]
 ----
-{quay_url}/{quay_user}/sample-component-golang
+{gitlab_url}
 ----
++
+If it is not already set, enter it now.
+
+. Leave the *Dockerfile path* field blank — Konflux will look for a `Dockerfile` in the repository root, which is where the sample app's `Dockerfile` lives.
+
+. Review the *Component name* — it is pre-filled based on the repository name.
+Accept the default or change it to `sample-component-golang`.
+
+. In the *Pipeline* field, select `docker-build-oci-ta-min`.
++
+NOTE: This pipeline is optimised for shared-cluster tenant namespaces and is required for this lab.
 
 . Click *Create component*.
 +
