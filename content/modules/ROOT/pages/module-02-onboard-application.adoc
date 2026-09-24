@@ -35,7 +35,11 @@ NOTE: The username shown in the screenshot will differ from yours. Your namespac
 +
 NOTE: You will see multiple namespaces listed — `default-tenant`, `{openshift_username}-managed`, and `{openshift_username}-tenant`. Always work in the `-tenant` namespace for this lab. The `-managed` namespace is controlled by the release pipeline and should not be modified directly.
 
-. In the left navigation, click *Applications*, then click *Create application*.
+. Clicking your tenant namespace takes you directly to the Applications page.
+Click *Create application*.
++
+.Konflux Applications page inside your tenant namespace
+image::module-02-applications.png[Konflux Applications page showing an empty application list with a Create application button,800]
 
 . In the *Application name* field, enter `my-sample-app`.
 +
