@@ -64,6 +64,46 @@ A Konflux Component represents a single buildable unit — in this case, the Go 
 When you create the Component, Konflux opens a merge request against your repository that adds a `.tekton/` directory containing Tekton PipelineRun definitions.
 Merging that commit completes the Pipelines-as-Code wiring.
 
+Before adding the Component, you must give Konflux permission to open merge requests on your GitLab repository.
+This requires creating a Kubernetes secret containing your GitLab access token.
+
+. Click the *>_ Terminal* tab in the right-hand panel.
+
+. Extract your GitLab hostname from the lab URL:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+export PAC_GITLAB_HOST=$(echo "{gitlab_url}" | sed 's|https://||; s|/.*||')
+----
+
+. Create the Pipelines-as-Code secret in your tenant namespace:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+oc apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pipelines-as-code-secret
+  namespace: {openshift_username}-tenant
+  labels:
+    appstudio.redhat.com/credentials: scm
+    appstudio.redhat.com/scm.host: ${PAC_GITLAB_HOST}
+type: kubernetes.io/basic-auth
+stringData:
+  password: {gitlab_password}
+EOF
+----
+
+. Confirm the secret was created:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+oc get secret pipelines-as-code-secret -n {openshift_username}-tenant
+----
++
+Expected output: one secret named `pipelines-as-code-secret`.
+
 . Inside the `my-sample-app` Application detail page, click *Add component*.
 +
 .Konflux Add component page
@@ -116,6 +156,7 @@ NOTE: Use the default merge strategy. Do not squash or rebase — Pipelines-as-C
 === Verify
 
 [%interactive]
+* [ ] `pipelines-as-code-secret` exists in your tenant namespace.
 * [ ] The Konflux Component detail page shows `sample-component-golang` linked to your GitLab repository URL.
 * [ ] The GitLab merge request from Konflux is merged into the default branch.
 * [ ] The `.tekton/` directory is visible in the repository root on the default branch.
