@@ -24,13 +24,16 @@ You create the Application first, then add the Component that points at your sou
 . Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_blank].
 Log in with `{openshift_username}` / `{openshift_password}` if prompted.
 
-. In the top-left workspace selector, confirm you are in your personal workspace.
-The selector should display your assigned user ID.
+. In the left navigation, click *Namespaces*.
 +
-.Konflux workspace selector showing your personal workspace
-image::module-02-workspace-selector.png[Konflux workspace selector in the top-left corner of the UI showing the current user's personal workspace is selected,800]
+.Konflux Namespaces page
+image::module-02-namespaces.png[Konflux Namespaces page listing the available namespaces for the logged-in user,800]
 
-. On the *Applications* overview page, click *Create application*.
+. Click your tenant namespace (`{openshift_username}-tenant`) to enter it.
++
+NOTE: You will see multiple namespaces listed — `default-tenant`, `{openshift_username}-managed`, and `{openshift_username}-tenant`. Always work in the `-tenant` namespace for this lab. The `-managed` namespace is controlled by the release pipeline and should not be modified directly.
+
+. In the left navigation, click *Applications*, then click *Create application*.
 
 . In the *Application name* field, enter `my-sample-app`.
 +
@@ -47,6 +50,7 @@ image::module-02-application-created.png[Konflux Applications page listing the n
 === Verify
 
 [%interactive]
+* [ ] You are inside the `{openshift_username}-tenant` namespace in Konflux.
 * [ ] The Applications list shows `my-sample-app`.
 * [ ] The Application status reads "No components yet" or similar.
 
