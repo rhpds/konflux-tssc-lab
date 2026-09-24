@@ -65,15 +65,16 @@ When you create the Component, Konflux opens a merge request against your reposi
 Merging that commit completes the Pipelines-as-Code wiring.
 
 . Inside the `my-sample-app` Application detail page, click *Add component*.
++
+.Konflux Add component page
+image::module-02-add-component.png[Konflux Add component page with the Git repository URL field visible,800]
 
-. In the *Source* field, select *Git repository* and paste your GitLab repository URL:
+. In the *Git repository url* field, paste your GitLab repository URL:
 +
 [source,subs="attributes+"]
 ----
 {gitlab_url}/{gitlab_username}/sample-component-golang
 ----
-
-. When prompted for repository credentials, enter `{gitlab_password}` as the GitLab personal access token.
 
 . Wait while Konflux inspects the repository.
 Confirm that Konflux detects the repository and identifies a build strategy automatically.
