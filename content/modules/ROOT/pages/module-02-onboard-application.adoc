@@ -81,7 +81,10 @@ image::module-02-pat.png[GitLab Personal access tokens page accessed via the use
 ** *Expiration date*: leave blank or set to end of lab
 ** *Scopes*: select *api*
 
-. Click *Create personal access token* and copy the generated token.
+. Click *Generate token* and copy the generated token.
++
+.GitLab Generate token button and resulting token
+image::module-02-generate-token.png[GitLab Personal access token creation form showing the Generate token button and the token value field,800]
 +
 IMPORTANT: Copy the token now — GitLab will not show it again after you leave this page.
 
