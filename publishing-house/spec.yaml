@@ -49,7 +49,7 @@ spec:
   - id: module-01
     title: Orientation
     duration_min: 10
-    status: in_progress
+    status: complete
   - id: module-02
     title: Onboard Your Application
     duration_min: 15
