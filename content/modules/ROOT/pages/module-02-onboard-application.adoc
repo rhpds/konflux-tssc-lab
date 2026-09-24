@@ -86,7 +86,10 @@ image::module-02-pat.png[GitLab Personal access tokens page accessed via the use
 .GitLab Generate token button and resulting token
 image::module-02-generate-token.png[GitLab Personal access token creation form showing the Generate token button and the token value field,800]
 +
-IMPORTANT: Copy the token now — GitLab will not show it again after you leave this page.
+IMPORTANT: Copy the token now using the copy icon next to the token value — GitLab will not show it again after you leave this page.
++
+.GitLab PAT created — use the copy icon to copy the token value
+image::module-02-copy-pat.png[GitLab Personal access tokens page showing the newly created token with the copy icon highlighted,800]
 
 . Click the *>_ Terminal* tab in the right-hand panel.
 
