@@ -90,7 +90,10 @@ It manages your application onboarding, pipeline runs, and the release pipeline 
 
 . Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_blank] in a browser tab.
 . Log in with username `{openshift_username}` and password `{openshift_password}`.
-. If prompted to authorize access, review the requested permissions and click *Allow*.
+. If prompted to authorize access, review the requested permissions and click *Allow selected permissions*.
++
+.Konflux OAuth authorization prompt
+image::module-01-permission.png[Konflux OAuth permissions authorization prompt requesting access to your account,800]
 
 . Confirm the Konflux overview page loads.
 

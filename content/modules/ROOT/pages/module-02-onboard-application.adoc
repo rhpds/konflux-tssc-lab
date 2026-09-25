@@ -1,1 +1,290 @@
-= Onboard Application
+= Onboard Your Application
+:navtitle: Onboard Your Application
+
+Estimated time: *15 minutes*
+
+In this module you register your pre-provisioned GitLab sample application with Konflux.
+You create a Konflux Application and Component, link the Component to your GitLab repository, and wire up Pipelines-as-Code so that every push or merge request automatically triggers a build pipeline.
+By the end, the Konflux UI shows your Component linked to the repository and a PipelineRun is running or has completed in your tenant namespace.
+
+== Learning Objectives
+
+By the end of this module, you will be able to:
+
+* Create a Konflux Application and Component linked to your pre-provisioned GitLab repository.
+* Configure Pipelines-as-Code integration so that GitLab merge request and push events automatically trigger Konflux build pipelines.
+* Verify the onboarding by observing the first PipelineRun created in your tenant namespace.
+
+== 1. Create a Konflux Application
+
+A Konflux Application is the top-level grouping for one or more related components.
+Think of it as the logical boundary around a service or product you own.
+You create the Application first, then add the Component that points at your source code.
+
+. Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_blank].
+Log in with `{openshift_username}` / `{openshift_password}` if prompted.
+
+. In the left navigation, click *Namespaces*.
++
+.Konflux Namespaces page
+image::module-02-namespaces.png[Konflux Namespaces page listing the available namespaces for the logged-in user,800]
+
+NOTE: The username shown in the screenshot will differ from yours. Your namespaces are named after your assigned username (`{openshift_username}`), which Showroom substitutes automatically wherever you see it in this guide.
+
+. Click your tenant namespace (`{openshift_username}-tenant`) to enter it.
++
+NOTE: You will see multiple namespaces listed — `default-tenant`, `{openshift_username}-managed`, and `{openshift_username}-tenant`. Always work in the `-tenant` namespace for this lab. The `-managed` namespace is controlled by the release pipeline and should not be modified directly.
+
+. Clicking your tenant namespace takes you directly to the Applications page.
+Click *Create application*.
++
+.Konflux Applications page inside your tenant namespace
+image::module-02-applications.png[Konflux Applications page showing an empty application list with a Create application button,800]
+
+. In the *Application name* field, enter `my-sample-app`.
++
+Record this name — you will reference it in later modules.
+
+. Leave all other fields at their defaults and click *Create*.
+
+. After creation, Konflux takes you directly to the new Application page.
++
+.Konflux Application page after creation
+image::module-02-konflux-app.png[Konflux Application detail page for my-sample-app immediately after creation,800]
+
+=== Verify
+
+[%interactive]
+* [ ] You are inside the `{openshift_username}-tenant` namespace in Konflux.
+* [ ] Konflux has taken you to the `my-sample-app` Application page.
+
+== 2. Add the Component and Connect GitLab
+
+A Konflux Component represents a single buildable unit — in this case, the Go sample application in your GitLab repository.
+When you create the Component, Konflux opens a merge request against your repository that adds a `.tekton/` directory containing Tekton PipelineRun definitions.
+Merging that commit completes the Pipelines-as-Code wiring.
+
+Before adding the Component, you must give Konflux permission to open merge requests on your GitLab repository.
+This requires a GitLab Personal Access Token (PAT) stored as a Kubernetes secret in your tenant namespace.
+
+. Switch to your GitLab browser tab.
+In the top-right corner, click your avatar and select *Preferences*.
+In the left sidebar, navigate to *Access → Personal access tokens*.
++
+.GitLab Personal access tokens page
+image::module-02-pat.png[GitLab Personal access tokens page accessed via the user avatar menu,800]
+
+. Click *Add new token*.
+
+. Fill in the form:
+** *Token name*: `konflux-pac`
+** *Expiration date*: leave blank or set to end of lab
+** *Scopes*: select *api*
+
+. Click *Generate token* and copy the generated token.
++
+.GitLab Generate token button and resulting token
+image::module-02-generate-token.png[GitLab Personal access token creation form showing the Generate token button and the token value field,800]
++
+IMPORTANT: Copy the token now using the copy icon next to the token value — GitLab will not show it again after you leave this page.
++
+.GitLab PAT created — use the copy icon to copy the token value
+image::module-02-copy-pat.png[GitLab Personal access tokens page showing the newly created token with the copy icon highlighted,800]
+
+. Click the *>_ Terminal* tab in the right-hand panel.
+
+. Store the token in a shell variable (replace `<YOUR_TOKEN>` with the token you just copied):
++
+[source,bash]
+----
+export GITLAB_PAT=<YOUR_TOKEN>
+----
+
+. Extract your GitLab hostname from the lab URL:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+export PAC_GITLAB_HOST=$(echo "{gitlab_url}" | sed 's|https://||; s|/.*||')
+----
+
+. Create the Pipelines-as-Code secret in your tenant namespace:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+oc apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pipelines-as-code-secret
+  namespace: {openshift_username}-tenant
+  labels:
+    appstudio.redhat.com/credentials: scm
+    appstudio.redhat.com/scm.host: ${PAC_GITLAB_HOST}
+type: kubernetes.io/basic-auth
+stringData:
+  password: ${GITLAB_PAT}
+EOF
+----
+
+. Confirm the secret was created:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+oc get secret pipelines-as-code-secret -n {openshift_username}-tenant
+----
++
+Expected output: one secret named `pipelines-as-code-secret`.
+
+. Inside the `my-sample-app` Application detail page, click *Add component*.
++
+.Konflux Add component page
+image::module-02-add-component.png[Konflux Add component page with the Git repository URL field visible,800]
+
+. In the *Git repository url* field, paste your GitLab repository URL:
++
+[source,subs="attributes+"]
+----
+{gitlab_url}/{gitlab_username}/sample-component-golang
+----
+
+. In the *Git provider annotation* field, select *gitlab*.
+
+. In the *Git url annotation* field, confirm the value is pre-filled with your base GitLab URL:
++
+[source,subs="attributes+"]
+----
+{gitlab_url}
+----
++
+If it is not already set, enter it now.
++
+.Add component form — top section
+image::module-02-component-1.png[Konflux Add component form showing the Git repository URL, Git provider annotation set to gitlab, and Git url annotation fields,800]
+
+. Leave the *Dockerfile path* field blank — Konflux will look for a `Dockerfile` in the repository root, which is where the sample app's `Dockerfile` lives.
+
+. Review the *Component name* — it is pre-filled based on the repository name.
+Accept the default or change it to `sample-component-golang`.
+
+. In the *Pipeline* field, select `docker-build-oci-ta-min`.
++
+NOTE: This pipeline is optimised for shared-cluster tenant namespaces and is required for this lab.
++
+.Add component form — bottom section showing pipeline selection
+image::module-02-component-2.png[Konflux Add component form showing the Dockerfile path, Component name, and Pipeline fields with docker-build-oci-ta-min selected,800]
+
+. Click the orange *Add component* button.
++
+Konflux now opens a merge request against your GitLab repository that adds the `.tekton/` directory.
+This step may take 15–30 seconds.
+
+. Switch to your GitLab browser tab.
+Open link:{gitlab_url}/{gitlab_username}/sample-component-golang[your repository,window=_blank] and navigate to *Merge Requests*.
+
+. Locate the merge request opened by Konflux.
+The title reads *Konflux update sample-component-golang-XXXX*, where `XXXX` matches the generated suffix in your component name.
++
+.GitLab merge request created by Konflux
+image::module-02-merge-request.png[GitLab Merge Requests page showing an open merge request titled Konflux initial PipelineRun configuration with a green Open badge,800]
+
+. Click into the merge request and review the files under `.tekton/`.
+These are the Tekton PipelineRun definitions that Pipelines-as-Code will execute on future push and merge-request events.
+
+. Click *Merge* to merge the request into the default branch.
++
+NOTE: Use the default merge strategy. Do not squash or rebase — Pipelines-as-Code reads the merge commit to identify the triggering event.
+
+=== Verify
+
+[%interactive]
+* [ ] `pipelines-as-code-secret` exists in your tenant namespace.
+* [ ] The Konflux Component detail page shows `sample-component-golang` linked to your GitLab repository URL.
+* [ ] The GitLab merge request from Konflux is merged into the default branch.
+* [ ] The `.tekton/` directory is visible in the repository root on the default branch.
+
+== 3. Trigger and Verify the First PipelineRun
+
+Merging the `.tekton/` directory into the default branch triggers Pipelines-as-Code immediately.
+A PipelineRun is created in your tenant namespace in response to that merge event.
+You now confirm that the run was created and is progressing.
+
+. Return to the Konflux UI.
+Inside `my-sample-app`, click the *Activity* tab.
+
+. Observe that a PipelineRun appears automatically in response to the merge event.
++
+.Konflux Activity tab showing the first PipelineRun
+image::module-02-activity.png[Konflux Activity tab listing a completed PipelineRun entry for sample-component-golang,800]
+
+. Click the *Terminal* tab in the right-hand panel.
+List the PipelineRuns in your tenant namespace:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+oc get pipelineruns -n {openshift_username}-tenant
+----
++
+Expected output: one PipelineRun with a `Running` or `Succeeded` status.
+
+. In the Konflux UI, click the commit entry in the Activity tab to open its detail view.
+Observe the events progression — it shows two stages: the build (`sample-component-golang-XXXX-build`) and an enterprise contract check (`my-sample-app-enterprise-contract`), both showing *Succeeded*.
++
+.Konflux commit detail showing build and enterprise contract stages
+image::module-02-pipeline-detail.png[Konflux commit detail view showing the commit, build, and enterprise-contract stages all succeeding,800]
+
+. Wait for the PipelineRun to reach *Running* or *Succeeded* before moving to Module 3.
++
+TIP: A first build typically takes 3–8 minutes. Use the time to review the stage breakdown in the UI.
++
+If the run fails, read the task logs displayed in the UI and report the error to the instructor.
+Do not proceed to Module 3 with a failed PipelineRun — later modules depend on artifacts produced by this run.
+
+. Return to the *Applications* view and confirm the `sample-component-golang` Component card shows the linked GitLab repository URL.
+
+=== Verify
+
+[%interactive]
+* [ ] `oc get pipelineruns -n {openshift_username}-tenant` returns at least one PipelineRun.
+* [ ] The PipelineRun status in the Konflux UI is `Running` or `Succeeded`.
+* [ ] The Component card in the Applications view shows the linked GitLab repository URL.
+
+== Learning Outcomes Checkpoint
+
+Before moving on, check that you can answer the following:
+
+*How does Konflux wire up Pipelines-as-Code without manual webhook configuration?*
+
+When you create a Component, Konflux commits PipelineRun manifests into your GitLab repository via a merge request.
+Pipelines-as-Code reads those manifests from the `.tekton/` directory and registers the webhook automatically.
+From that point on, every push and merge-request event triggers a new run — no manual pipeline invocation needed.
+
+*Where does the build pipeline send its output?*
+
+Konflux reads the image push credentials attached to the `pipeline` service account in your tenant namespace.
+Those credentials point to the lab's shared Quay instance and determine the target registry.
+Konflux then derives the image repository path automatically from your namespace and component name:
+
+`{quay_url}/tsf/{openshift_username}-tenant/<component-name>`
+
+You can confirm the exact image path Konflux assigned by running:
+
+[source,bash,role="execute",subs="attributes+"]
+----
+oc get component -n {openshift_username}-tenant -o jsonpath='{.items[0].spec.containerImage}{"\n"}'
+----
+
+You will inspect the image and its attestations in Module 3 and Module 4.
+
+*Why is your view of PipelineRuns isolated from other participants?*
+
+Each participant has their own tenant namespace (`{openshift_username}-tenant`).
+Pipelines-as-Code creates PipelineRuns in that namespace, so your runs and artifacts do not appear in anyone else's view — and vice versa.
+
+== Key Takeaways
+
+* Konflux uses a GitOps model for onboarding: creating a Component causes Konflux to commit Tekton PipelineRun manifests directly into your source repository.
+* Pipelines-as-Code reads those manifests from the `.tekton/` directory and triggers runs on push and merge-request events — no manual pipeline execution is required.
+* The target image registry (Quay) is declared at the Component level; the build pipeline pushes all images and attestations there automatically.
+* Each participant's PipelineRuns run in their own tenant namespace, keeping workloads and artifacts isolated across the shared cluster.
+
+xref:module-03-build-and-scan.adoc[Next: Module 3 — Build and Scan →]
