@@ -113,18 +113,17 @@ The build pipeline runs the following tasks:
 |Submits the image to Trusted Profile Analyzer for supply chain analysis.
 |===
 
-. Click the `build-container` task node to open its log view.
-Scroll through the logs to find the line that prints the pushed image digest.
-It looks similar to:
+. Click the `build-container` task node.
+A side panel opens on the right with two tabs: *Details* and *Logs*.
 +
-----
-sha256:a1b2c3d4e5f6...
-----
+On the *Details* tab, look for the *Results* section.
+It lists `IMAGE_DIGEST`, `IMAGE_REF`, `IMAGE_URL`, and `SBOM_BLOB_URL` directly — no log-scrolling needed.
+Copy the `IMAGE_DIGEST` value (it looks like `sha256:03359...`).
 +
-Copy this digest value — you will use it in the next section and again in Module 4.
+TIP: Click the *Logs* tab if you want to see what Buildah actually did — it shows each layer being pushed and is useful for troubleshooting slow or failed builds.
 +
-IMPORTANT: Save the digest in a text editor or similar.
-If you lose it, you can retrieve it by re-opening the PipelineRun detail in the Konflux UI or by running `oc get pipelineruns -n {openshift_username}-tenant` and clicking through to the relevant run.
+IMPORTANT: Save the digest in a text editor now — you will need it in the next section and again in Module 4.
+If you lose it, click back into this task node's *Details* tab to retrieve it.
 
 . Wait for the PipelineRun to reach *Succeeded*.
 This typically takes 3–6 minutes.
