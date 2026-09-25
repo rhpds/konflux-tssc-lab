@@ -77,13 +77,14 @@ You will see two runs: a *Build* run (`sample-component-golang-...`) and a *Test
 .Konflux commit detail — Pipeline runs tab showing the build and enterprise contract runs
 image::module-03-pipeline-runs-tab.png[Konflux commit detail view with the Pipeline runs tab selected showing a Build pipeline run and an enterprise contract Test pipeline run,800]
 
-. Click the PipelineRun name to open the full task graph.
+. Click the *Build* PipelineRun name (the one ending in `-on-push-...`) to open the full task graph.
+Do not click the enterprise contract Test run — that is covered in a later module.
 +
 .Konflux PipelineRun detail showing the task graph
 image::module-03-pipelinerun-detail.png[Konflux PipelineRun detail page showing the task graph with each stage displayed as a connected node,800]
 
 . Review the task stages.
-The `docker-build-oci-ta-min` pipeline runs the following tasks in sequence:
+The build pipeline runs the following tasks:
 +
 [cols="1,3",options="header"]
 |===
@@ -92,16 +93,25 @@ The `docker-build-oci-ta-min` pipeline runs the following tasks in sequence:
 |Sets up the pipeline workspace and resolves build credentials.
 |`clone-repository`
 |Clones the exact source commit from GitLab into the pipeline workspace.
+|`prefetch-dependencies`
+|Pre-fetches Go module dependencies into the trusted artifact store so the build has no outbound network access.
 |`build-container`
 |Builds the container image using Buildah and pushes it to Quay.
-|`generate-sbom`
-|Generates a CycloneDX SBOM from the image layer contents and pushes it to Quay as a separate OCI artifact.
-|`apply-tags`
-|Applies version and branch tags to the image in Quay.
+|`build-image-index`
+|Creates a multi-architecture image index pointing to the built image manifest.
+|`deprecated-base-image-check`
+|Flags any base images that have been marked deprecated in the Red Hat container catalog.
+|`clamav-scan`
+|Scans the image filesystem for known malware signatures using ClamAV.
+|`sast-shell-check`
+|Runs ShellCheck static analysis on any shell scripts found in the image layers.
+|`sast-unicode-check`
+|Detects bidirectional Unicode control characters that could hide malicious code.
+|`rpms-signature-scan`
+|Verifies that all RPM packages in the image are signed with a trusted Red Hat GPG key.
+|`tpa-scan`
+|Submits the image to Trusted Profile Analyzer for supply chain analysis.
 |===
-+
-NOTE: The task names visible in your pipeline detail may differ slightly if the pipeline definition was updated after this lab was authored.
-The tasks above reflect the current `docker-build-oci-ta-min` pipeline — check with your instructor if you see unexpected task names.
 
 . Click the `build-container` task node to open its log view.
 Scroll through the logs to find the line that prints the pushed image digest.
