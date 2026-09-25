@@ -1,1 +1,301 @@
-= Build And Scan
+= Build and Scan
+:navtitle: Build and Scan
+
+Estimated time: *20 minutes*
+
+With your application onboarded and the first pipeline run complete from Module 2, you are ready to see the full build cycle in action.
+In this module, you push a small code change to your GitLab repository, watch Konflux respond automatically with a new pipeline run, and then examine the artifacts it produces: a container image, a CycloneDX Software Bill of Materials (SBOM), and a SLSA provenance attestation.
+By the end, you will know what the pipeline produces, where those artifacts land, and how to inspect them.
+
+== Learning Objectives
+
+By the end of this module, you will be able to:
+
+* Build a container image by pushing a source change to GitLab and observing the resulting Konflux PipelineRun.
+* Analyze the automatically generated CycloneDX SBOM to identify its components, licenses, and vulnerability data.
+* Observe how the pipeline scan tasks report findings and how results surface in the Konflux UI.
+* Verify that the built image and its associated SBOM and attestation artifacts are present in the Quay registry after the pipeline completes.
+
+== 1. Trigger a Build with a Code Change
+
+Pipelines-as-Code watches your GitLab repository.
+Any push to the default branch starts a new PipelineRun automatically.
+You will make a minimal change using the GitLab web editor — no local tooling required.
+
+. Open link:{gitlab_url}/{gitlab_username}/sample-component-golang[your GitLab sample repository,window=_blank].
+
+. In the file list, click `README.md`.
+On the file view page, click the pencil icon (*Edit*) to open the web editor.
++
+.GitLab web editor for README.md
+image::module-03-readme-edit.png[GitLab web editor opened for the README.md file showing the pencil icon used to start editing,800]
+
+. Scroll to the bottom of the file.
+Add a new line:
++
+----
+# Lab update - module 03
+----
+
+. In the *Commit message* field, enter:
++
+----
+chore: trigger module-03 build
+----
+
+. Leave *Commit directly to the `main` branch* selected and click *Commit changes*.
+
+. Confirm the new commit appears at the top of the repository's *Commits* list.
++
+.GitLab commit history showing the new commit
+image::module-03-commit-history.png[GitLab Commits page showing the new chore: trigger module-03 build commit at the top of the list,800]
+
+. Switch to the link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux UI,window=_blank].
+Navigate to *Applications → my-sample-app → Activity*.
+
+. Within 30–60 seconds, a new PipelineRun entry appears in the Activity feed, linked to the commit you just pushed.
++
+.Konflux Activity tab showing the new PipelineRun triggered by the push
+image::module-03-activity-new-run.png[Konflux Activity tab listing a new PipelineRun entry triggered by the chore: trigger module-03 build commit,800]
+
+=== Verify
+
+[%interactive]
+* [ ] The commit `chore: trigger module-03 build` appears in the GitLab commit history.
+* [ ] A new PipelineRun entry appears in the Konflux Activity tab within 60 seconds of the push.
+
+== 2. Trace the Pipeline Stages
+
+The Konflux UI shows the full task graph for each PipelineRun.
+You will walk through the stages of the `docker-build-oci-ta-min` pipeline to understand what each task does and where the image digest comes from.
+
+. In the Konflux Activity tab, click the commit entry for `chore: trigger module-03 build` to open its detail view.
+
+. Click the *Pipeline runs* tab to see the individual pipeline run linked to this commit.
++
+.Konflux commit detail — Pipeline runs tab
+image::module-03-pipeline-runs-tab.png[Konflux commit detail view with the Pipeline runs tab selected showing a single pipeline run entry,800]
+
+. Click the PipelineRun name to open the full task graph.
++
+.Konflux PipelineRun detail showing the task graph
+image::module-03-pipelinerun-detail.png[Konflux PipelineRun detail page showing the task graph with each stage displayed as a connected node,800]
+
+. Review the task stages.
+The `docker-build-oci-ta-min` pipeline runs the following tasks in sequence:
++
+[cols="1,3",options="header"]
+|===
+|Task |What it does
+|`init`
+|Sets up the pipeline workspace and resolves build credentials.
+|`clone-repository`
+|Clones the exact source commit from GitLab into the pipeline workspace.
+|`build-container`
+|Builds the container image using Buildah and pushes it to Quay.
+|`generate-sbom`
+|Generates a CycloneDX SBOM from the image layer contents and pushes it to Quay as a separate OCI artifact.
+|`apply-tags`
+|Applies version and branch tags to the image in Quay.
+|===
++
+NOTE: The task names visible in your pipeline detail may differ slightly if the pipeline definition was updated after this lab was authored.
+The tasks above reflect the current `docker-build-oci-ta-min` pipeline — check with your instructor if you see unexpected task names.
+
+. Click the `build-container` task node to open its log view.
+Scroll through the logs to find the line that prints the pushed image digest.
+It looks similar to:
++
+----
+sha256:a1b2c3d4e5f6...
+----
++
+Copy this digest value — you will use it in the next section and again in Module 4.
++
+IMPORTANT: Save the digest in a text editor or similar.
+If you lose it, you can retrieve it by re-opening the PipelineRun detail in the Konflux UI or by running `oc get pipelineruns -n {openshift_username}-tenant` and clicking through to the relevant run.
+
+. Wait for the PipelineRun to reach *Succeeded*.
+This typically takes 3–6 minutes.
+
+. In the terminal, confirm the run status:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+oc get pipelineruns -n {openshift_username}-tenant
+----
++
+Expected output: the most recent PipelineRun shows `SUCCEEDED` in the `REASON` column.
+
+=== Verify
+
+[%interactive]
+* [ ] All task nodes in the Konflux PipelineRun detail show a green tick.
+* [ ] You have copied the image digest (`sha256:...`) from the `build-container` task logs.
+* [ ] `oc get pipelineruns -n {openshift_username}-tenant` shows the run status as `SUCCEEDED`.
+
+== 3. Inspect the SBOM
+
+Every successful `docker-build-oci-ta-min` pipeline run pushes a CycloneDX SBOM alongside the container image.
+The SBOM is stored in Quay as an OCI artifact attached to the image via cosign.
+You will download and examine it using the `cosign` CLI in the terminal.
+
+. First, retrieve the base image path that Konflux assigned to your component:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+export IMAGE_BASE=$(oc get component -n {openshift_username}-tenant \
+  -o jsonpath='{.items[0].spec.containerImage}' | cut -d: -f1)
+echo "Base image path: ${IMAGE_BASE}"
+----
+
+. Set the digest you copied from the `build-container` task logs.
+Replace `sha256:PASTE_YOUR_DIGEST_HERE` with your actual digest value:
++
+[source,bash,subs="attributes+"]
+----
+export IMAGE_DIGEST=sha256:PASTE_YOUR_DIGEST_HERE
+----
++
+NOTE: Do not add `role="execute"` to this step — you must paste your own digest value before running it.
+
+. Construct the full image reference:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+export IMAGE_REF="${IMAGE_BASE}@${IMAGE_DIGEST}"
+echo "Full image ref: ${IMAGE_REF}"
+----
+
+. Set the cosign environment variable needed for this lab's self-signed TLS certificate:
++
+[source,bash,role="execute"]
+----
+export COSIGN_INSECURE_SKIP_TLS_VERIFY=true
+----
++
+NOTE: Skip TLS verification is required here because the lab Quay instance uses a self-signed certificate.
+Do not use this setting in production environments.
+
+. Download and pretty-print the SBOM:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+cosign download sbom "${IMAGE_REF}" | jq .
+----
++
+The output is a CycloneDX JSON document.
+The top-level `components` array lists every package found in the image layers.
++
+.cosign SBOM output in the terminal
+image::module-03-sbom-output.png[Terminal window showing the CycloneDX JSON output from cosign download sbom with the components array expanded,800]
+
+. Count the total number of packages in the SBOM:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+cosign download sbom "${IMAGE_REF}" | jq '.components | length'
+----
++
+This number represents the complete dependency inventory that downstream policy engines and security teams use to evaluate the image.
+
+. Inspect a single component entry to see the fields tracked for each package:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+cosign download sbom "${IMAGE_REF}" | jq '.components[0] | {name, version, licenses}'
+----
++
+Each component includes at minimum: `name`, `version`, and `licenses`.
+Most entries also include a `purl` (Package URL), which uniquely identifies the package across ecosystems and is the format used by vulnerability scanners such as Grype and Trivy.
+
+=== Verify
+
+[%interactive]
+* [ ] `cosign download sbom` returns a JSON document with a populated `components` array.
+* [ ] At least one component shows `name`, `version`, and `licenses` fields.
+* [ ] `jq '.components | length'` returns a number greater than zero.
+
+== 4. Review Artifacts in Quay
+
+Konflux pushes three distinct artifacts to Quay for every successful build: the container image, the SBOM attestation, and the SLSA provenance attestation.
+You will confirm all three are present before moving to Module 4, where you will examine the provenance attestation in depth.
+
+. Open link:{quay_url}[the Quay registry,window=_blank].
+Log in with `{quay_user}` / `{quay_password}` if prompted.
+
+. Navigate to the repository for your component.
+The path follows this pattern:
++
+[source,subs="attributes+"]
+----
+{quay_url}/tsf/{openshift_username}-tenant/<your-component-name>
+----
++
+TIP: Print the base image path from your terminal to get the exact URL: `echo "${IMAGE_BASE}"`.
+
+. In the *Tags* view, confirm that a tag was pushed at the time of your recent build.
++
+.Quay image repository showing multiple tags for the same digest
+image::module-03-quay-tags.png[Quay image repository tags view showing the container image tag and the associated attestation and SBOM artifact tags for the same digest,800]
+
+. Observe the tag listing.
+Three artifact types share the same underlying digest:
++
+[cols="1,3",options="header"]
+|===
+|Tag pattern |Contents
+|`<branch>-<short-sha>` (or similar)
+|The container image built from your source commit.
+|`sha256-<digest>.att`
+|The SLSA provenance attestation — an in-toto statement linking the image to the source commit and the pipeline that built it.
+You will examine this in Module 4.
+|`sha256-<digest>.sbom`
+|The CycloneDX SBOM you inspected in the previous section, stored as an OCI artifact.
+|===
+
+. Confirm the image digest shown in Quay matches the digest you copied from the `build-container` task logs.
+The `.att` and `.sbom` tags reference this same digest — they are tied to the exact image content, not to a mutable tag.
+
+=== Verify
+
+[%interactive]
+* [ ] The Quay repository for your component shows a tag pushed at the time of your build.
+* [ ] A `sha256-<digest>.att` tag is listed alongside the container image tag.
+* [ ] A `sha256-<digest>.sbom` tag is listed alongside the container image tag.
+* [ ] The digest shown in Quay matches the digest you copied from the pipeline logs.
+
+== Learning Outcomes Checkpoint
+
+Before moving on, check that you can answer the following:
+
+*Why does the pipeline push three separate artifacts to Quay instead of one?*
+
+Each artifact serves a different purpose.
+The container image is what runs in production.
+The CycloneDX SBOM is a machine-readable inventory of every package in that image — security scanners, policy engines, and compliance tools consume it directly without re-scanning the image.
+The SLSA provenance attestation is a cryptographically verifiable record of origin: which source commit, which pipeline, and which cluster produced the image.
+Separating them means each artifact can be verified, stored, and consumed independently by different tools and teams.
+
+*What makes the image digest important for later modules?*
+
+The image digest (`sha256:...`) is an immutable, content-addressed identifier.
+It uniquely identifies the specific byte sequence of the image — changing even one byte produces a different digest.
+Signing (Module 4) and policy checks (Module 5) operate on this digest, not on a mutable tag.
+That means you can prove that the artifact you sign, test, and release is the exact same artifact the build pipeline produced — nothing more, nothing less.
+
+*What format is the SBOM in, and why does that matter for downstream tooling?*
+
+Konflux generates CycloneDX-format SBOMs.
+CycloneDX is an OWASP-maintained open standard supported by the majority of vulnerability scanners, software composition analysis platforms, and regulatory frameworks.
+Using a standard format means the SBOM you downloaded today is directly consumable by tools such as Grype, Trivy, or Red Hat Advanced Cluster Security without any conversion step.
+
+== Key Takeaways
+
+* The Konflux build pipeline runs entirely in-cluster on OpenShift Pipelines (Tekton) — no external CI system is required.
+* Every successful build automatically produces three artifacts pushed to Quay: the container image, a CycloneDX SBOM, and a SLSA provenance attestation.
+* CycloneDX SBOMs enumerate all packages in the image, giving security teams a complete dependency inventory without re-scanning the running container.
+* The image digest is immutable and content-addressed — it is the stable reference used for signing and policy gating in later modules.
+* Pipelines-as-Code makes build triggers automatic and auditable: every build traces back to the exact source commit that started it.
+
+xref:module-04-signing-provenance.adoc[Next: Module 4 — Signing and Provenance →]
