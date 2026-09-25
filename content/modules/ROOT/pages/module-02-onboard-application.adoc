@@ -185,7 +185,7 @@ Open link:{gitlab_url}/{gitlab_username}/sample-component-golang[your repository
 The title reads something like *Konflux — initial PipelineRun configuration*.
 +
 .GitLab merge request created by Konflux
-image::module-02-gitlab-mr.png[GitLab Merge Requests page showing an open merge request titled Konflux initial PipelineRun configuration with a green Open badge,800]
+image::module-02-merge-request.png[GitLab Merge Requests page showing an open merge request titled Konflux initial PipelineRun configuration with a green Open badge,800]
 
 . Click into the merge request and review the files under `.tekton/`.
 These are the Tekton PipelineRun definitions that Pipelines-as-Code will execute on future push and merge-request events.
@@ -236,17 +236,14 @@ TIP: A first build typically takes 3–8 minutes. Use the time to review the sta
 If the run fails, read the task logs displayed in the UI and report the error to the instructor.
 Do not proceed to Module 3 with a failed PipelineRun — later modules depend on artifacts produced by this run.
 
-. Return to the *Applications* view and confirm the `sample-component-golang` Component card shows:
-+
-** The linked GitLab repository URL.
-** The target Quay image path (`{quay_url}/{quay_user}/sample-component-golang`).
+. Return to the *Applications* view and confirm the `sample-component-golang` Component card shows the linked GitLab repository URL.
 
 === Verify
 
 [%interactive]
 * [ ] `oc get pipelineruns -n {openshift_username}-tenant` returns at least one PipelineRun.
 * [ ] The PipelineRun status in the Konflux UI is `Running` or `Succeeded`.
-* [ ] The Component card in the Applications view shows the GitLab URL and the target Quay image path.
+* [ ] The Component card in the Applications view shows the linked GitLab repository URL.
 
 == Learning Outcomes Checkpoint
 
@@ -260,8 +257,8 @@ From that point on, every push and merge-request event triggers a new run — no
 
 *Where does the build pipeline send its output?*
 
-The target image repository is declared at the Component level (`{quay_url}/{quay_user}/sample-component-golang`).
-The build pipeline pushes the container image, the SBOM, and all attestations to that Quay repository automatically.
+Konflux determines the image destination automatically.
+The build pipeline pushes the container image, the SBOM, and all attestations to Quay automatically.
 You will inspect those artifacts in Module 3 and Module 4.
 
 *Why is your view of PipelineRuns isolated from other participants?*
