@@ -226,8 +226,11 @@ oc get pipelineruns -n {openshift_username}-tenant
 +
 Expected output: one PipelineRun with a `Running` or `Succeeded` status.
 
-. Return to the Konflux UI and click the PipelineRun name to open its detail view.
-Observe the pipeline stages — they include a build task and at least one scan task, reflecting the supply-chain pipeline you explored in Module 1.
+. In the Konflux UI, click the commit entry in the Activity tab to open its detail view.
+Observe the events progression — it shows two stages: the build (`sample-component-golang-XXXX-build`) and an enterprise contract check (`my-sample-app-enterprise-contract`), both showing *Succeeded*.
++
+.Konflux commit detail showing build and enterprise contract stages
+image::module-02-pipeline-detail.png[Konflux commit detail view showing the commit, build, and enterprise-contract stages all succeeding,800]
 
 . Wait for the PipelineRun to reach *Running* or *Succeeded* before moving to Module 3.
 +
