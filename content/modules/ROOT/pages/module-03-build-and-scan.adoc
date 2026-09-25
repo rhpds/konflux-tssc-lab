@@ -25,10 +25,10 @@ You will make a minimal change using the GitLab web editor — no local tooling 
 . Open link:{gitlab_url}/{gitlab_username}/sample-component-golang[your GitLab sample repository,window=_blank].
 
 . In the file list, click `README.md`.
-On the file view page, click the pencil icon (*Edit*) to open the web editor.
+On the file view page, click the *Edit* dropdown button and select *Edit single file*.
 +
-.GitLab web editor for README.md
-image::module-03-readme-edit.png[GitLab web editor opened for the README.md file showing the pencil icon used to start editing,800]
+.GitLab Edit dropdown showing the Edit single file option
+image::module-03-readme-edit.png[GitLab README.md file view showing the Edit dropdown button expanded with Open in web IDE and Edit single file options,800]
 
 . Scroll to the bottom of the file.
 Add a new line:
