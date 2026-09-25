@@ -209,12 +209,12 @@ A PipelineRun is created in your tenant namespace in response to that merge even
 You now confirm that the run was created and is progressing.
 
 . Return to the Konflux UI.
-Inside `my-sample-app`, navigate to the *Activity* or *Pipelines* tab.
+Inside `my-sample-app`, click the *Activity* tab.
 
 . Observe that a PipelineRun appears automatically in response to the merge event.
 +
 .Konflux Activity tab showing the first PipelineRun
-image::module-02-first-pipelinerun.png[Konflux Activity tab listing one PipelineRun entry for sample-component-golang in a Running state with a pipeline stage breakdown visible,800]
+image::module-02-activity.png[Konflux Activity tab listing a completed PipelineRun entry for sample-component-golang,800]
 
 . Click the *Terminal* tab in the right-hand panel.
 List the PipelineRuns in your tenant namespace:
