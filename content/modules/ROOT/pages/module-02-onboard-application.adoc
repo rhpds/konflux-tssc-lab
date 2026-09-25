@@ -260,9 +260,20 @@ From that point on, every push and merge-request event triggers a new run — no
 
 *Where does the build pipeline send its output?*
 
-Konflux determines the image destination automatically.
-The build pipeline pushes the container image, the SBOM, and all attestations to Quay automatically.
-You will inspect those artifacts in Module 3 and Module 4.
+Konflux reads the image push credentials attached to the `pipeline` service account in your tenant namespace.
+Those credentials point to the lab's shared Quay instance and determine the target registry.
+Konflux then derives the image repository path automatically from your namespace and component name:
+
+`{quay_url}/tsf/{openshift_username}-tenant/<component-name>`
+
+You can confirm the exact image path Konflux assigned by running:
+
+[source,bash,role="execute",subs="attributes+"]
+----
+oc get component -n {openshift_username}-tenant -o jsonpath='{.items[0].spec.containerImage}{"\n"}'
+----
+
+You will inspect the image and its attestations in Module 3 and Module 4.
 
 *Why is your view of PipelineRuns isolated from other participants?*
 
