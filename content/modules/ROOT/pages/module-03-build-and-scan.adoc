@@ -71,10 +71,11 @@ You will walk through the stages of the `docker-build-oci-ta-min` pipeline to un
 
 . In the Konflux Activity tab, click the commit entry for `chore: trigger module-03 build` to open its detail view.
 
-. Click the *Pipeline runs* tab to see the individual pipeline run linked to this commit.
+. Click the *Pipeline runs* tab to see the pipeline runs linked to this commit.
+You will see two runs: a *Build* run (`sample-component-golang-...`) and a *Test* run (`my-sample-app-enterprise-contract-...`).
 +
-.Konflux commit detail — Pipeline runs tab
-image::module-03-pipeline-runs-tab.png[Konflux commit detail view with the Pipeline runs tab selected showing a single pipeline run entry,800]
+.Konflux commit detail — Pipeline runs tab showing the build and enterprise contract runs
+image::module-03-pipeline-runs-tab.png[Konflux commit detail view with the Pipeline runs tab selected showing a Build pipeline run and an enterprise contract Test pipeline run,800]
 
 . Click the PipelineRun name to open the full task graph.
 +
