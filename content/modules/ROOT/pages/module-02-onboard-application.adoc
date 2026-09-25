@@ -173,7 +173,7 @@ NOTE: This pipeline is optimised for shared-cluster tenant namespaces and is req
 .Add component form — bottom section showing pipeline selection
 image::module-02-component-2.png[Konflux Add component form showing the Dockerfile path, Component name, and Pipeline fields with docker-build-oci-ta-min selected,800]
 
-. Click *Create component*.
+. Click the orange *Add component* button.
 +
 Konflux now opens a merge request against your GitLab repository that adds the `.tekton/` directory.
 This step may take 15–30 seconds.
@@ -182,7 +182,7 @@ This step may take 15–30 seconds.
 Open link:{gitlab_url}/{gitlab_username}/sample-component-golang[your repository,window=_blank] and navigate to *Merge Requests*.
 
 . Locate the merge request opened by Konflux.
-The title reads something like *Konflux — initial PipelineRun configuration*.
+The title reads *Konflux update sample-component-golang-XXXX*, where `XXXX` matches the generated suffix in your component name.
 +
 .GitLab merge request created by Konflux
 image::module-02-merge-request.png[GitLab Merge Requests page showing an open merge request titled Konflux initial PipelineRun configuration with a green Open badge,800]
