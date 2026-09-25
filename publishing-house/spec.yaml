@@ -53,7 +53,7 @@ spec:
   - id: module-02
     title: Onboard Your Application
     duration_min: 15
-    status: in_progress
+    status: complete
   - id: module-03
     title: Build and Scan
     duration_min: 20
