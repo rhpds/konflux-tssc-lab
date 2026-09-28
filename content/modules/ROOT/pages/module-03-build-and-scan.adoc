@@ -150,15 +150,20 @@ Every successful `docker-build-oci-ta-min` pipeline run pushes a CycloneDX SBOM 
 The SBOM is stored in Quay as an OCI artifact attached to the image via cosign.
 You will download and examine it using the `cosign` CLI in the terminal.
 
-. Log in to the Quay registry so that cosign can pull artifacts from it:
+. Set up registry credentials for cosign.
+Konflux creates an image-pull secret in your tenant namespace when your component is registered.
+Extract it to the standard Docker credential store so cosign can authenticate automatically:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
-export QUAY_HOST=$(echo "{quay_url}" | sed 's|https://||')
-cosign login ${QUAY_HOST} -u {quay_user} -p {quay_password}
+COMPONENT=$(oc get component -n {openshift_username}-tenant -o jsonpath='{.items[0].metadata.name}')
+mkdir -p ~/.docker
+oc get secret ${COMPONENT}-image-pull -n {openshift_username}-tenant \
+  -o jsonpath='{.data.\.dockerconfigjson}' | base64 -d > ~/.docker/config.json
+echo "Credentials configured for: ${COMPONENT}"
 ----
 +
-Expected output: `Logged in.`
+Expected output: `Credentials configured for: sample-component-golang-...`
 
 . Retrieve the base image path that Konflux assigned to your component:
 +
