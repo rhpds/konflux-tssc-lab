@@ -150,7 +150,17 @@ Every successful `docker-build-oci-ta-min` pipeline run pushes a CycloneDX SBOM 
 The SBOM is stored in Quay as an OCI artifact attached to the image via cosign.
 You will download and examine it using the `cosign` CLI in the terminal.
 
-. First, retrieve the base image path that Konflux assigned to your component:
+. Log in to the Quay registry so that cosign can pull artifacts from it:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+export QUAY_HOST=$(echo "{quay_url}" | sed 's|https://||')
+podman login ${QUAY_HOST} -u {quay_user} -p {quay_password}
+----
++
+Expected output: `Login Succeeded!`
+
+. Retrieve the base image path that Konflux assigned to your component:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
