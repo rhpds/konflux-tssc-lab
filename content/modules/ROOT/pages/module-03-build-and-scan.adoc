@@ -210,6 +210,11 @@ cosign download sbom "${IMAGE_REF}" | jq .
 The output is a CycloneDX JSON document.
 The top-level `components` array lists every package found in the image layers.
 +
+NOTE: You will see a warning: *Downloading SBOMs this way does not ensure its authenticity.*
+This is expected — `cosign download sbom` retrieves the SBOM artifact but does not verify it was cryptographically signed by the pipeline that produced it.
+In Module 4, you will use `cosign download attestation` to retrieve a tamper-proof, signed version of this data and verify the signature against the Rekor transparency log.
+For now, the goal is simply to inspect what the SBOM contains.
++
 .cosign SBOM output in the terminal
 image::module-03-sbom-output.png[Terminal window showing the CycloneDX JSON output from cosign download sbom with the components array expanded,800]
 
