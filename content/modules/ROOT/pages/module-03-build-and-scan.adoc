@@ -166,8 +166,6 @@ Replace `sha256:PASTE_YOUR_DIGEST_HERE` with your actual digest value:
 ----
 export IMAGE_DIGEST=sha256:PASTE_YOUR_DIGEST_HERE
 ----
-+
-NOTE: Do not add `role="execute"` to this step — you must paste your own digest value before running it.
 
 . Construct the full image reference:
 +
