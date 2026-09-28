@@ -223,7 +223,9 @@ image::module-03-sbom-output.png[Terminal window showing the SPDX JSON output fr
 cosign download sbom "${IMAGE_REF}" | jq '.packages | length'
 ----
 +
-This number represents the complete dependency inventory that downstream policy engines and security teams use to evaluate the image.
+For this minimal Go sample application you will see a small number of packages — typically under ten.
+The exact count can vary as the base image or application dependencies are updated, so do not be concerned if your number differs slightly.
+This list is the complete dependency inventory that downstream policy engines and security teams use to evaluate the image.
 
 . Inspect a single package entry to see the fields tracked for each dependency:
 +
