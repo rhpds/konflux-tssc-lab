@@ -237,7 +237,7 @@ cosign download sbom "${IMAGE_REF}" | jq '.packages[1] | {name, versionInfo, lic
 Each package entry includes at minimum: `name`, `versionInfo`, and `licenseDeclared`.
 Most entries also include an `externalRefs` array containing a `purl` (Package URL), which uniquely identifies the package across ecosystems and is the format used by vulnerability scanners such as Grype and Trivy.
 +
-NOTE: `packages[0]` is the image itself — use `packages[1]` or higher to inspect an actual dependency.
+NOTE: Some entries show `UNKNOWN` or `NOASSERTION` for version or license — this is normal for internal build artifacts. Try incrementing the index (`packages[2]`, `packages[3]`, etc.) to find entries with richer metadata such as a real version string and a declared license like `BSD-3-Clause`.
 
 === Verify
 
