@@ -199,9 +199,10 @@ cosign verify \
 +
 Expected output: `Verification for <image> -- Verified OK`
 +
-This is the same command you used in Module 4, now pointing to the production registry instead of the development registry.
+The certificate identity regexp and OIDC issuer are the same values used in Module 4 — the image was signed by the same Konflux builder regardless of which registry it lives in.
+Only the image reference changes: `$PROD_IMAGE` points to the production Quay organization, not the development one.
 +
-NOTE: If `cosign verify` returns a certificate error, confirm that `$PROD_IMAGE` contains the full digest reference (`@sha256:...`) and that `{tas_oidc_issuer}` matches the value you used in Module 4.
+NOTE: If `cosign verify` returns a certificate error, confirm that `$PROD_IMAGE` contains the full digest reference (`@sha256:...`) and that the `{tas_oidc_issuer}` value matches the OIDC issuer shown in your lab instructions.
 
 . Confirm the SLSA provenance attestation is present on the production image reference:
 +
@@ -212,15 +213,37 @@ cosign download attestation ${PROD_IMAGE} | jq 'length'
 +
 Expected output: a number greater than zero, confirming that at least one attestation traveled with the image to the production registry.
 
-. Retrieve the build metadata from the SLSA provenance attestation to verify traceability:
+. Retrieve the build metadata from the SLSA provenance attestation to verify traceability.
+First, check which SLSA predicate version your cluster uses:
 +
 [source,bash,role="execute"]
 ----
-cosign download attestation ${PROD_IMAGE} | \
-  jq '.[0].payload | @base64d | fromjson | {repo: .predicate.materials[0].uri, commit: .predicate.materials[0].digest.sha1, pipeline: .predicate.builder.id}'
+cosign download attestation ${PROD_IMAGE} | jq -r '.[0].payload | @base64d | fromjson | .predicateType'
 ----
 +
-Expected output: a JSON object showing the source repository URL, the commit SHA that triggered the build, and the build pipeline identifier.
+Then extract the source commit and builder using the matching path below.
++
+.SLSA v1 — `https://slsa.dev/provenance/v1`
+[source,bash,role="execute"]
+----
+cosign download attestation ${PROD_IMAGE} | \
+  jq '.[0].payload | @base64d | fromjson |
+    {repo: .predicate.buildDefinition.resolvedDependencies[0].uri,
+     commit: .predicate.buildDefinition.resolvedDependencies[0].digest.gitCommit,
+     pipeline: .predicate.runDetails.builder.id}'
+----
++
+.SLSA v0.2 — `https://slsa.dev/provenance/v0.2`
+[source,bash,role="execute"]
+----
+cosign download attestation ${PROD_IMAGE} | \
+  jq '.[0].payload | @base64d | fromjson |
+    {repo: .predicate.materials[0].uri,
+     commit: .predicate.materials[0].digest.sha1,
+     pipeline: .predicate.builder.id}'
+----
++
+Expected output: a JSON object showing the source repository URL, the commit SHA from your Module 3 code push, and the Konflux builder identifier.
 +
 This confirms that starting from the production image digest alone, any authorized party can recover the source commit, the signing event in the Rekor transparency log, and the Conforma policy evaluation that approved the release.
 
@@ -231,12 +254,12 @@ This confirms that starting from the production image digest alone, any authoriz
 |Module |Stage |What you produced
 
 |2
-|Source commit and onboarding
-|GitLab repository wired to Konflux via Pipelines-as-Code; first PipelineRun triggered automatically
+|Onboarding
+|GitLab repository wired to Konflux via Pipelines-as-Code; code pushes now trigger build pipelines automatically
 
 |3
-|Build
-|Container image with a known digest and a CycloneDX SBOM
+|Source commit and Build
+|Code push to GitLab triggered the PipelineRun that produced the container image, CycloneDX SBOM, and SLSA attestation this chain is built on
 
 |4
 |Sign and attest
