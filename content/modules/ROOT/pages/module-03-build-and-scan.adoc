@@ -155,10 +155,10 @@ You will download and examine it using the `cosign` CLI in the terminal.
 [source,bash,role="execute",subs="attributes+"]
 ----
 export QUAY_HOST=$(echo "{quay_url}" | sed 's|https://||')
-podman login ${QUAY_HOST} -u {quay_user} -p {quay_password}
+cosign login ${QUAY_HOST} -u {quay_user} -p {quay_password}
 ----
 +
-Expected output: `Login Succeeded!`
+Expected output: `Logged in.`
 
 . Retrieve the base image path that Konflux assigned to your component:
 +
