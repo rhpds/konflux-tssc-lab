@@ -17,6 +17,6 @@ tabs:
   - name: Konflux
     url: 'https://konflux-ui-konflux-ui.${DOMAIN}'
   - name: GitLab
-    url: 'https://gitlab.${DOMAIN}'
+    url: 'https://gitlab-gitlab.${DOMAIN}'
   - name: Quay
     url: 'https://quay.${DOMAIN}'

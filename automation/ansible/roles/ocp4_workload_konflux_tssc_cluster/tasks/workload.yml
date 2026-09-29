@@ -7,3 +7,6 @@
 
 - name: Deploy integration test patcher watcher
   ansible.builtin.include_tasks: deploy-integration-test-patcher.yml
+
+- name: Create predictable Quay route alias for Showroom tab
+  ansible.builtin.include_tasks: create-quay-route-alias.yml
