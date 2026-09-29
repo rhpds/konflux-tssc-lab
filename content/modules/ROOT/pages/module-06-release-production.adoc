@@ -79,8 +79,9 @@ You select the passing Snapshot from Module 3 and pair it with the ReleasePlan y
 
 . Click the *Releases* tab.
 +
+// TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/6
 .Konflux Releases tab for my-sample-app
-image::module-06-releases-tab.png[Konflux Releases tab showing no releases yet for the my-sample-app application,800]
+image::screenshot-placeholder.svg[Konflux Releases tab showing no releases yet for the my-sample-app application,800]
 
 . Locate the Snapshot from your Module 3 build.
 Snapshots appear by name and associated image digest.
@@ -91,8 +92,9 @@ If no Snapshot is in a passing state, return to the Activity tab and confirm tha
 . Click *Create release* for the passing Snapshot.
 If prompted to select a ReleasePlan, choose the one pre-provisioned in your tenant namespace.
 +
+// TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/6
 .Konflux Create release dialog
-image::module-06-create-release.png[Konflux Create release dialog showing the Snapshot reference and ReleasePlan selector,800]
+image::screenshot-placeholder.svg[Konflux Create release dialog showing the Snapshot reference and ReleasePlan selector,800]
 
 . Confirm the release creation.
 Konflux creates a Release object in your tenant namespace.
@@ -123,8 +125,9 @@ The image reaches the production Quay organization only if the policy task passe
 
 . In the Konflux UI, click the Release to open its detail view.
 +
+// TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/6
 .Konflux Release detail view showing release pipeline stages
-image::module-06-release-detail.png[Konflux Release detail view showing the Conforma evaluation, image push, and release record pipeline stages,800]
+image::screenshot-placeholder.svg[Konflux Release detail view showing the Conforma evaluation, image push, and release record pipeline stages,800]
 
 . Observe the release pipeline stages:
 ** A *Conforma evaluation* task that re-validates the signed artifact against the production policy bundle.
