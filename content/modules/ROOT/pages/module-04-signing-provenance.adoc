@@ -29,23 +29,32 @@ In this section you recover the image reference and run cosign verify to confirm
 export COSIGN_INSECURE_SKIP_TLS_VERIFY=true
 ----
 
-. Reconstruct the digest-pinned image reference from the Component and the latest PipelineRun result:
+. Confirm your image digest is set from Module 3.
+If you are continuing in the same terminal session it will already be present.
+If not, paste the digest you copied from the `build-container` task results:
++
+[source,bash]
+----
+if [ -z "${IMAGE_DIGEST}" ]; then
+  echo "IMAGE_DIGEST not set — enter the sha256 digest from Module 3:"
+  read -r IMAGE_DIGEST
+  export IMAGE_DIGEST
+fi
+echo "Digest: ${IMAGE_DIGEST}"
+----
+
+. Retrieve the base image path and construct the full digest-pinned reference:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
 export IMAGE_BASE=$(oc get component \
   -n {openshift_username}-tenant \
   -o jsonpath='{.items[0].spec.containerImage}' | cut -d: -f1)
-export IMAGE_DIGEST=$(oc get pipelineruns \
-  -n {openshift_username}-tenant \
-  --sort-by=.metadata.creationTimestamp \
-  -o jsonpath='{.items[-1].status.results[?(@.name=="IMAGE_DIGEST")].value}')
 export IMAGE="${IMAGE_BASE}@${IMAGE_DIGEST}"
 echo "Image: ${IMAGE}"
 ----
 +
 Expected output: a full image reference ending in `@sha256:...`.
-If `IMAGE_DIGEST` is empty, the most recent PipelineRun may not have completed yet — check with `oc get pipelineruns -n {openshift_username}-tenant`.
 
 . Run cosign verify using the certificate identity regexp for Konflux and the cluster OIDC issuer:
 +
