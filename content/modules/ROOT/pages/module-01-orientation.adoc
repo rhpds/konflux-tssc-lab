@@ -212,9 +212,7 @@ curl -sSL "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION
   -o ~/bin/cosign
 chmod +x ~/bin/cosign
 echo 'export PATH=$HOME/bin:$PATH' >> ~/.bashrc
-echo 'export COSIGN_INSECURE_SKIP_TLS_VERIFY=true' >> ~/.bashrc
 export PATH=$HOME/bin:$PATH
-export COSIGN_INSECURE_SKIP_TLS_VERIFY=true
 cosign version
 ----
 +
