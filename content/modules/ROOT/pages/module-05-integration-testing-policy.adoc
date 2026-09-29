@@ -153,11 +153,14 @@ Expected output: at least one Snapshot resource.
 Note the name of the Snapshot for your latest build — you will use it in Section 4.
 
 . Store the Snapshot name in a shell variable.
-Copy the name from the `oc get snapshots` output above and set it:
+The command below retrieves the most recently created Snapshot automatically:
 +
-[source,bash]
+[source,bash,role="execute",subs="attributes+"]
 ----
-export SNAPSHOT=<snapshot-name-from-above>
+export SNAPSHOT=$(oc get snapshots \
+  -n {openshift_username}-tenant \
+  --sort-by=.metadata.creationTimestamp \
+  -o jsonpath='{.items[-1].metadata.name}')
 echo "Snapshot: ${SNAPSHOT}"
 ----
 

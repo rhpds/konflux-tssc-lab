@@ -149,7 +149,7 @@ Copy this reference.
 
 . In the terminal, store the production image reference:
 +
-[source,bash]
+[source,text]
 ----
 export PROD_IMAGE=<paste the full production image reference including @sha256:digest>
 ----
