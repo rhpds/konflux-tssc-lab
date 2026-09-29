@@ -61,7 +61,7 @@ spec:
   - id: module-04
     title: Signing and Provenance
     duration_min: 20
-    status: in_progress
+    status: complete
   - id: module-05
     title: Integration Testing and Policy
     duration_min: 15
