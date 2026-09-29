@@ -2,7 +2,7 @@
   <rect width="800" height="400" fill="#f5f5f5" rx="4"/>
   <rect x="1" y="1" width="798" height="398" fill="none" stroke="#cccccc" stroke-width="2" rx="4" stroke-dasharray="8 4"/>
   <!-- Camera icon -->
-  <g transform="translate(340, 140)">
+  <g transform="translate(340, 130)">
     <rect x="0" y="10" width="120" height="90" rx="6" fill="none" stroke="#aaaaaa" stroke-width="3"/>
     <circle cx="60" cy="55" r="25" fill="none" stroke="#aaaaaa" stroke-width="3"/>
     <circle cx="60" cy="55" r="12" fill="#cccccc"/>
@@ -10,6 +10,5 @@
     <circle cx="100" cy="22" r="5" fill="#aaaaaa"/>
   </g>
   <!-- Text -->
-  <text x="400" y="270" font-family="sans-serif" font-size="16" fill="#888888" text-anchor="middle">Screenshot pendiente</text>
-  <text x="400" y="295" font-family="sans-serif" font-size="13" fill="#aaaaaa" text-anchor="middle">Ver issue #6 en GitHub</text>
+  <text x="400" y="265" font-family="sans-serif" font-size="18" fill="#888888" text-anchor="middle">Pending Screenshot</text>
 </svg>
