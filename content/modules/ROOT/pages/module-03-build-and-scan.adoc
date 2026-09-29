@@ -190,16 +190,6 @@ export IMAGE_REF="${IMAGE_BASE}@${IMAGE_DIGEST}"
 echo "Full image ref: ${IMAGE_REF}"
 ----
 
-. Set the cosign environment variable needed for this lab's self-signed TLS certificate:
-+
-[source,bash,role="execute"]
-----
-export COSIGN_INSECURE_SKIP_TLS_VERIFY=true
-----
-+
-NOTE: Skip TLS verification is required here because the lab Quay instance uses a self-signed certificate.
-Do not use this setting in production environments.
-
 . Download and pretty-print the SBOM:
 +
 [source,bash,role="execute",subs="attributes+"]
