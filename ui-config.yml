@@ -14,5 +14,9 @@ tabs:
   - name: ">_ Terminal"
     path: /terminal
     port: 443
-  - name: Placeholder
-    url: /placeholder
+  - name: Konflux
+    url: 'https://konflux-ui-konflux-ui.${DOMAIN}'
+  - name: GitLab
+    url: 'https://gitlab.${DOMAIN}'
+  - name: Quay
+    url: 'https://quay.${DOMAIN}'
