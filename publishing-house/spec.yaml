@@ -69,7 +69,7 @@ spec:
   - id: module-06
     title: Release to Production
     duration_min: 15
-    status: in_progress
+    status: complete
   - id: module-07
     title: Real-World Incident Response
     duration_min: 25
