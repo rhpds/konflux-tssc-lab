@@ -34,9 +34,9 @@ After a successful build, Konflux updates `spec.containerImage` with the digest-
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
-export IMAGE=$(oc get component sample-component-golang \
+export IMAGE=$(oc get component \
   -n {openshift_username}-tenant \
-  -o jsonpath='{.spec.containerImage}')
+  -o jsonpath='{.items[0].spec.containerImage}')
 echo "Image: ${IMAGE}"
 ----
 
