@@ -1,1 +1,329 @@
-= Release Production
+= Release to Production
+:navtitle: Release to Production
+
+Estimated time: *15 minutes*
+
+This module closes the end-to-end supply chain.
+You release the policy-verified, signed artifact from your tenant namespace to a production Quay registry through Konflux's controlled release pipeline.
+You inspect the ReleasePlan and ReleasePlanAdmission that govern the release, trigger a release from the Konflux UI, watch the pipeline re-evaluate Conforma policy at release time, and then verify that the signed image and its attestations are present in production.
+The module ends by walking the full chain — from source commit to signed, provenance-attested, policy-gated production artifact — to confirm every link is in place.
+
+== Learning Objectives
+
+By the end of this module, you will be able to:
+
+* Configure and trigger a Konflux ReleasePlan to initiate the controlled release pipeline for a policy-passing Snapshot.
+* Verify that the release pipeline re-evaluates Conforma policy before promoting the artifact to the production Quay registry.
+* Verify the signed image and its attestations are present in the production Quay organization after a successful release.
+* Trace the artifact from the source commit through signing, policy validation, and production release to demonstrate end-to-end supply chain integrity.
+
+== 1. Review the ReleasePlan and ReleasePlanAdmission
+
+A Konflux release requires two objects to agree with each other: a *ReleasePlan* in your tenant namespace (which you own) and a *ReleasePlanAdmission* in the managed namespace (which the platform team owns).
+Neither side can push an image to production without the other.
+This separation is intentional — it prevents any single team from unilaterally bypassing release policy.
+
+. In the terminal, retrieve the ReleasePlan pre-provisioned in your tenant namespace:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+oc get releaseplan -n {openshift_username}-tenant -o yaml
+----
++
+Expected output: a single ReleasePlan resource.
+
+. In the output, identify these fields:
+** `spec.application` — the Konflux Application name.
+It should match `my-sample-app`, the Application you created in Module 2.
+** `spec.target` — the managed namespace where the ReleasePlanAdmission lives.
+This is `{openshift_username}-managed`.
+** `spec.releaseGracePeriodDays` — set to `0` for this lab, meaning the release pipeline triggers immediately after the Release object is created.
+
+. Retrieve the ReleasePlanAdmission from the managed namespace:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+oc get releaseplanadmission -n {openshift_username}-managed -o yaml
+----
+
+. In the ReleasePlanAdmission output, identify:
+** `spec.applications` — the list of Applications authorized to release into this managed namespace.
+Confirm `my-sample-app` is listed.
+** `spec.policy` — the Conforma policy bundle reference that the release pipeline enforces.
+** `spec.pipeline` — the Tekton pipeline that runs when a release is triggered.
+
+. Confirm that `spec.policy` in the ReleasePlanAdmission references the same policy bundle you saw in Module 5.
+The release policy is never weaker than the integration-time policy.
++
+NOTE: You do not have write access to `{openshift_username}-managed`.
+That is by design.
+The ReleasePlanAdmission is controlled by the platform team.
+Your tenant-side ReleasePlan can request a release; the managed-side ReleasePlanAdmission decides whether to honor it.
+
+=== Verify
+
+[%interactive]
+* [ ] `oc get releaseplan -n {openshift_username}-tenant` returns one ReleasePlan resource.
+* [ ] `spec.application` in the ReleasePlan matches `my-sample-app`.
+* [ ] `spec.target` in the ReleasePlan points to `{openshift_username}-managed`.
+* [ ] `oc get releaseplanadmission -n {openshift_username}-managed` returns one ReleasePlanAdmission resource.
+* [ ] `spec.applications` in the ReleasePlanAdmission includes `my-sample-app`.
+
+== 2. Trigger the Release
+
+With both sides of the release gate confirmed, you now create a Release from the Konflux UI.
+A Konflux Release always references a specific Snapshot — the immutable record of the set of images produced by a build pipeline run.
+You select the passing Snapshot from Module 3 and pair it with the ReleasePlan you just reviewed.
+
+. Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_blank] and navigate to your `my-sample-app` Application.
+
+. Click the *Releases* tab.
++
+.Konflux Releases tab for my-sample-app
+image::module-06-releases-tab.png[Konflux Releases tab showing no releases yet for the my-sample-app application,800]
+
+. Locate the Snapshot from your Module 3 build.
+Snapshots appear by name and associated image digest.
+The status column should read *Passing* or *Eligible*.
++
+If no Snapshot is in a passing state, return to the Activity tab and confirm that the integration pipeline from Module 5 completed successfully before continuing.
+
+. Click *Create release* for the passing Snapshot.
+If prompted to select a ReleasePlan, choose the one pre-provisioned in your tenant namespace.
++
+.Konflux Create release dialog
+image::module-06-create-release.png[Konflux Create release dialog showing the Snapshot reference and ReleasePlan selector,800]
+
+. Confirm the release creation.
+Konflux creates a Release object in your tenant namespace.
+
+. In the terminal, verify the Release object exists:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+oc get release -n {openshift_username}-tenant
+----
++
+Expected output: one Release resource with a status of `Running` or `Progressing`.
+
+. Note the Release name from the output — you will use it in the next section.
+
+=== Verify
+
+[%interactive]
+* [ ] The Konflux UI shows a Snapshot in *Passing* or *Eligible* status.
+* [ ] `oc get release -n {openshift_username}-tenant` returns at least one Release object.
+* [ ] The Release status is `Running` or `Progressing`, not `Failed`.
+
+== 3. Monitor the Release Pipeline
+
+The Release object triggers a release pipeline in the managed namespace.
+This pipeline re-evaluates Conforma policy against the signed artifact — it does not inherit or trust the integration result from Module 5.
+The image reaches the production Quay organization only if the policy task passes.
+
+. In the Konflux UI, click the Release to open its detail view.
++
+.Konflux Release detail view showing release pipeline stages
+image::module-06-release-detail.png[Konflux Release detail view showing the Conforma evaluation, image push, and release record pipeline stages,800]
+
+. Observe the release pipeline stages:
+** A *Conforma evaluation* task that re-validates the signed artifact against the production policy bundle.
+** An *image push* task that copies the image, SBOM, and SLSA provenance attestation to the production Quay organization.
+** A *release record* task that writes the release event to the audit trail.
+
+. Wait for the Conforma evaluation task to complete.
+In the task logs, confirm the result is *Pass*.
++
+If the Conforma task fails, the pipeline stops and the image is not pushed to production.
+Read the failure message in the task logs — it identifies the exact policy rule that blocked the release.
++
+NOTE: A Conforma failure at release time means either the policy changed between the Module 5 check and now, or the artifact was altered after the integration check passed.
+That is precisely the protection this architecture provides.
+
+. Wait for the image push task to complete.
+In its logs, find the line showing the production image reference — the full Quay URL and digest of the promoted image.
+Copy this reference.
+
+. In the terminal, store the production image reference:
++
+[source,bash]
+----
+export PROD_IMAGE=<paste the full production image reference including @sha256:digest>
+----
+
+. Monitor the release pipeline until it reaches *Succeeded*.
+
+. In the terminal, confirm the Release reached a successful state:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+oc get release -n {openshift_username}-tenant -o yaml | grep -A 15 'conditions:'
+----
++
+Expected output: a conditions list that includes an entry with `type: Released` and `status: "True"`.
+
+=== Verify
+
+[%interactive]
+* [ ] The Conforma evaluation task logs show *Pass*.
+* [ ] The image push task completed and logged the production image reference.
+* [ ] The release pipeline status in Konflux shows *Succeeded*.
+* [ ] `oc get release` conditions include `type: Released` with `status: "True"`.
+
+== 4. Verify the Production Artifact and Supply Chain Integrity
+
+The image is in production.
+You now confirm three things: the digest in the production registry matches the build digest from Module 3 (no rebuild occurred), the cryptographic signature is valid on the production reference, and the SLSA provenance attestation traveled alongside the image.
+Then you walk the full supply chain to confirm every link is traceable from source commit to production.
+
+. Open link:{quay_url}[Red Hat Quay,window=_blank] and navigate to your production Quay organization.
++
+The production organization URL is visible in the release pipeline task logs and in the `spec.environment` field of the ReleasePlanAdmission you reviewed in Section 1.
+
+. Locate the image repository and find the newly released image tag.
+Confirm the push timestamp matches the time the release pipeline ran.
+
+. Click the image tag and note the digest shown in Quay.
+Compare it with the digest in `$PROD_IMAGE` — they must be identical.
+Image promotion copies the existing artifact; it does not rebuild it.
+
+. In the terminal, verify the cryptographic signature on the production image:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+cosign verify \
+  --certificate-identity-regexp 'https://konflux.*' \
+  --certificate-oidc-issuer {tas_oidc_issuer} \
+  ${PROD_IMAGE}
+----
++
+Expected output: `Verification for <image> -- Verified OK`
++
+The certificate identity regexp and OIDC issuer are the same values used in Module 4 — the image was signed by the same Konflux builder regardless of which registry it lives in.
+Only the image reference changes: `$PROD_IMAGE` points to the production Quay organization, not the development one.
++
+NOTE: If `cosign verify` returns a certificate error, confirm that `$PROD_IMAGE` contains the full digest reference (`@sha256:...`) and that the `{tas_oidc_issuer}` value matches the OIDC issuer shown in your lab instructions.
+
+. Confirm the SLSA provenance attestation is present on the production image reference:
++
+[source,bash,role="execute"]
+----
+cosign download attestation ${PROD_IMAGE} | jq 'length'
+----
++
+Expected output: a number greater than zero, confirming that at least one attestation traveled with the image to the production registry.
+
+. Retrieve the build metadata from the SLSA provenance attestation to verify traceability.
+First, check which SLSA predicate version your cluster uses:
++
+[source,bash,role="execute"]
+----
+cosign download attestation ${PROD_IMAGE} | jq -r '.[0].payload | @base64d | fromjson | .predicateType'
+----
++
+Then extract the source commit and builder using the matching path below.
++
+.SLSA v1 — `https://slsa.dev/provenance/v1`
+[source,bash,role="execute"]
+----
+cosign download attestation ${PROD_IMAGE} | \
+  jq '.[0].payload | @base64d | fromjson |
+    {repo: .predicate.buildDefinition.resolvedDependencies[0].uri,
+     commit: .predicate.buildDefinition.resolvedDependencies[0].digest.gitCommit,
+     pipeline: .predicate.runDetails.builder.id}'
+----
++
+.SLSA v0.2 — `https://slsa.dev/provenance/v0.2`
+[source,bash,role="execute"]
+----
+cosign download attestation ${PROD_IMAGE} | \
+  jq '.[0].payload | @base64d | fromjson |
+    {repo: .predicate.materials[0].uri,
+     commit: .predicate.materials[0].digest.sha1,
+     pipeline: .predicate.builder.id}'
+----
++
+Expected output: a JSON object showing the source repository URL, the commit SHA from your Module 3 code push, and the Konflux builder identifier.
++
+This confirms that starting from the production image digest alone, any authorized party can recover the source commit, the signing event in the Rekor transparency log, and the Conforma policy evaluation that approved the release.
+
+. Review the end-to-end chain you built across this lab:
++
+[cols="10h,30,~", options="header"]
+|===
+|Module |Stage |What you produced
+
+|2
+|Onboarding
+|GitLab repository wired to Konflux via Pipelines-as-Code; code pushes now trigger build pipelines automatically
+
+|3
+|Source commit and Build
+|Code push to GitLab triggered the PipelineRun that produced the container image, CycloneDX SBOM, and SLSA attestation this chain is built on
+
+|4
+|Sign and attest
+|Cryptographic signature and SLSA Level 3 provenance attestation recorded in the Rekor transparency log
+
+|5
+|Policy check
+|Snapshot marked *Passing* by Conforma; integration pipeline blocked non-compliant variants
+
+|6
+|Release
+|Signed, attested image promoted to the production Quay organization with all supply chain metadata intact
+|===
+
+=== Verify
+
+[%interactive]
+* [ ] The production image digest in Quay matches the digest from Module 3 — no rebuild occurred.
+* [ ] `cosign verify` returns *Verified OK* for the production image reference.
+* [ ] `cosign download attestation` returns at least one attestation on the production reference.
+* [ ] The provenance attestation output includes the source repository URL and commit SHA.
+* [ ] The end-to-end chain table maps each hands-on module to its supply chain stage.
+
+== Learning Outcomes Checkpoint
+
+Before moving on, check that you can answer the following:
+
+*Why does the release pipeline re-evaluate Conforma policy instead of trusting the Module 5 result?*
+
+Policy bundles change over time.
+A new vulnerability rule or compliance requirement might be published after your integration test passed.
+Re-evaluating at release time ensures the artifact meets the policy that is current right now — not the policy that was current when the build ran.
+If the artifact was tampered with after Module 5, the signature check embedded in Conforma also catches that.
+
+*Why is the production image digest identical to the build digest?*
+
+Konflux promotes the existing, signed artifact rather than rebuilding it.
+Rebuilding from the same source would produce a different image — timestamps, layer ordering, and other non-deterministic factors vary between builds, and a new build would invalidate the existing signature.
+Promotion copies the immutable artifact: same bytes, same digest, same signature, same provenance.
+
+*How does the ReleasePlan / ReleasePlanAdmission model enforce separation of duties?*
+
+Your team controls the ReleasePlan in your tenant namespace.
+You choose when to request a release and for which Application.
+The platform or security team controls the ReleasePlanAdmission in the managed namespace.
+They define the policy bundle, the pipeline, and the list of Applications permitted to release there.
+Neither side can complete a release without the other, and neither can weaken the other's controls.
+An attacker who compromises your tenant namespace cannot change the release policy because that lives in a namespace they cannot write to.
+
+*Starting from a production image digest, what supply chain evidence can you retrieve?*
+
+Everything.
+The SLSA provenance attestation links the digest to the source commit and the build PipelineRun.
+The cosign signature links the digest to the signing event in the Rekor transparency log.
+The Release object in your tenant namespace links the digest to the Conforma policy evaluation that approved the release.
+No gap exists between the production artifact and its complete build history.
+
+== Key Takeaways
+
+* The ReleasePlan / ReleasePlanAdmission model separates release requests (application team, tenant namespace) from release governance (platform team, managed namespace). No single team controls both sides of the gate.
+* The release pipeline re-evaluates Conforma policy at release time. Policy changes between build and release are caught, not bypassed.
+* Image promotion copies the immutable digest built and signed in Module 3. No rebuild occurs and no new artifact is introduced.
+* Attestations — SBOM and SLSA provenance — travel with the image because Quay stores them in the same repository keyed to the same digest.
+* End-to-end traceability is the core value: starting from a production image digest, any authorized party can reconstruct the full supply chain history — source commit, build, signing event, policy evaluation, and release approval.
+* This pipeline aligns with SLSA Level 3 requirements: isolated build environment, signed provenance, policy-gated promotion, and a tamper-evident transparency log.
+
+xref:module-07-incident-response.adoc[Next: Module 7 — Real-World Incident Response →]
