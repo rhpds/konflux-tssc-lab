@@ -29,6 +29,17 @@ In this section you recover the image reference and run cosign verify to confirm
 export COSIGN_INSECURE_SKIP_TLS_VERIFY=true
 ----
 
+. Initialize cosign with the lab's private Trusted Artifact Signer root.
+By default cosign uses the public sigstore.dev infrastructure — this step points it at the lab's self-hosted Rekor and Fulcio instances:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+curl -sSLk {tas_tuf_url}/root.json -o /tmp/tuf-root.json
+cosign initialize --mirror {tas_tuf_url} --root /tmp/tuf-root.json
+----
++
+Expected output: `Root status:` followed by a JSON block listing the trusted Rekor and Fulcio endpoints for this cluster.
+
 . Confirm your image digest is set from Module 3.
 If you are continuing in the same terminal session it will already be present.
 If not, paste the digest you copied from the `build-container` task results:
@@ -63,6 +74,7 @@ Expected output: a full image reference ending in `@sha256:...`.
 cosign verify \
   --certificate-identity-regexp 'https://konflux.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
+  --rekor-url {tas_rekor_url} \
   ${IMAGE}
 ----
 +
@@ -80,6 +92,7 @@ If the command returns an error, confirm that `$IMAGE` contains the full digest 
 cosign verify \
   --certificate-identity-regexp 'https://konflux.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
+  --rekor-url {tas_rekor_url} \
   ${IMAGE} \
   --output json | jq '.[0] | {
     subject:        .critical.identity."docker-reference",
@@ -194,6 +207,7 @@ The log entry is embedded in the cosign verification JSON output:
 cosign verify \
   --certificate-identity-regexp 'https://konflux.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
+  --rekor-url {tas_rekor_url} \
   ${IMAGE} \
   --output json | jq '.[0].rekorBundle | {
     logIndex:        .Payload.logIndex,

@@ -14,3 +14,5 @@ asciidoc:
     openshift_console_url: 'https://console-openshift-console.apps.cluster-%GUID%.example.com'
     openshift_cluster_ingress_domain: 'apps.cluster-%GUID%.example.com'
     tas_oidc_issuer: 'https://keycloak-tsf-tas.apps.cluster-%GUID%.example.com/auth/realms/sigstore'
+    tas_tuf_url: 'https://tuf-tsf-tas.apps.cluster-%GUID%.example.com'
+    tas_rekor_url: 'https://rekor-server-tsf-tas.apps.cluster-%GUID%.example.com'
