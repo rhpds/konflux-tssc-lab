@@ -19,4 +19,4 @@ tabs:
   - name: GitLab
     url: 'https://gitlab-gitlab.${DOMAIN}'
   - name: Quay
-    url: '${quay_url}'
+    url: 'https://quay-${GUID}.${DOMAIN}'
