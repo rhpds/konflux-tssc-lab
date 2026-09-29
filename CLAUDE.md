@@ -161,6 +161,33 @@ When a module references `image::filename.png[...]` and the file does not exist:
 3. Add a TODO comment above each image macro linking to the issue:
    `// TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/N`
 
+### Quality review (optional but recommended)
+
+After writing, run the `rhdp-publishing-house:module-reviewer` agent on the finished `.adoc` file:
+
+    Agent tool:
+      subagent_type: rhdp-publishing-house:module-reviewer
+      prompt: |
+        Review the Showroom AsciiDoc module at:
+        /projects/konflux-tssc-lab/content/modules/ROOT/pages/module-NN-<slug>.adoc
+
+        Context:
+        - Lab: "Build, Sign, and Ship: Securing the Software Supply Chain with Konflux"
+        - Audience: intermediate (app developers, DevOps engineers, platform engineers)
+        - Duration target: <N> minutes
+        - Module learning objectives: [list from spec/modules/module-NN-<slug>.md]
+        - Application name: my-sample-app | Component: sample-component-golang
+        - Namespace: {openshift_username}-tenant
+
+        Return structured JSON with:
+        - overall_score (0-100)
+        - dimensions: clarity, completeness, technical_accuracy, structure, learning_alignment
+        - blocking_issues: must fix before publishing
+        - recommendations: non-blocking improvements
+
+Run modules 5 and 6 reviewers in parallel (two Agent calls in a single message).
+Fix any blocking issues before creating the PR. Apply recommendations at your discretion.
+
 ### Mark complete
 
 ```bash
