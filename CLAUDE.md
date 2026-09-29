@@ -94,3 +94,98 @@ All project tools live in `publishing-house/tools/`:
 - Module outlines: `publishing-house/spec/modules/`
 - Content: `content/modules/ROOT/pages/`
 - Navigation: `content/modules/ROOT/nav.adoc`
+
+## Module Writing Workflow
+
+### Branch rules
+
+- Always create a feature branch before any changes: `git checkout -b feat-module-NN-<slug>`
+- Never commit directly to main. All changes go through a PR reviewed before merge.
+- After merging: `git checkout main && git pull`
+
+### Before writing
+
+Read these files to build full context:
+- `publishing-house/spec.yaml` — module list, environment, audience, automation_type
+- `publishing-house/spec/design.md` — narrative overview, prerequisites, business scenario
+- `publishing-house/spec/modules/module-NN-<slug>.md` — step-by-step outline for the target module
+- All existing `content/modules/ROOT/pages/module-*.adoc` — read every completed module to cross-check consistency before writing
+
+### Writing
+
+Spawn `rhdp-publishing-house:module-writing-helper` with:
+- `TARGET_FILE`: `content/modules/ROOT/pages/<outline-name>.adoc` (replace `.md` with `.adoc`)
+- `FILE_TYPE`: `module`
+- `FULL_SPEC`: combined JSON from spec.yaml + design.md + module outline
+- `LAB_TYPE`: `ocp`
+- `CONTENT_TYPE`: `workshop`
+- `SHOWROOM_TYPE`: `classic`
+- `REPO_PATH`: `/projects/konflux-tssc-lab`
+
+### Coherence review (mandatory after writing)
+
+Cross-check the generated module against every completed module for:
+
+1. **Antora attributes** — only use attributes defined in `content/antora.yml`:
+   `{openshift_username}`, `{openshift_apps_domain}`, `{openshift_console_url}`,
+   `{tas_oidc_issuer}`, `{guid}`, `{ssh_user}`, `{ssh_password}`.
+   Deploy-time attributes (`{quay_url}`, `{prod_image}`) are NOT in antora.yml — substituted
+   at runtime by Showroom. Use them in content with `subs="attributes+"` only.
+
+2. **Application name** — must be `my-sample-app` (established in Module 2)
+
+3. **Namespace convention** — tenant: `{openshift_username}-tenant`, managed: `{openshift_username}-managed`
+
+4. **Cross-module references** — verify any reference to another module's output names the module
+   where that artifact was actually produced. Read completed modules to confirm.
+
+5. **End-to-end chain tables** — verify each row maps to what that module actually had the
+   participant do, not what the module title implies.
+
+6. **Forward references** — do not reference steps from modules not yet completed. Restructure
+   to be self-contained.
+
+7. **cosign / SLSA commands** — include both SLSA v0.2 and v1 predicate paths in jq commands.
+   Check predicateType first, then extract using the matching path:
+   - Check: `cosign download attestation ${IMAGE} | jq -r '.[0].payload | @base64d | fromjson | .predicateType'`
+   - v1 path: `.predicate.buildDefinition.resolvedDependencies[0]` / `.predicate.runDetails.builder.id`
+   - v0.2 path: `.predicate.materials[0]` / `.predicate.builder.id`
+
+### Missing screenshots
+
+When a module references `image::filename.png[...]` and the file does not exist:
+
+1. Create a GitHub issue documenting each missing file and where to capture it.
+2. Use the shared placeholder: `image::screenshot-placeholder.svg[alt text,800]`
+   (lives at `content/modules/ROOT/assets/images/screenshot-placeholder.svg`)
+3. Add a TODO comment above each image macro linking to the issue:
+   `// TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/N`
+
+### Mark complete
+
+```bash
+# Update spec.yaml: set module status: complete
+git add publishing-house/spec.yaml
+git commit -m "feat: mark module N complete — <Title>
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+git push
+python publishing-house/tools/ph-task-complete.py module-NN
+```
+
+### Local preview (DevSpaces)
+
+`podman-compose` requires `/dev/net/tun` which is absent in DevSpaces — use `npx antora` directly:
+
+```bash
+# Install extensions once per session
+npm install --prefix /tmp/antora-local @sntke/antora-mermaid-extension @andrew-jones/antora-tabs-extension
+
+# Build
+cd /projects/konflux-tssc-lab
+NODE_PATH=/tmp/antora-local/node_modules npx antora --fetch site.yml
+
+# Serve (if not already running)
+cd www && python3 -m http.server 8080 &
+```
+
+`gh` CLI is at `~/.local/bin/gh`. `podman-compose` can be installed via `pip3 install --user podman-compose` but container networking (pasta) is broken in this DevSpaces pod.
