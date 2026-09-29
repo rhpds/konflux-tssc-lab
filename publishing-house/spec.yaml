@@ -65,7 +65,7 @@ spec:
   - id: module-05
     title: Integration Testing and Policy
     duration_min: 15
-    status: in_progress
+    status: complete
   - id: module-06
     title: Release to Production
     duration_min: 15
