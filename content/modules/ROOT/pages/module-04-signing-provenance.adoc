@@ -67,54 +67,48 @@ echo "Image: ${IMAGE}"
 +
 Expected output: a full image reference ending in `@sha256:...`.
 
-. Run cosign verify using the certificate identity regexp for Konflux and the cluster OIDC issuer:
+. Run cosign verify using the build pipeline service account identity pattern and the cluster OIDC issuer:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
 cosign verify \
-  --certificate-identity-regexp 'https://konflux.*' \
+  --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
   ${IMAGE}
 ----
 +
 Expected output: `Verification for <image> -- Verified OK`
 +
-A successful result prints the certificate subject, the OIDC issuer, and the image digest.
-If the command returns an error, confirm that `$IMAGE` contains the full digest reference (`@sha256:...`) from the Component.
+A successful result prints the certificate subject and the image digest.
+If the command returns an error, confirm that `$IMAGE` contains the full digest reference (`@sha256:...`).
 
-. Confirm the subject contains the Konflux pipeline service account identity and the issuer matches the cluster Trusted Artifact Signer.
+. Confirm the subject shown contains your tenant namespace and component name.
+The format is `https://kubernetes.io/namespaces/{openshift_username}-tenant/serviceaccounts/build-pipeline-<component>` — this is the Kubernetes service account identity the Tekton pipeline ran as when it signed the image.
 
 . Inspect what cosign verified by re-running with `--output json` and piping to jq:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
 cosign verify \
-  --certificate-identity-regexp 'https://konflux.*' \
+  --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
   ${IMAGE} \
   --output json | jq '.[0] | {
-    subject:        .critical.identity."docker-reference",
-    issuer:         .optional.Issuer,
-    githubWorkflow: .optional."github-workflow-name"
+    subject: .critical.identity."docker-reference",
+    issuer:  .optional.Issuer
   }'
 ----
 
-. Review the three fields in the output:
-** `subject` — the image reference that was signed.
-** `issuer` — the OIDC provider that authenticated the build pipeline service account.
-This is the Trusted Artifact Signer instance for your cluster.
-** `githubWorkflow` — if populated, the name of the workflow that triggered the build.
-
 . Note that no `--key` flag was used.
-Keyless signing relies on the OIDC identity of the build service account rather than a static key pair.
-The certificate is valid for a short window around the signing event; its presence in the Rekor transparency log is what makes it permanently verifiable.
+Keyless signing relies on the OIDC identity of the Tekton build service account rather than a static key pair.
+The Kubernetes API server (`{tas_oidc_issuer}`) acts as the OIDC issuer — it authenticates the service account at signing time and issues the short-lived certificate recorded in Rekor.
 
 === Verify
 
 [%interactive]
 * [ ] `cosign verify` returns `Verification for <image> -- Verified OK` for your image.
-* [ ] The `--output json` output includes a non-empty `subject` field containing your image reference.
-* [ ] The `issuer` field matches the Trusted Artifact Signer OIDC issuer for your cluster.
+* [ ] The certificate subject contains your tenant namespace and `build-pipeline-` service account.
+* [ ] The issuer is `https://kubernetes.default.svc` — the cluster's Kubernetes OIDC provider.
 * [ ] No `--key` flag was used — this is keyless signing.
 
 == 2. Inspect the SLSA Provenance Attestation
@@ -203,7 +197,7 @@ The log entry is embedded in the cosign verification JSON output:
 [source,bash,role="execute",subs="attributes+"]
 ----
 cosign verify \
-  --certificate-identity-regexp 'https://konflux.*' \
+  --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
   ${IMAGE} \
   --output json | jq '.[0].rekorBundle | {
