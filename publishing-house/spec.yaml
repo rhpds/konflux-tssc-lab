@@ -57,7 +57,7 @@ spec:
   - id: module-03
     title: Build and Scan
     duration_min: 20
-    status: in_progress
+    status: complete
   - id: module-04
     title: Signing and Provenance
     duration_min: 20

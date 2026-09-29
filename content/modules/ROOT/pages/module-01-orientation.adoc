@@ -41,7 +41,7 @@ The following stages make up the supply chain you will build and observe through
 ....
 flowchart TD
     A("Source Commit") --> B("Build — Konflux/Tekton")
-    B --> C("SBOM — CycloneDX")
+    B --> C("SBOM — SPDX 2.3")
     C --> D("Sign — Trusted Artifact Signer")
     D --> E("Attest — SLSA Level 3")
     E --> F("Policy Check — Conforma")
@@ -59,7 +59,7 @@ flowchart TD
 |Konflux runs a Tekton pipeline that compiles the application and produces a container image.
 
 |SBOM generation
-|The pipeline automatically generates a Software Bill of Materials (SBOM) in CycloneDX format, listing every dependency in the image.
+|The pipeline automatically generates a Software Bill of Materials (SBOM) in SPDX 2.3 format, listing every dependency in the image.
 
 |Sign
 |Red Hat Trusted Artifact Signer signs the image using a short-lived certificate. The signature is recorded in the Rekor transparency log.
@@ -202,6 +202,21 @@ You should see a setup pod and job (`setup-konflux-integration`).
 The job may still be running — that is normal at this stage.
 If the namespace is completely empty, flag it to the instructor before continuing.
 
+. Install the `cosign` CLI, which you will use in Modules 3 and 4 to inspect SBOMs and verify image signatures:
++
+[source,bash,role="execute"]
+----
+COSIGN_VERSION="v2.4.1"
+mkdir -p ~/bin
+curl -sSL "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64" \
+  -o ~/bin/cosign
+chmod +x ~/bin/cosign
+echo 'export PATH=$HOME/bin:$PATH' >> ~/.bashrc
+export PATH=$HOME/bin:$PATH
+cosign version
+----
++
+Expected output: a version line beginning with `GitVersion: v2.4.1`.
 
 === Verify
 
@@ -211,6 +226,7 @@ Before moving to Module 2, confirm all of the following:
 * [ ] `oc whoami` returns your assigned user ID.
 * [ ] `oc project {openshift_username}-tenant` switches to your tenant namespace.
 * [ ] `oc get all -n {openshift_username}-tenant` returns the setup pod and/or job.
+* [ ] `cosign version` returns a version string.
 
 If any check fails, do not proceed.
 Unresolved environment issues will block all subsequent modules.

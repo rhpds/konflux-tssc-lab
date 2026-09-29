@@ -25,3 +25,23 @@
 - name: Show Quay membership result
   ansible.builtin.debug:
     msg: "User {{ ocp4_workload_konflux_tssc_tenant_user }} added to Quay org {{ quay_org }} members team (or already exists)"
+
+- name: Set default read permission for members team on new repositories
+  ansible.builtin.uri:
+    url: "{{ quay_api_url }}/organization/{{ quay_org }}/prototypes"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ quay_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      role: read
+      delegate:
+        name: members
+        kind: team
+    status_code: [200, 201]
+  register: r_quay_prototype
+
+- name: Show default permission result
+  ansible.builtin.debug:
+    msg: "Default read permission set for members team on new repos in {{ quay_org }} (or already exists)"

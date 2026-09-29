@@ -1,0 +1,44 @@
+---
+- name: Get cluster ingress domain
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: r_cluster_ingress
+
+- name: Set apps domain fact
+  ansible.builtin.set_fact:
+    ocp_apps_domain: "{{ r_cluster_ingress.resources[0].spec.domain }}"
+
+- name: Get existing Quay service name
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Service
+    namespace: quay-enterprise
+    label_selectors:
+      - quay-operator/quayregistry=quay
+  register: r_quay_services
+
+- name: Set Quay app service name
+  ansible.builtin.set_fact:
+    quay_app_service: "{{ r_quay_services.resources | selectattr('metadata.name', 'search', 'app') | map(attribute='metadata.name') | first }}"
+
+- name: Create predictable Quay route alias for Showroom tab
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: route.openshift.io/v1
+      kind: Route
+      metadata:
+        name: quay-showroom
+        namespace: quay-enterprise
+      spec:
+        host: "quay.{{ ocp_apps_domain }}"
+        to:
+          kind: Service
+          name: "{{ quay_app_service }}"
+          weight: 100
+        tls:
+          termination: edge
+          insecureEdgeTerminationPolicy: Redirect
+        wildcardPolicy: None
