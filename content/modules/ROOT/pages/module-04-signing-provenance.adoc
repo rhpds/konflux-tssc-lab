@@ -77,9 +77,22 @@ cosign verify \
   ${IMAGE}
 ----
 +
-Expected output: `Verification for <image> -- Verified OK`
+Expected output: a `Verification for <image> --` header line followed by three validation checks, then a JSON array:
 +
-A successful result prints the certificate subject and the image digest.
+----
+Verification for <image> --
+The following checks were performed on each of these signatures:
+  - The cosign claims were validated
+  - Existence of the claims in the transparency log was verified offline
+  - The code-signing certificate was verified using trusted certificate authority certificates
+
+[{"critical":{"identity":...},"optional":{"Issuer":"https://kubernetes.default.svc","Subject":"https://kubernetes.io/namespaces/..."}}]
+----
++
+.cosign verify — successful signature verification
+image::module-04-cosign-verify.png[Terminal showing cosign verify output with three validation checks and the JSON certificate payload confirming the image digest and signing identity,800]
++
+The `optional.Subject` field in the JSON confirms the Kubernetes service account identity that signed the image.
 If the command returns an error, confirm that `$IMAGE` contains the full digest reference (`@sha256:...`).
 
 . Confirm the subject shown contains your tenant namespace and component name.
@@ -94,7 +107,7 @@ cosign verify \
   --certificate-oidc-issuer {tas_oidc_issuer} \
   ${IMAGE} \
   --output json | jq '.[0] | {
-    subject: .critical.identity."docker-reference",
+    subject: .optional.Subject,
     issuer:  .optional.Issuer
   }'
 ----
@@ -200,14 +213,12 @@ cosign verify \
   --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
   ${IMAGE} \
-  --output json | jq '.[0].rekorBundle | {
+  --output json | jq '.[0].optional.Bundle | {
     logIndex:        .Payload.logIndex,
     integratedTime:  .Payload.integratedTime,
     signedTimestamp: .SignedEntryTimestamp
   }'
 ----
-+
-NOTE: If `.[0].rekorBundle` is null, inspect the raw structure first with `jq '.[0] | keys'` to confirm the exact field name used by your cosign version.
 
 . Note the `logIndex` value.
 This is a monotonically increasing integer — each entry added to the log receives the next available integer.
@@ -233,7 +244,7 @@ The Rekor entry remains, proving what the original image contained and when it w
 === Verify
 
 [%interactive]
-* [ ] `cosign verify --output json` returns a `rekorBundle` with a non-null `logIndex` and `integratedTime`.
+* [ ] `cosign verify --output json` returns an `optional.Bundle` with a non-null `logIndex` and `integratedTime`.
 * [ ] The `integratedTime` timestamp is close to the completion time of your Module 3 PipelineRun.
 * [ ] The Rekor Search UI shows a log entry matching your image digest.
 * [ ] The log index and integrated time in the UI match the values from the cosign JSON output.
