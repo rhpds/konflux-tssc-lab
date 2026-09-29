@@ -302,13 +302,19 @@ You will retrieve and verify it in Module 4.
 
 Before moving on, check that you can answer the following:
 
-*Why does the pipeline push three separate artifacts to Quay instead of one?*
+*What artifacts does Konflux push to Quay for every successful build, and why are they kept separate?*
 
-Each artifact serves a different purpose.
+The pipeline produces multiple artifacts stored in Quay.
 The container image is what runs in production.
-The SPDX SBOM is a machine-readable inventory of every package in that image — security scanners, policy engines, and compliance tools consume it directly without re-scanning the image.
-The SLSA provenance attestation is a cryptographically verifiable record of origin: which source commit, which pipeline, and which cluster produced the image.
-Separating them means each artifact can be verified, stored, and consumed independently by different tools and teams.
+The SLSA provenance attestation — visible in Quay as a `<commit-sha>.git` OCI artifact — is a cryptographically verifiable record of which source commit, which pipeline, and which cluster produced the image.
+The SPDX SBOM is stored as an OCI artifact and retrieved via `cosign download sbom` rather than appearing as a named tag in the Quay UI.
+Keeping them separate means each artifact can be verified, stored, and consumed independently by different tools and teams.
+
+*What provenance information is embedded directly in the image labels, and why does that matter?*
+
+Every image Konflux builds carries OCI standard labels baked into the image manifest: `org.opencontainers.image.source` links back to the exact GitLab repository URL, and `vcs-ref` records the exact commit SHA that triggered the build.
+These labels are visible directly in Quay without retrieving any attestation — anyone can verify at a glance which source produced the image, independent of the build system.
+In Module 4 you will see how the SLSA attestation provides a cryptographically signed version of this same claim.
 
 *What makes the image digest important for later modules?*
 
@@ -326,7 +332,8 @@ Using a standard format means the SBOM you downloaded today is directly consumab
 == Key Takeaways
 
 * The Konflux build pipeline runs entirely in-cluster on OpenShift Pipelines (Tekton) — no external CI system is required.
-* Every successful build automatically produces three artifacts pushed to Quay: the container image, an SPDX SBOM, and a SLSA provenance attestation.
+* Every successful build produces multiple artifacts in Quay: the container image, an SPDX SBOM (accessible via cosign), and a SLSA provenance attestation stored as a `<commit-sha>.git` OCI artifact.
+* OCI image labels (`org.opencontainers.image.source`, `vcs-ref`) embed source provenance directly in the image manifest — verifiable in Quay without reading any attestation.
 * SPDX SBOMs enumerate all packages in the image, giving security teams a complete dependency inventory without re-scanning the running container.
 * The image digest is immutable and content-addressed — it is the stable reference used for signing and policy gating in later modules.
 * Pipelines-as-Code makes build triggers automatic and auditable: every build traces back to the exact source commit that started it.
