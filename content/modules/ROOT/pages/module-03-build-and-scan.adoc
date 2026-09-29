@@ -248,10 +248,10 @@ NOTE: Some entries show `UNKNOWN` or `NOASSERTION` for version or license — th
 
 == 4. Review Artifacts in Quay
 
-Konflux pushes three distinct artifacts to Quay for every successful build: the container image, the SBOM attestation, and the SLSA provenance attestation.
-You will confirm all three are present before moving to Module 4, where you will examine the provenance attestation in depth.
+Konflux pushes the container image and its provenance artifacts to Quay for every successful build.
+You will confirm the image is present, verify the digest, and review the source provenance labels embedded in the image before moving to Module 4.
 
-. Open link:{quay_url}[the Quay registry,window=_blank].
+. Open the *Quay* tab.
 Log in with `{quay_user}` / `{quay_password}` if prompted.
 
 . Navigate to the repository for your component.
@@ -264,36 +264,39 @@ The path follows this pattern:
 +
 TIP: Print the base image path from your terminal to get the exact URL: `echo "${IMAGE_BASE}"`.
 
-. In the *Tags* view, confirm that a tag was pushed at the time of your recent build.
+. In the *Tags* view, locate the tag that matches the pattern `<component>-on-push-<hash>-build-container`.
+This is the container image your pipeline just built.
+Click that tag to open the image detail page.
 +
-.Quay image repository showing multiple tags for the same digest
-image::module-03-quay-tags.png[Quay image repository tags view showing the container image tag and the associated attestation and SBOM artifact tags for the same digest,800]
+.Quay image repository showing the pipeline build tag and the associated attestation artifact
+image::module-03-quay-tags.png[Quay image repository tags view showing the container image tag with its digest and a separate dot-git attestation artifact tag,800]
 
-. Observe the tag listing.
-Three artifact types share the same underlying digest:
+. On the image detail page, confirm the following:
 +
 [cols="1,3",options="header"]
 |===
-|Tag pattern |Contents
-|`<branch>-<short-sha>` (or similar)
-|The container image built from your source commit.
-|`sha256-<digest>.att`
-|The SLSA provenance attestation — an in-toto statement linking the image to the source commit and the pipeline that built it.
-You will examine this in Module 4.
-|`sha256-<digest>.sbom`
-|The SPDX SBOM you inspected in the previous section, stored as an OCI artifact.
+|Field |What to check
+|*Digest*
+|Matches the `sha256:...` value you copied from the `build-container` task results — the same bytes the pipeline signed and attested.
+|*Vulnerabilities*
+|Shows *None Detected* — the ClamAV and RPM signature scan tasks found no issues.
+|*Labels*
+|Expand the *Labels* section and look for `org.opencontainers.image.source` (the GitLab repository URL) and `vcs-ref` (the exact commit SHA that triggered the build).
+These OCI standard labels make the image's origin verifiable without reading pipeline logs.
 |===
 
-. Confirm the image digest shown in Quay matches the digest you copied from the `build-container` task logs.
-The `.att` and `.sbom` tags reference this same digest — they are tied to the exact image content, not to a mutable tag.
+. Return to the repository's tag list.
+Alongside the image tag, you will see an artifact tag ending in `.git` (for example, `0e5bb074...c27.git`).
+This is the SLSA provenance attestation stored as an OCI artifact — an in-toto statement that records which source commit, which pipeline, and which cluster produced this image.
+You will retrieve and verify it in Module 4.
 
 === Verify
 
 [%interactive]
-* [ ] The Quay repository for your component shows a tag pushed at the time of your build.
-* [ ] A `sha256-<digest>.att` tag is listed alongside the container image tag.
-* [ ] A `sha256-<digest>.sbom` tag is listed alongside the container image tag.
-* [ ] The digest shown in Quay matches the digest you copied from the pipeline logs.
+* [ ] The Quay repository for your component shows the `<component>-on-push-...-build-container` image tag.
+* [ ] The image digest shown in Quay matches the digest you copied from the pipeline logs.
+* [ ] The image labels include `org.opencontainers.image.source` and `vcs-ref` confirming the source commit.
+* [ ] A `<commit-sha>.git` artifact tag is listed alongside the container image tag.
 
 == Learning Outcomes Checkpoint
 
