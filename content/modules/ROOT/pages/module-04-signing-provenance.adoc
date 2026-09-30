@@ -269,9 +269,17 @@ Before moving on, check that you can answer the following:
 
 *What does cosign verify actually check?*
 
-cosign verify checks three things together: that a signature exists on the image in the registry, that the signature is mathematically valid for the image digest, and that the signing certificate was issued by the expected OIDC issuer for the expected identity.
+cosign verify performs three checks, exactly as the output confirmed:
+
+. *Cosign claims validated* — the signature is mathematically valid for the image digest.
+Any change to the image bytes produces a different digest and invalidates the signature.
+. *Existence in the transparency log verified offline* — the signing event was recorded in Rekor and the log entry matches the signature.
+This step works without contacting Rekor directly, using the signed timestamp embedded in the cosign bundle.
+. *Code-signing certificate verified* — the short-lived certificate was issued by a trusted certificate authority (Fulcio) for the expected OIDC identity.
+This confirms the signer was the legitimate Tekton Chains service account, not an impostor.
+
 All three must pass.
-A signature by the wrong identity or a signature that covers a different digest both result in a verification failure.
+A signature by the wrong identity or one that covers a different digest both result in a verification failure.
 
 *Why does keyless signing not require a long-lived private key?*
 
@@ -304,8 +312,8 @@ An unsigned image or one with a missing attestation fails the Conforma check imm
 
 * cosign with keyless Sigstore signing produces a cryptographic signature tied to the build identity — no long-lived keys to manage or rotate.
 * SLSA Level 3 provenance attestations provide a machine-verifiable record of what was built, by whom, from what source, and in what build environment.
-* The Rekor transparency log creates an immutable, auditable record of every signing event. Registry compromise cannot erase the log entry.
-* The combination of image signature, provenance attestation, and transparency log entry gives downstream consumers the evidence they need to trust an image.
+* The Rekor transparency log creates an immutable, auditable record of every signing event — the image signature and each attestation each get their own log entry. Registry compromise cannot erase any of them.
+* The combination of image signature, provenance attestations, and transparency log entries gives downstream consumers the evidence they need to trust an image.
 * cosign verify is the primary tool for consuming this evidence. Conforma in Module 5 automates this verification at scale with policy-encoded rules.
 
 xref:module-05-integration-testing-policy.adoc[Next: Module 5 — Integration Testing and Policy →]
