@@ -151,8 +151,10 @@ cosign download attestation ${IMAGE} | jq -r '.payload | @base64d | fromjson | .
 You will see multiple lines — `https://slsa.dev/provenance/v0.2` (SLSA v0.2) or `https://slsa.dev/provenance/v1` (SLSA v1) repeated for each signed artifact, plus `https://spdx.dev/Document` for the SBOM attestation.
 Use the matching extraction command in the next step.
 
-. Extract the source commit and builder identity using the schema path that matches your predicate version.
-The `-s` flag slurps the stream into an array so you can filter by `predicateType` and pick the first matching entry:
+. Extract the source commit and builder identity.
++
+NOTE: In Konflux's Tekton Chains implementation, the `materials` array records build tooling images — not the git source.
+The git repository URL and commit SHA are stored in `predicate.invocation.parameters`, and the PipelineRun name is in `predicate.invocation.environment.labels`.
 +
 .SLSA v0.2 — `https://slsa.dev/provenance/v0.2`
 [source,bash,role="execute"]
@@ -160,10 +162,10 @@ The `-s` flag slurps the stream into an array so you can filter by `predicateTyp
 cosign download attestation ${IMAGE} | jq -s '
   map(select(.payload | @base64d | fromjson | .predicateType == "https://slsa.dev/provenance/v0.2")) |
   .[0].payload | @base64d | fromjson | {
-    repo:        .predicate.materials[0].uri,
-    commit:      .predicate.materials[0].digest.sha1,
+    repo:        .predicate.invocation.parameters.SOURCE_URL,
+    commit:      .predicate.invocation.parameters.COMMIT_SHA,
     builder:     .predicate.builder.id,
-    pipelineRun: .predicate.metadata.buildInvocationId
+    pipelineRun: .predicate.invocation.environment.labels["tekton.dev/pipelineRun"]
   }'
 ----
 +
