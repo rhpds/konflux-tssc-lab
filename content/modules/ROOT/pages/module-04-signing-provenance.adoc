@@ -154,7 +154,8 @@ Use the matching extraction command in the next step.
 . Extract the source commit and builder identity.
 +
 NOTE: In Konflux's Tekton Chains implementation, the `materials` array records build tooling images — not the git source.
-The git repository URL and commit SHA are stored in `predicate.invocation.parameters`, and the PipelineRun name is in `predicate.invocation.environment.labels`.
+The git repository URL and commit SHA are stored in PipelineRun-level annotations under `predicate.invocation.environment.annotations`.
+The `pipelineRun` field resolves to the full Konflux UI URL for the run — you can open it directly to cross-reference the build.
 +
 .SLSA v0.2 — `https://slsa.dev/provenance/v0.2`
 [source,bash,role="execute"]
@@ -162,10 +163,10 @@ The git repository URL and commit SHA are stored in `predicate.invocation.parame
 cosign download attestation ${IMAGE} | jq -s '
   map(select(.payload | @base64d | fromjson | .predicateType == "https://slsa.dev/provenance/v0.2")) |
   .[0].payload | @base64d | fromjson | {
-    repo:        .predicate.invocation.parameters.SOURCE_URL,
-    commit:      .predicate.invocation.parameters.COMMIT_SHA,
+    repo:        .predicate.invocation.environment.annotations["pipelinesascode.tekton.dev/repo-url"],
+    commit:      .predicate.invocation.environment.annotations["build.appstudio.redhat.com/commit_sha"],
     builder:     .predicate.builder.id,
-    pipelineRun: .predicate.invocation.environment.labels["tekton.dev/pipelineRun"]
+    pipelineRun: .predicate.invocation.environment.annotations["pipelinesascode.tekton.dev/log-url"]
   }'
 ----
 +
@@ -187,6 +188,9 @@ cosign download attestation ${IMAGE} | jq -s '
 . Confirm the `commit` field matches the commit SHA from your code push in Module 3.
 Open GitLab and navigate to the commit history for your repository to verify the SHA.
 +
+The `pipelineRun` field is a direct Konflux UI link to the build run that produced this attestation.
+Open it to cross-reference the pipeline tasks and the image digest.
++
 // TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/6
 .GitLab commit history showing the commit SHA that matches the provenance attestation
 image::screenshot-placeholder.svg[GitLab repository commit history page with the relevant commit highlighted and its SHA visible,800]
@@ -205,7 +209,8 @@ Any alteration to the attestation content invalidates the signature, making tamp
 * [ ] The `predicateType` field identifies either `https://slsa.dev/provenance/v1` or `https://slsa.dev/provenance/v0.2`.
 * [ ] The `repo` field in the attestation matches your GitLab repository URL from Module 2.
 * [ ] The `commit` field matches the commit SHA from your Module 3 code push.
-* [ ] The `builder` field contains the Konflux pipeline service account identity.
+* [ ] The `builder` field is `https://tekton.dev/chains/v2` — the Tekton Chains signing identity.
+* [ ] The `pipelineRun` field is a Konflux UI URL that links to the build run that produced this image.
 
 == 3. Explore the Rekor Transparency Log
 
