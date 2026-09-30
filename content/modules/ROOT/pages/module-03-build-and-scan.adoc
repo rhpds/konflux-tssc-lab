@@ -150,6 +150,13 @@ Every successful `docker-build-oci-ta-min` pipeline run pushes an SPDX SBOM alon
 The SBOM is stored in Quay as an OCI artifact attached to the image via cosign.
 You will download and examine it using the `cosign` CLI in the terminal.
 
+. Set the environment variable required for this lab's self-signed TLS certificate:
++
+[source,bash,role="execute"]
+----
+export COSIGN_INSECURE_SKIP_TLS_VERIFY=true
+----
+
 . Set up registry credentials for cosign.
 Konflux creates an image-pull secret in your tenant namespace when your component is registered.
 Extract it to the standard Docker credential store so cosign can authenticate automatically:
