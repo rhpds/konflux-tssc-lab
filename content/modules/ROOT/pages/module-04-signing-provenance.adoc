@@ -191,9 +191,8 @@ Open GitLab and navigate to the commit history for your repository to verify the
 The `pipelineRun` field is a direct Konflux UI link to the build run that produced this attestation.
 Open it to cross-reference the pipeline tasks and the image digest.
 +
-// TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/6
 .GitLab commit history showing the commit SHA that matches the provenance attestation
-image::screenshot-placeholder.svg[GitLab repository commit history page with the relevant commit highlighted and its SHA visible,800]
+image::module-04-gitlab-commit.png[GitLab repository commit history page showing the commit SHA that matches the commit field in the SLSA provenance attestation,800]
 
 . Note the `builder` field.
 This is the Konflux pipeline service account identity that performed the build.
