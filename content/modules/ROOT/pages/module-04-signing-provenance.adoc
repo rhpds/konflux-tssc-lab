@@ -251,9 +251,6 @@ What matters is that signing events are recorded and cannot be removed.
 .Rekor Search UI showing transparency log entries for the signed image
 image::module-04-rekor-search.png[Rekor Search UI showing multiple log entries for the image digest including SLSA provenance and SBOM attestation records,800]
 
-. Note that each entry has its own `logIndex` — a monotonically increasing integer assigned when the entry was added.
-Any gap in the sequence is detectable by independent log monitors, making the log tamper-evident at scale.
-
 . Reflect on the tamper-evident property: if an attacker compromised the image registry and replaced the image bytes, the digest in the registry would change.
 Any consumer running `cosign verify` would see a signature mismatch — the signature covers the original digest, not the replacement.
 The Rekor entries remain, proving what the original image contained and when it was signed.
