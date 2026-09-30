@@ -151,7 +151,7 @@ cosign download attestation ${IMAGE} | jq -r '.payload | @base64d | fromjson | .
 You will see multiple lines — `https://slsa.dev/provenance/v0.2` (SLSA v0.2) or `https://slsa.dev/provenance/v1` (SLSA v1) repeated for each signed artifact, plus `https://spdx.dev/Document` for the SBOM attestation.
 Use the matching extraction command in the next step.
 
-. Extract the source commit and builder identity.
+. Run the extraction command that matches the `predicateType` you saw in the previous step.
 +
 NOTE: In Konflux's Tekton Chains implementation, the `materials` array records build tooling images — not the git source.
 The git repository URL and commit SHA are stored in PipelineRun-level annotations under `predicate.invocation.environment.annotations`.
@@ -170,17 +170,18 @@ cosign download attestation ${IMAGE} | jq -s '
   }'
 ----
 +
-.SLSA v1 — `https://slsa.dev/provenance/v1`
-[source,bash,role="execute"]
+.SLSA v1 — `https://slsa.dev/provenance/v1` (run this only if step 2 returned `v1`)
+[source,bash]
 ----
 cosign download attestation ${IMAGE} | jq -s '
   map(select(.payload | @base64d | fromjson | .predicateType == "https://slsa.dev/provenance/v1")) |
+  if length == 0 then "No SLSA v1 attestations — your cluster uses v0.2 (run the command above)" else
   .[0].payload | @base64d | fromjson | {
     repo:        .predicate.buildDefinition.resolvedDependencies[0].uri,
     commit:      .predicate.buildDefinition.resolvedDependencies[0].digest.gitCommit,
     builder:     .predicate.runDetails.builder.id,
     pipelineRun: .predicate.runDetails.metadata.invocationId
-  }'
+  } end'
 ----
 
 . Confirm the `repo` field matches your GitLab repository URL from Module 2.
