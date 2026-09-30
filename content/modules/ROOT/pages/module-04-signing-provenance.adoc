@@ -241,26 +241,30 @@ Any gap in the sequence would be detectable by independent log monitors.
 This is a Unix timestamp for when the entry was added to the log.
 Confirm it is close to when your PipelineRun completed in Module 3.
 
-. Open the link:https://rekor-search-ui-tsf-tas.{openshift_apps_domain}[Rekor Search UI,window=_blank] and search for your image digest.
-Enter the full digest value (`sha256:...`) from `$IMAGE` in the search box and confirm the log entry is visible.
+. Open the link:https://rekor-search-ui-tsf-tas.{openshift_apps_domain}[Rekor Search UI,window=_blank].
+Select the *hash* attribute, enter the digest portion of `$IMAGE` (the `sha256:...` value, without the registry prefix), and search.
 +
-// TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/6
-.Rekor Search UI showing the log entry for the signed image
-image::screenshot-placeholder.svg[Rekor Search UI showing a single log entry for the image digest with log index, integrated time, and certificate subject displayed,800]
+You will see multiple log entries — one for each signing event associated with this image: the SLSA provenance attestations and the SBOM attestation.
+The image signature entry (from step 1) uses a different hash key internally and may not appear in this search — that is expected.
+What matters is that signing events are recorded and cannot be removed.
++
+.Rekor Search UI showing transparency log entries for the signed image
+image::module-04-rekor-search.png[Rekor Search UI showing multiple log entries for the image digest including SLSA provenance and SBOM attestation records,800]
 
-. Confirm the `logIndex`, `integratedTime`, and certificate subject in the UI match the values returned by cosign in step 1.
+. Note that each entry has its own `logIndex` — a monotonically increasing integer assigned when the entry was added.
+Any gap in the sequence is detectable by independent log monitors, making the log tamper-evident at scale.
 
 . Reflect on the tamper-evident property: if an attacker compromised the image registry and replaced the image bytes, the digest in the registry would change.
 Any consumer running `cosign verify` would see a signature mismatch — the signature covers the original digest, not the replacement.
-The Rekor entry remains, proving what the original image contained and when it was signed.
+The Rekor entries remain, proving what the original image contained and when it was signed.
 
 === Verify
 
 [%interactive]
 * [ ] `cosign verify --output json` returns an `optional.Bundle` with a non-null `logIndex` and `integratedTime`.
 * [ ] The `integratedTime` timestamp is close to the completion time of your Module 3 PipelineRun.
-* [ ] The Rekor Search UI shows a log entry matching your image digest.
-* [ ] The log index and integrated time in the UI match the values from the cosign JSON output.
+* [ ] The Rekor Search UI returns multiple log entries when searching for your image digest — confirming all signing events are recorded.
+* [ ] Each log entry has a unique, increasing `logIndex` value.
 
 == Learning Outcomes Checkpoint
 
