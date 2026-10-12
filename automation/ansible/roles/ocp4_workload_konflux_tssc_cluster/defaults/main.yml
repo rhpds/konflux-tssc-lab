@@ -5,7 +5,3 @@ ocp4_workload_konflux_tssc_cluster_name: "cluster-{{ guid }}"
 # Workload control
 ocp4_workload_konflux_tssc_cluster_become_override: false
 ocp4_workload_konflux_tssc_cluster_silent: false
-
-# Konflux OAuth watcher settings
-ocp4_workload_konflux_tssc_cluster_watcher_namespace: tsf-keycloak
-ocp4_workload_konflux_tssc_cluster_oauth_client_name: konflux-ui
