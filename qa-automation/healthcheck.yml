@@ -1,15 +1,581 @@
 ---
-# HEALTHCHECK — Quick environment readiness check
-# Runs post-provisioning to verify the lab environment is functional.
-# Should complete in under 60 seconds.
+# =============================================================================
+# Konflux TSSC Lab — Tenant Healthcheck
+# =============================================================================
 #
-# Exit 0 = healthy, non-zero = unhealthy.
+# Purpose:
+#   Validates that a tenant environment is fully provisioned and ready
+#   for a student to use. Runs at tenant order time via Showroom API.
+#
+# Usage (CLI):
+#   ansible-playbook qa-automation/healthcheck.yml \
+#     -e "ocp_api_url=https://api.cluster-xxx.example.com:6443" \
+#     -e "ocp_admin_password=xxx" \
+#     -e "tenant_user=user-abc12"
+#
+# Usage (Showroom runner):
+#   Runs automatically — picks up openshift_api_url and user from
+#   user_data.yml, authenticates via the runtime-automation SA token.
+#
+# What it checks (in order):
+#   1. Cluster-level services (Konflux, GitLab, Quay, RHTAS)
+#   2. Tenant namespaces exist
+#   3. GitLab repository exists for tenant (via API)
+#   4. Quay organization access configured (via API)
+#   5. Quay push secret exists in tenant namespace
+#   6. Konflux workspace functional (RBAC configured)
+#   7. Enterprise Contract policy bundle accessible
+#   8. Integration test patcher watcher operational
+#   9. RHTAS TUF server operational
+#
+# Design notes:
+#   - Tenant-focused — validates per-user resources are provisioned
+#   - Fast — uses k8s_info lookups and minimal HTTP checks
+#   - Simple — pass/fail per check, clear error messages
+# =============================================================================
 
-- name: "Environment Health Check"
+- name: Konflux TSSC Lab — Tenant Healthcheck
   hosts: localhost
   connection: local
   gather_facts: false
+
+  vars:
+    # --- Inputs (from CLI -e or showroom user_data.yml) ---
+    # CLI names:     ocp_api_url, ocp_admin_password, tenant_user
+    # user_data:     openshift_api_url, user (+ SA token for auth)
+
+    # --- Normalize variable names across both entry points ---
+    _api_url: "{{ ocp_api_url | default(openshift_api_url) }}"
+    _tenant_user: "{{ tenant_user | default(user) }}"
+    _use_sa_token: "{{ ocp_admin_password is not defined }}"
+
+    # Namespaces we expect per tenant
+    tenant_namespaces:
+      - "{{ _tenant_user }}-tenant"
+      - "{{ _tenant_user }}-managed"
+      - "{{ _tenant_user }}-showroom"
+
+    # Critical cluster-level namespaces
+    cluster_namespaces:
+      - konflux-ui
+      - gitlab
+      - quay-enterprise
+      - tsf-tas
+      - tsf-keycloak
+
+    # Deployments to check per tenant
+    tenant_deployments:
+      - namespace: "{{ _tenant_user }}-showroom"
+        name: showroom
+
+    # Cluster-level deployments (verify platform is ready)
+    cluster_deployments:
+      - namespace: konflux-ui
+        name: konflux-ui
+      - namespace: gitlab
+        name: gitlab-webservice-default
+      - namespace: quay-enterprise
+        name: quay-quay-app
+      - namespace: tsf-tas
+        name: rekor-server
+
+    # Routes to HTTP-check (student-facing services)
+    cluster_routes:
+      - namespace: konflux-ui
+        name: konflux-ui
+      - namespace: gitlab
+        name: gitlab
+      - namespace: quay-enterprise
+        name: quay-quay
+      - namespace: tsf-tas
+        name: rekor-server
+
+    # Track results
+    healthcheck_failures: []
+
   tasks:
-    - name: "TODO: Implement health checks"
+    # =========================================================================
+    # Auth setup
+    # =========================================================================
+
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ocp_api_url is defined or openshift_api_url is defined
+          - ocp_admin_password is defined or _use_sa_token | bool
+          - tenant_user is defined or user is defined
+        fail_msg: >-
+          Missing required variables.
+          CLI: pass ocp_api_url, ocp_admin_password, tenant_user via -e.
+          Showroom runner: openshift_api_url and user come from user_data.yml, auth via SA token.
+
+    # In the showroom runner pod, the pod SA is 'showroom' (no cluster-admin).
+    # The 'runtime-automation' SA has cluster-admin. Read its token to auth k8s calls.
+    - name: Get runtime-automation SA token
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        namespace: "{{ _tenant_user }}-showroom"
+        name: runtime-automation-token
+      register: _ra_secret
+      when: _use_sa_token | bool
+
+    - name: Set k8s auth for runtime-automation SA
+      ansible.builtin.set_fact:
+        _k8s_host: "{{ _api_url }}"
+        _k8s_api_key: "{{ _ra_secret.resources[0].data.token | b64decode }}"
+        _k8s_validate_certs: false
+      when: _use_sa_token | bool
+      no_log: true
+
+    - name: Login to OpenShift with password (CLI mode)
+      ansible.builtin.command:
+        cmd: >-
+          oc login {{ _api_url }}
+          --username admin
+          --password {{ ocp_admin_password }}
+          --insecure-skip-tls-verify
+      changed_when: false
+      no_log: true
+      when: not (_use_sa_token | bool)
+
+    - name: Set k8s auth for CLI mode
+      ansible.builtin.set_fact:
+        _k8s_host: ""
+        _k8s_api_key: ""
+        _k8s_validate_certs: true
+      when: not (_use_sa_token | bool)
+
+    # =========================================================================
+    # Check 1: Cluster-level namespaces exist
+    # =========================================================================
+
+    - name: "Check cluster-level namespaces exist"
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: v1
+        kind: Namespace
+        name: "{{ item }}"
+      register: r_cluster_ns_checks
+      loop: "{{ cluster_namespaces }}"
+
+    - name: Record missing cluster namespaces
+      ansible.builtin.set_fact:
+        healthcheck_failures: >-
+          {{ healthcheck_failures + ['Cluster namespace ' + item.item + ' not found — platform may not be fully deployed'] }}
+      loop: "{{ r_cluster_ns_checks.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: item.resources | length == 0
+
+    # =========================================================================
+    # Check 2: Tenant namespaces exist
+    # =========================================================================
+
+    - name: "Check tenant namespaces exist for {{ _tenant_user }}"
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: v1
+        kind: Namespace
+        name: "{{ item }}"
+      register: r_tenant_ns_checks
+      loop: "{{ tenant_namespaces }}"
+
+    - name: Record missing tenant namespaces
+      ansible.builtin.set_fact:
+        healthcheck_failures: >-
+          {{ healthcheck_failures + ['Tenant namespace ' + item.item + ' not found'] }}
+      loop: "{{ r_tenant_ns_checks.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: item.resources | length == 0
+
+    # =========================================================================
+    # Check 3: Cluster-level deployments are ready
+    # =========================================================================
+
+    - name: "Check cluster-level deployments"
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ item.namespace }}"
+        name: "{{ item.name }}"
+      register: r_cluster_deploy_checks
+      loop: "{{ cluster_deployments }}"
+      loop_control:
+        label: "{{ item.namespace }}/{{ item.name }}"
+
+    - name: Record unavailable cluster deployments
+      ansible.builtin.set_fact:
+        healthcheck_failures: >-
+          {{ healthcheck_failures +
+             ['Deployment ' + item.item.namespace + '/' + item.item.name +
+              ' has 0 available replicas'] }}
+      loop: "{{ r_cluster_deploy_checks.results }}"
+      loop_control:
+        label: "{{ item.item.namespace }}/{{ item.item.name }}"
+      when: >-
+        item.resources | length == 0
+        or (item.resources[0].status.availableReplicas | default(0)) < 1
+
+    # =========================================================================
+    # Check 4: Tenant deployments are ready
+    # =========================================================================
+
+    - name: "Check tenant deployments for {{ _tenant_user }}"
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ item.namespace }}"
+        name: "{{ item.name }}"
+      register: r_tenant_deploy_checks
+      loop: "{{ tenant_deployments }}"
+      loop_control:
+        label: "{{ item.namespace }}/{{ item.name }}"
+
+    - name: Record unavailable tenant deployments
+      ansible.builtin.set_fact:
+        healthcheck_failures: >-
+          {{ healthcheck_failures +
+             ['Deployment ' + item.item.namespace + '/' + item.item.name +
+              ' has 0 available replicas'] }}
+      loop: "{{ r_tenant_deploy_checks.results }}"
+      loop_control:
+        label: "{{ item.item.namespace }}/{{ item.item.name }}"
+      when: >-
+        item.resources | length == 0
+        or (item.resources[0].status.availableReplicas | default(0)) < 1
+
+    # =========================================================================
+    # Check 5: Cluster routes respond with HTTP 200
+    # =========================================================================
+
+    - name: "Get cluster route URLs"
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: route.openshift.io/v1
+        kind: Route
+        namespace: "{{ item.namespace }}"
+        name: "{{ item.name }}"
+      register: r_cluster_route_lookups
+      loop: "{{ cluster_routes }}"
+      loop_control:
+        label: "{{ item.namespace }}/{{ item.name }}"
+
+    - name: Check cluster routes respond with HTTP 200
+      ansible.builtin.uri:
+        url: "https://{{ item.resources[0].spec.host }}"
+        method: GET
+        validate_certs: false
+        status_code: [200]
+        timeout: 15
+      register: r_cluster_http_checks
+      loop: "{{ r_cluster_route_lookups.results }}"
+      loop_control:
+        label: "{{ item.item.namespace }}/{{ item.item.name }}"
+      when: item.resources | length > 0
+      ignore_errors: true
+
+    - name: Record failed cluster HTTP checks
+      ansible.builtin.set_fact:
+        healthcheck_failures: >-
+          {{ healthcheck_failures +
+             ['Route ' + item.item.item.namespace + '/' + item.item.item.name +
+              ' did not return HTTP 200 (got ' + (item.status | default('no response') | string) + ')'] }}
+      loop: "{{ r_cluster_http_checks.results }}"
+      loop_control:
+        label: "{{ item.item.item.namespace | default('unknown') }}/{{ item.item.item.name | default('unknown') }}"
+      when:
+        - item is not skipped
+        - item is failed
+
+    # =========================================================================
+    # Check 6: GitLab repository exists for tenant (via API)
+    # =========================================================================
+
+    - name: "Get GitLab root user personal access token"
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: v1
+        kind: Secret
+        namespace: gitlab
+        name: root-user-personal-token
+      register: r_gitlab_token_secret
+      ignore_errors: true
+
+    - name: Record GitLab token secret missing
+      ansible.builtin.set_fact:
+        healthcheck_failures: >-
+          {{ healthcheck_failures + ['GitLab root-user-personal-token secret not found in gitlab namespace'] }}
+      when: r_gitlab_token_secret.resources | default([]) | length == 0
+
+    - name: Set GitLab API token
+      ansible.builtin.set_fact:
+        _gitlab_token: "{{ r_gitlab_token_secret.resources[0].data.token | b64decode }}"
+      when: r_gitlab_token_secret.resources | default([]) | length > 0
+      no_log: true
+
+    - name: "Get GitLab route"
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: route.openshift.io/v1
+        kind: Route
+        namespace: gitlab
+        name: gitlab
+      register: r_gitlab_route
+
+    - name: Set GitLab URL
+      ansible.builtin.set_fact:
+        _gitlab_url: "https://{{ r_gitlab_route.resources[0].spec.host }}"
+      when: r_gitlab_route.resources | length > 0
+
+    - name: "Check GitLab repository exists: {{ _tenant_user }}/sample-component-golang"
+      ansible.builtin.uri:
+        url: "{{ _gitlab_url }}/api/v4/projects/{{ _tenant_user }}%2Fsample-component-golang"
+        method: GET
+        headers:
+          PRIVATE-TOKEN: "{{ _gitlab_token }}"
+        validate_certs: false
+        status_code: [200, 404]
+        timeout: 15
+      register: r_gitlab_repo_check
+      when:
+        - _gitlab_token is defined
+        - _gitlab_url is defined
+      ignore_errors: true
+
+    - name: Record GitLab repository missing
+      ansible.builtin.set_fact:
+        healthcheck_failures: >-
+          {{ healthcheck_failures + ['GitLab repository ' + _tenant_user + '/sample-component-golang not found (status: ' + (r_gitlab_repo_check.status | default('no response') | string) + ')'] }}
+      when:
+        - r_gitlab_repo_check is defined
+        - r_gitlab_repo_check is not skipped
+        - r_gitlab_repo_check.status | default(0) != 200
+
+    # =========================================================================
+    # Check 7: Quay organization access configured (via API)
+    # =========================================================================
+
+    - name: "Get Quay admin OAuth token"
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: v1
+        kind: Secret
+        namespace: quay-registry
+        name: quay-admin-token
+      register: r_quay_token_secret
+      ignore_errors: true
+
+    - name: Record Quay token secret missing
+      ansible.builtin.set_fact:
+        healthcheck_failures: >-
+          {{ healthcheck_failures + ['Quay quay-admin-token secret not found in quay-registry namespace'] }}
+      when: r_quay_token_secret.resources | default([]) | length == 0
+
+    - name: Set Quay API token
+      ansible.builtin.set_fact:
+        _quay_token: "{{ r_quay_token_secret.resources[0].data.token | b64decode }}"
+      when: r_quay_token_secret.resources | default([]) | length > 0
+      no_log: true
+
+    - name: "Get Quay route"
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: route.openshift.io/v1
+        kind: Route
+        namespace: quay-enterprise
+        name: quay-quay
+      register: r_quay_route
+
+    - name: Set Quay API URL
+      ansible.builtin.set_fact:
+        _quay_api_url: "https://{{ r_quay_route.resources[0].spec.host }}/api/v1"
+      when: r_quay_route.resources | length > 0
+
+    - name: "Check Quay organization tsf members team includes {{ _tenant_user }}"
+      ansible.builtin.uri:
+        url: "{{ _quay_api_url }}/organization/tsf/team/members/members"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ _quay_token }}"
+        validate_certs: false
+        status_code: [200, 404]
+        timeout: 15
+      register: r_quay_team_check
+      when:
+        - _quay_token is defined
+        - _quay_api_url is defined
+      ignore_errors: true
+
+    - name: Verify tenant user in Quay members team
+      ansible.builtin.set_fact:
+        _user_in_quay_team: >-
+          {{ r_quay_team_check.json.members | default([]) | selectattr('name', 'equalto', _tenant_user) | list | length > 0 }}
+      when:
+        - r_quay_team_check is defined
+        - r_quay_team_check is not skipped
+        - r_quay_team_check.status | default(0) == 200
+
+    - name: Record Quay team membership missing
+      ansible.builtin.set_fact:
+        healthcheck_failures: >-
+          {{ healthcheck_failures + ['User ' + _tenant_user + ' not found in Quay organization tsf members team'] }}
+      when:
+        - _user_in_quay_team is defined
+        - not (_user_in_quay_team | bool)
+
+    # =========================================================================
+    # Check 8: Quay push secret exists in tenant namespace
+    # =========================================================================
+
+    - name: "Check Quay push secret exists in tenant namespace"
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: v1
+        kind: Secret
+        namespace: "{{ _tenant_user }}-tenant"
+        name: tsf-push-secret
+      register: r_quay_push_secret
+
+    - name: Record missing Quay push secret
+      ansible.builtin.set_fact:
+        healthcheck_failures: >-
+          {{ healthcheck_failures + ['Quay push secret tsf-push-secret not found in ' + _tenant_user + '-tenant'] }}
+      when: r_quay_push_secret.resources | length == 0
+
+    # =========================================================================
+    # Check 9: Konflux workspace functional (RBAC configured)
+    # =========================================================================
+
+    - name: "Check tenant has RoleBinding for konflux-admin ClusterRole"
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: rbac.authorization.k8s.io/v1
+        kind: RoleBinding
+        namespace: "{{ _tenant_user }}-tenant"
+        name: konflux-admin
+      register: r_tenant_rbac
+
+    - name: Record missing RBAC configuration
+      ansible.builtin.set_fact:
+        healthcheck_failures: >-
+          {{ healthcheck_failures + ['RoleBinding konflux-admin not found in ' + _tenant_user + '-tenant — user cannot create Konflux resources'] }}
+      when: r_tenant_rbac.resources | length == 0
+
+    # =========================================================================
+    # Check 10: Enterprise Contract policy bundle accessible
+    # =========================================================================
+
+    - name: "Check Enterprise Contract ConfigMap exists"
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: v1
+        kind: ConfigMap
+        namespace: enterprise-contract-service
+        name: ec-defaults
+      register: r_ec_config
+      ignore_errors: true
+
+    - name: Record missing Enterprise Contract config
+      ansible.builtin.set_fact:
+        healthcheck_failures: >-
+          {{ healthcheck_failures + ['Enterprise Contract ConfigMap ec-defaults not found in enterprise-contract-service'] }}
+      when: r_ec_config.resources | default([]) | length == 0
+
+    # =========================================================================
+    # Check 11: Integration test patcher watcher operational
+    # =========================================================================
+
+    - name: "Check integration-test-patcher deployment exists"
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: apps/v1
+        kind: Deployment
+        namespace: konflux-operator
+        name: integration-test-patcher
+      register: r_itp_deploy
+      ignore_errors: true
+
+    - name: Record integration-test-patcher missing
+      ansible.builtin.set_fact:
+        healthcheck_failures: >-
+          {{ healthcheck_failures + ['integration-test-patcher deployment not found in konflux-operator'] }}
+      when: r_itp_deploy.resources | default([]) | length == 0
+
+    - name: Record integration-test-patcher not ready
+      ansible.builtin.set_fact:
+        healthcheck_failures: >-
+          {{ healthcheck_failures +
+             ['integration-test-patcher has 0 available replicas'] }}
+      when:
+        - r_itp_deploy.resources | default([]) | length > 0
+        - (r_itp_deploy.resources[0].status.availableReplicas | default(0)) < 1
+
+    # =========================================================================
+    # Check 12: Trusted Artifact Signer components operational
+    # =========================================================================
+
+    - name: "Check RHTAS TUF server route exists"
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: route.openshift.io/v1
+        kind: Route
+        namespace: tsf-tas
+        name: tuf
+      register: r_tuf_route
+      ignore_errors: true
+
+    - name: Record TUF server route missing
+      ansible.builtin.set_fact:
+        healthcheck_failures: >-
+          {{ healthcheck_failures + ['RHTAS TUF server route not found in tsf-tas'] }}
+      when: r_tuf_route.resources | default([]) | length == 0
+
+    # =========================================================================
+    # Summary
+    # =========================================================================
+
+    - name: "Healthcheck PASSED for {{ _tenant_user }}"
       ansible.builtin.debug:
-        msg: "Replace this task with checks that verify the environment is ready"
+        msg: "All checks passed for tenant {{ _tenant_user }}"
+      when: healthcheck_failures | length == 0
+
+    - name: "Healthcheck FAILED for {{ _tenant_user }}"
+      ansible.builtin.fail:
+        msg: |
+          Healthcheck failed with {{ healthcheck_failures | length }} issue(s):
+          {% for f in healthcheck_failures %}
+            - {{ f }}
+          {% endfor %}
+      when: healthcheck_failures | length > 0
