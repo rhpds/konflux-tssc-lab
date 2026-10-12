@@ -9,11 +9,11 @@ view_switcher:
   default_mode: split
 
 tabs:
-  - name: OCP Console
-    url: 'https://console-openshift-console.${DOMAIN}'
   - name: ">_ Terminal"
     path: /terminal
     port: 443
+  - name: OCP Console
+    url: 'https://console-openshift-console.${DOMAIN}'
   - name: Konflux
     url: 'https://konflux-ui-konflux-ui.${DOMAIN}'
   - name: GitLab
