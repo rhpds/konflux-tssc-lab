@@ -1,0 +1,62 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: konflux-oauth-watcher-script
+  namespace: {{ ocp4_workload_konflux_tssc_cluster_watcher_namespace }}
+data:
+  watcher.sh: |
+    #!/bin/bash
+    set -euo pipefail
+
+    OAUTH_CLIENT_NAME="{{ ocp4_workload_konflux_tssc_cluster_oauth_client_name }}"
+    EVENT_QUEUE="/tmp/oauth-event-queue.fifo"
+
+    echo "=========================================="
+    echo "Konflux OAuth Watcher"
+    echo "=========================================="
+
+    # Create named pipe
+    rm -f "$EVENT_QUEUE"
+    mkfifo "$EVENT_QUEUE"
+
+    # Cleanup on exit
+    trap "rm -f $EVENT_QUEUE; kill 0" EXIT INT TERM
+
+    # PRODUCER: Capture watch events
+    producer() {
+      exec 3>"$EVENT_QUEUE"
+
+      while true; do
+        oc get oauthclient "$OAUTH_CLIENT_NAME" --watch -o jsonpath='{.grantMethod}{"\n"}' 2>&1 | \
+        while IFS= read -r event; do
+          [ -n "$event" ] && echo "$event" >&3
+        done
+        sleep 5
+      done
+    }
+
+    # CONSUMER: Process events
+    consumer() {
+      exec 4<"$EVENT_QUEUE"
+      while IFS= read -r grant_method <&4; do
+        if [ "$grant_method" != "auto" ]; then
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - Detected '$grant_method', patching to 'auto'"
+          oc patch oauthclient "$OAUTH_CLIENT_NAME" --type=merge -p '{"grantMethod":"auto"}'
+        fi
+      done
+    }
+
+    # Start threads
+    producer &
+    consumer &
+
+    # Wait for threads to initialize
+    sleep 2
+
+    # Force grantMethod to auto
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Initializing: Forcing grantMethod to 'auto'"
+    oc patch oauthclient "$OAUTH_CLIENT_NAME" --type=merge -p '{"grantMethod":"auto"}'
+
+    # Wait forever
+    wait

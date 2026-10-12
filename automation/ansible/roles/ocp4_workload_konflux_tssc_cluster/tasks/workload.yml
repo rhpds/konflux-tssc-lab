@@ -8,5 +8,8 @@
 - name: Deploy integration test patcher watcher
   ansible.builtin.include_tasks: deploy-integration-test-patcher.yml
 
+- name: Deploy Konflux OAuth watcher to bypass authorization page
+  ansible.builtin.include_tasks: deploy-konflux-oauth-watcher.yml
+
 - name: Create predictable Quay route alias for Showroom tab
   ansible.builtin.include_tasks: create-quay-route-alias.yml

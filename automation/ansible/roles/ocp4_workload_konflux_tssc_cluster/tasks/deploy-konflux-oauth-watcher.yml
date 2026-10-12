@@ -1,0 +1,26 @@
+---
+- name: Deploy Konflux OAuth watcher resources
+  kubernetes.core.k8s:
+    state: present
+    template: "{{ item }}"
+  loop:
+  - konflux-oauth-watcher-serviceaccount.yaml.j2
+  - konflux-oauth-watcher-clusterrole.yaml.j2
+  - konflux-oauth-watcher-clusterrolebinding.yaml.j2
+  - konflux-oauth-watcher-configmap.yaml.j2
+  - konflux-oauth-watcher-deployment.yaml.j2
+
+- name: Wait for Konflux OAuth watcher to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: konflux-oauth-watcher
+    namespace: "{{ ocp4_workload_konflux_tssc_cluster_watcher_namespace }}"
+  register: r_watcher_deployment
+  retries: 30
+  delay: 10
+  until:
+  - r_watcher_deployment.resources is defined
+  - r_watcher_deployment.resources | length > 0
+  - r_watcher_deployment.resources[0].status.availableReplicas is defined
+  - r_watcher_deployment.resources[0].status.availableReplicas | int >= 1

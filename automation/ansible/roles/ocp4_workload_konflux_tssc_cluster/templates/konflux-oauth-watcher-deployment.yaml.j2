@@ -1,0 +1,42 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: konflux-oauth-watcher
+  namespace: {{ ocp4_workload_konflux_tssc_cluster_watcher_namespace }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: konflux-oauth-watcher
+  template:
+    metadata:
+      labels:
+        app: konflux-oauth-watcher
+    spec:
+      serviceAccountName: konflux-oauth-watcher
+      containers:
+      - name: watcher
+        image: quay.io/openshift/origin-cli:latest
+        command: ["/bin/bash"]
+        args: ["/scripts/watcher.sh"]
+        env:
+        - name: OAUTH_CLIENT_NAME
+          value: "{{ ocp4_workload_konflux_tssc_cluster_oauth_client_name }}"
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        volumeMounts:
+        - name: watcher-script
+          mountPath: /scripts
+      volumes:
+      - name: watcher-script
+        configMap:
+          name: konflux-oauth-watcher-script
+          defaultMode: 0755
