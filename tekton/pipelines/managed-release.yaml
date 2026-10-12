@@ -189,7 +189,7 @@ spec:
         volumes:
           - name: quay-push-secret
             secret:
-              secretName: sample-component-golang-image-push
+              secretName: quay-push-secret
         steps:
           - name: get-snapshot
             image: registry.redhat.io/openshift4/ose-cli:latest

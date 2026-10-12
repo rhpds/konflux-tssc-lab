@@ -40,6 +40,14 @@
     namespace: "{{ ocp4_workload_konflux_tssc_tenant_namespace }}"
     state: absent
 
+- name: Delete managed pipeline reader RoleBinding
+  kubernetes.core.k8s:
+    api_version: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    name: managed-pipeline-reader
+    namespace: "{{ ocp4_workload_konflux_tssc_tenant_namespace }}"
+    state: absent
+
 - name: Tenant cleanup completed
   ansible.builtin.debug:
     msg: "Cleanup completed for tenant {{ ocp4_workload_konflux_tssc_tenant_user }}"
