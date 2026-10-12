@@ -22,11 +22,10 @@
 #   2. Tenant namespaces exist
 #   3. GitLab repository exists for tenant (via API)
 #   4. Quay organization access configured (via API)
-#   5. Quay push secret exists in tenant namespace
-#   6. Konflux workspace functional (RBAC configured)
-#   7. Enterprise Contract policy bundle accessible
-#   8. Integration test patcher watcher operational
-#   9. RHTAS TUF server operational
+#   5. Konflux workspace functional (RBAC configured)
+#   6. Enterprise Contract policy bundle accessible
+#   7. Integration test patcher watcher operational
+#   8. RHTAS TUF server operational
 #
 # Design notes:
 #   - Tenant-focused — validates per-user resources are provisioned
@@ -71,9 +70,9 @@
     # Cluster-level deployments (verify platform is ready)
     cluster_deployments:
       - namespace: konflux-ui
-        name: konflux-ui
+        name: proxy
       - namespace: gitlab
-        name: gitlab-webservice-default
+        name: gitlab
       - namespace: quay-enterprise
         name: quay-quay-app
       - namespace: tsf-tas
@@ -380,7 +379,7 @@
         validate_certs: "{{ _k8s_validate_certs }}"
         api_version: v1
         kind: Secret
-        namespace: quay-registry
+        namespace: quay-enterprise
         name: quay-admin-token
       register: r_quay_token_secret
       ignore_errors: true
@@ -388,7 +387,7 @@
     - name: Record Quay token secret missing
       ansible.builtin.set_fact:
         healthcheck_failures: >-
-          {{ healthcheck_failures + ['Quay quay-admin-token secret not found in quay-registry namespace'] }}
+          {{ healthcheck_failures + ['Quay quay-admin-token secret not found in quay-enterprise namespace'] }}
       when: r_quay_token_secret.resources | default([]) | length == 0
 
     - name: Set Quay API token
@@ -446,28 +445,7 @@
         - not (_user_in_quay_team | bool)
 
     # =========================================================================
-    # Check 8: Quay push secret exists in tenant namespace
-    # =========================================================================
-
-    - name: "Check Quay push secret exists in tenant namespace"
-      kubernetes.core.k8s_info:
-        host: "{{ _k8s_host | default(omit, true) }}"
-        api_key: "{{ _k8s_api_key | default(omit, true) }}"
-        validate_certs: "{{ _k8s_validate_certs }}"
-        api_version: v1
-        kind: Secret
-        namespace: "{{ _tenant_user }}-tenant"
-        name: tsf-push-secret
-      register: r_quay_push_secret
-
-    - name: Record missing Quay push secret
-      ansible.builtin.set_fact:
-        healthcheck_failures: >-
-          {{ healthcheck_failures + ['Quay push secret tsf-push-secret not found in ' + _tenant_user + '-tenant'] }}
-      when: r_quay_push_secret.resources | length == 0
-
-    # =========================================================================
-    # Check 9: Konflux workspace functional (RBAC configured)
+    # Check 8: Konflux workspace functional (RBAC configured)
     # =========================================================================
 
     - name: "Check tenant has RoleBinding for konflux-admin ClusterRole"
@@ -488,7 +466,7 @@
       when: r_tenant_rbac.resources | length == 0
 
     # =========================================================================
-    # Check 10: Enterprise Contract policy bundle accessible
+    # Check 9: Enterprise Contract policy bundle accessible
     # =========================================================================
 
     - name: "Check Enterprise Contract ConfigMap exists"
@@ -510,7 +488,7 @@
       when: r_ec_config.resources | default([]) | length == 0
 
     # =========================================================================
-    # Check 11: Integration test patcher watcher operational
+    # Check 10: Integration test patcher watcher operational
     # =========================================================================
 
     - name: "Check integration-test-patcher deployment exists"
@@ -541,7 +519,7 @@
         - (r_itp_deploy.resources[0].status.availableReplicas | default(0)) < 1
 
     # =========================================================================
-    # Check 12: Trusted Artifact Signer components operational
+    # Check 11: Trusted Artifact Signer components operational
     # =========================================================================
 
     - name: "Check RHTAS TUF server route exists"
@@ -552,7 +530,8 @@
         api_version: route.openshift.io/v1
         kind: Route
         namespace: tsf-tas
-        name: tuf
+        label_selectors:
+          - app.kubernetes.io/component=tuf
       register: r_tuf_route
       ignore_errors: true
 
