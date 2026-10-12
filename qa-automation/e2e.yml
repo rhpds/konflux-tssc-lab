@@ -1,13 +1,41 @@
 ---
-# E2E — End-to-end test
-# Runs all module solve + validate sequences to verify the full lab
-# works from start to finish without manual intervention.
+# =============================================================================
+# Konflux TSSC Lab — E2E Smoke Tests (Orchestrator)
+# =============================================================================
+#
+# Thin orchestrator that includes per-module e2e playbooks.
+# Add new modules by creating qa-automation/e2e-module-XX.yml
+# and adding an include below.
+#
+# Usage:
+#   ansible-playbook qa-automation/e2e.yml \
+#     -e "ocp_api_url=https://api.cluster-xxx:6443" \
+#     -e "ocp_admin_password=xxx" \
+#     -e "tenant_user=user-abc12"
+#
+# To run a single module:
+#   ansible-playbook qa-automation/e2e-module-02.yml -e "..."
+# =============================================================================
 
-- name: "End-to-End Test"
-  hosts: localhost
-  connection: local
-  gather_facts: false
-  tasks:
-    - name: "TODO: Implement end-to-end test sequence"
-      ansible.builtin.debug:
-        msg: "Replace this task with your e2e test implementation"
+- name: "E2E — Module 2: Onboard Your Application"
+  ansible.builtin.import_playbook: e2e-module-02.yml
+
+- name: "E2E — Module 3: Build and Scan"
+  ansible.builtin.import_playbook: e2e-module-03.yml
+
+- name: "E2E — Module 4: Signing and Provenance"
+  ansible.builtin.import_playbook: e2e-module-04.yml
+
+- name: "E2E — Module 5: Integration Testing and Policy"
+  ansible.builtin.import_playbook: e2e-module-05.yml
+
+- name: "E2E — Module 6: Release to Production"
+  ansible.builtin.import_playbook: e2e-module-06.yml
+
+# --- Module 7: Real-World Incident Response ---
+# Module 7 is intentionally manual (break → diagnose → fix workflow).
+# No automated e2e — students explore failure modes hands-on.
+
+# --- Pending modules — uncomment when e2e tests are implemented ---
+# - name: "E2E — Module 2: Onboard Your Application"
+#   ansible.builtin.import_playbook: e2e-module-02.yml
