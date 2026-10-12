@@ -32,14 +32,6 @@
     ansible.builtin.debug:
       msg: "Failed to remove user from Quay team (may not exist)"
 
-- name: Delete Konflux integration service account
-  kubernetes.core.k8s:
-    api_version: v1
-    kind: ServiceAccount
-    name: konflux-integration-runner
-    namespace: "{{ ocp4_workload_konflux_tssc_tenant_namespace }}"
-    state: absent
-
 - name: Delete managed pipeline reader RoleBinding
   kubernetes.core.k8s:
     api_version: rbac.authorization.k8s.io/v1

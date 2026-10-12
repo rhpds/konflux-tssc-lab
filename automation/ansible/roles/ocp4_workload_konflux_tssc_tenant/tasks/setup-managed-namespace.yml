@@ -16,20 +16,7 @@
 - name: Bind lab user to konflux-admin-user-actions in managed namespace
   kubernetes.core.k8s:
     state: present
-    definition:
-      apiVersion: rbac.authorization.k8s.io/v1
-      kind: RoleBinding
-      metadata:
-        name: konflux-admin
-        namespace: "{{ ocp4_workload_konflux_tssc_tenant_user }}-managed"
-      roleRef:
-        apiGroup: rbac.authorization.k8s.io
-        kind: ClusterRole
-        name: konflux-admin-user-actions
-      subjects:
-        - apiGroup: rbac.authorization.k8s.io
-          kind: User
-          name: "{{ ocp4_workload_konflux_tssc_tenant_user }}"
+    template: rolebinding-konflux-admin-managed.yaml.j2
 
 - name: Get Quay registry host from route
   kubernetes.core.k8s_info:
@@ -46,22 +33,7 @@
 - name: Create Quay push secret in managed namespace for release pipeline
   kubernetes.core.k8s:
     state: present
-    definition:
-      apiVersion: v1
-      kind: Secret
-      metadata:
-        name: quay-push-secret
-        namespace: "{{ ocp4_workload_konflux_tssc_tenant_user }}-managed"
-      type: kubernetes.io/dockerconfigjson
-      stringData:
-        .dockerconfigjson: |
-          {
-            "auths": {
-              "{{ quay_registry_host }}": {
-                "auth": "{{ (ocp4_workload_konflux_tssc_tenant_user + ':' + ocp4_workload_konflux_tssc_tenant_password) | b64encode }}"
-              }
-            }
-          }
+    template: secret-quay-push.yaml.j2
 
 - name: Get pipeline service account
   kubernetes.core.k8s_info:
@@ -84,22 +56,4 @@
 - name: Create simple Enterprise Contract policy for releases
   kubernetes.core.k8s:
     state: present
-    definition:
-      apiVersion: appstudio.redhat.com/v1alpha1
-      kind: EnterpriseContractPolicy
-      metadata:
-        name: release-policy
-        namespace: "{{ ocp4_workload_konflux_tssc_tenant_user }}-managed"
-      spec:
-        description: Simple release policy for lab environment
-        name: Lab Release Policy
-        publicKey: k8s://openshift-pipelines/public-key
-        sources:
-        - name: Release Policy
-          policy:
-          - github.com/enterprise-contract/ec-policies//policy/lib
-          - github.com/enterprise-contract/ec-policies//policy/release
-          config:
-            include:
-            - attestation_type
-            - slsa_provenance_available
+    template: enterprisecontractpolicy-release.yaml.j2

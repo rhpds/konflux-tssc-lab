@@ -1,0 +1,19 @@
+---
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: EnterpriseContractPolicy
+metadata:
+  name: release-policy
+  namespace: {{ ocp4_workload_konflux_tssc_tenant_user }}-managed
+spec:
+  description: Simple release policy for lab environment
+  name: Lab Release Policy
+  publicKey: k8s://openshift-pipelines/public-key
+  sources:
+  - name: Release Policy
+    policy:
+    - github.com/enterprise-contract/ec-policies//policy/lib
+    - github.com/enterprise-contract/ec-policies//policy/release
+    config:
+      include:
+      - attestation_type
+      - slsa_provenance_available
