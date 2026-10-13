@@ -120,12 +120,14 @@ This is the snapshot created by the `on-push` build after you merged the MR — 
 +
 NOTE: If you completed Module 5, the integration tests for this snapshot have already passed. If you skipped Module 5, you can still create a release — the release pipeline will perform its own validation.
 
-. Click *Create release* for the merge commit Snapshot.
-If prompted to select a ReleasePlan, choose `production-release`.
+. Click the three-dot menu (⋮) at the end of the merge commit Snapshot row.
+
+. Select *Trigger release* from the dropdown menu.
 +
-// TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/6
-.Konflux Create release dialog
-image::screenshot-placeholder.svg[Konflux Create release dialog showing the Snapshot reference and ReleasePlan selector,800]
+.Konflux Trigger release menu option
+image::module-06-trigger-release-menu.png[Konflux Snapshots tab showing the three-dot menu with Trigger release option,800]
+
+. If prompted to select a ReleasePlan, choose `production-release`.
 
 . Confirm the release creation.
 Konflux creates a Release object in your tenant namespace.
