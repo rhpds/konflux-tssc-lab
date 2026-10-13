@@ -248,9 +248,11 @@ Do not proceed to Module 3 with a failed PipelineRun — later modules depend on
 
 . Return to the *Applications* view and confirm the `sample-component-golang` Component card shows the linked GitLab repository URL.
 
-. In Quay, navigate to your organization and locate the `sample-component-golang` repository.
+. In Quay, navigate to the *tsf* organization and search for `{openshift_username}-tenant`.
 +
-Click into it and check the *Tags* tab.
+Locate the `sample-component-golang` repository and click into it.
+
+. Check the *Tags* tab.
 You should see one image tagged with `on-pr-` prefix (e.g., `sample-component-golang-c5684-on-pr-ee0dd6e-build-container`).
 +
 This confirms the MR branch build pushed an image.
