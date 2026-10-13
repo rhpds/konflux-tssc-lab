@@ -23,6 +23,22 @@ A Konflux release requires two objects: a *ReleasePlanAdmission* in the managed 
 Neither side can push an image to production without the other.
 This separation prevents any single team from unilaterally bypassing release policy.
 
+[IMPORTANT]
+====
+**Lab vs Production:**
+
+In a production environment, the *ReleasePlanAdmission* is pre-created by platform administrators in the managed namespace.
+Application developers do NOT have permissions to create or modify it — they can only reference it from their tenant-side ReleasePlan.
+
+For this lab, you will create the ReleasePlanAdmission yourself to understand:
+
+* What controls the managed release pipeline
+* How the platform team gates production access
+* What policies and validations are enforced
+
+In real deployments, you would only create the ReleasePlan (tenant side) and reference a pre-existing ReleasePlanAdmission that the platform team set up.
+====
+
 You will create the ReleasePlanAdmission first (platform side), then create the ReleasePlan through the Konflux UI (tenant side).
 
 . Create the ReleasePlanAdmission in the managed namespace:
