@@ -33,9 +33,11 @@ The branch name follows the pattern: `konflux-sample-component-golang-XXXXX`
 +
 Verify the branch selector at the top shows `konflux-sample-component-golang-XXXXX`.
 
-. Navigate to `README.md` and click *Edit*.
-Scroll to the bottom of the file.
-Add a new line:
+. Click `README.md` to view the file.
+
+. Click the *Edit* dropdown button and select *Edit single file*.
+
+. Scroll to the bottom of the file and add a new line:
 +
 ----
 # Lab update - module 03
