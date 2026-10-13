@@ -264,14 +264,13 @@ Most entries also include an `externalRefs` array containing a `purl` (Package U
 +
 NOTE: Some entries show `UNKNOWN` or `NOASSERTION` for version or license — this is normal for internal build artifacts. Try incrementing the index (`packages[2]`, `packages[3]`, etc.) to find entries with richer metadata such as a real version string and a declared license like `BSD-3-Clause`.
 +
-NOTE: Konflux creates multiple tags for each build:
+NOTE: Konflux tags images based on the triggering event:
 
 * `on-pr-<commit-hash>` — merge request builds (before merge)
 * `on-push-<commit-hash>` — main branch builds (after merge)
-* `sample-componen<hash>-build-container` — the actual container image tag
 * `production` — release builds created in Module 6
 +
-For Modules 4-6, you will use the image from the `on-push` build (the one triggered after merging to `main`).
+For Modules 4-6, you will use the image tagged `on-push-<commit-hash>` (from the build triggered after merging to `main`).
 
 === Verify
 
@@ -294,12 +293,9 @@ Locate your component repository: `sample-component-golang-XXXXX` (where `XXXXX`
 +
 TIP: Print the exact path from your terminal: `echo "${IMAGE_BASE}"`.
 
-. In the *Tags* view, locate the tags from your build:
+. In the *Tags* view, locate the tag named `on-push-<commit-hash>`.
 +
-* `on-push-<commit-hash>` — the main branch build tag
-* `sample-componen<hash>-build-container` — the actual container image
-+
-Click the `sample-componen<hash>-build-container` tag to open the image detail page.
+Click that tag to open the image detail page.
 +
 .Quay image repository showing the pipeline build tag and the associated attestation artifact
 image::module-03-quay-tags.png[Quay image repository tags view showing the container image tag with its digest and a separate dot-git attestation artifact tag,800]
