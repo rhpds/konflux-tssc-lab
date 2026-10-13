@@ -253,9 +253,14 @@ Do not proceed to Module 3 with a failed PipelineRun — later modules depend on
 Locate the repository named `sample-component-golang-XXXXX` (where `XXXXX` is a generated suffix matching your component) and click into it.
 
 . Check the *Tags* tab.
-You should see a tag named `on-pr-<commit-hash>`.
+You will see multiple tags for this build:
 +
-This confirms the MR branch build pushed an image.
+* `on-pr-<commit-hash>` — The versioned tag for this merge request build (this is the one to use)
+* `sample-componen<hash>-build-container` — An intermediate tag from the build pipeline (ignore this)
+* `sha256-<digest>` — The manifest digest (internal reference)
++
+The `on-pr-*` tag is what identifies this specific build.
+You will reference this tag pattern when working with images in later modules.
 
 === Verify
 

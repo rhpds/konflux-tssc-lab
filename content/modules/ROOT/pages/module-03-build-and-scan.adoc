@@ -297,7 +297,9 @@ TIP: Print the exact path from your terminal: `echo "${IMAGE_BASE}"`.
 
 . In the *Tags* view, locate the tag named `on-push-<commit-hash>`.
 +
-Click that tag to open the image detail page.
+You will see multiple tags again (similar to Module 2), but the `on-push-*` tag is the one that identifies this main branch build.
++
+Click the `on-push-<commit-hash>` tag to open the image detail page.
 +
 .Quay image repository showing the pipeline build tag and the associated attestation artifact
 image::module-03-quay-tags.png[Quay image repository tags view showing the container image tag with its digest and a separate dot-git attestation artifact tag,800]
