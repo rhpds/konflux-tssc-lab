@@ -37,6 +37,16 @@ For this lab, you will create the ReleasePlanAdmission yourself to understand:
 * What policies and validations are enforced
 
 In real deployments, you would only create the ReleasePlan (tenant side) and reference a pre-existing ReleasePlanAdmission that the platform team set up.
+
+**How the reference works:**
+
+* ReleasePlan (tenant side) → sets `target: <managed-namespace>` (points to where the admission control lives)
+* ReleasePlanAdmission (managed side) → sets `origin: <tenant-namespace>` and `applications: [<app-name>]` (authorizes specific tenant apps)
+
+This bidirectional authorization ensures:
+
+* Developers can only release to namespaces the platform team has authorized
+* Platform admins control which applications can use which managed pipelines
 ====
 
 You will create the ReleasePlanAdmission first (platform side), then create the ReleasePlan through the Konflux UI (tenant side).
@@ -89,6 +99,9 @@ Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_
 * *Name*: `production-release`
 * *Application*: `my-sample-app` (should be pre-selected)
 * *Target*: `{openshift_username}-managed`
++
+NOTE: The *Target* field is how the ReleasePlan references the ReleasePlanAdmission. By setting `Target: {openshift_username}-managed`, you are telling Konflux: "Look in the managed namespace for a ReleasePlanAdmission that authorizes my application." The ReleasePlanAdmission you created earlier has `origin: {openshift_username}-tenant` and `applications: [my-sample-app]`, which authorizes this exact connection.
++
 * Expand *Git options for the release pipeline* section:
 ** *Git URL for the release pipeline*: `https://github.com/rhpds/konflux-tssc-lab.git`
 ** *Revision*: `main`
