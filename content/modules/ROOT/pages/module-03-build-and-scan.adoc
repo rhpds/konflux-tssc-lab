@@ -288,15 +288,11 @@ You will confirm the image is present, verify the digest, and review the source 
 . Open the *Quay* tab.
 Log in with `{quay_user}` / `{quay_password}` if prompted.
 
-. Navigate to the repository for your component.
-The path follows this pattern:
+. Navigate to the *tsf* organization and search for `{openshift_username}-tenant`.
 +
-[source,subs="attributes+"]
-----
-{quay_url}/tsf/{openshift_username}-tenant/<your-component-name>
-----
+Locate your component repository: `sample-component-golang`
 +
-TIP: Print the base image path from your terminal to get the exact URL: `echo "${IMAGE_BASE}"`.
+TIP: The full path is `{quay_url}/tsf/{openshift_username}-tenant/sample-component-golang` or print it from your terminal: `echo "${IMAGE_BASE}"`.
 
 . In the *Tags* view, locate the tag that matches the pattern `<component>-on-push-<hash>-build-container`.
 This is the container image your pipeline just built.
