@@ -59,17 +59,7 @@ image::module-03-activity-new-run.png[Konflux Activity tab listing a new Pipelin
 
 . Wait for the PipelineRun to complete (12-15 minutes with the increased quota from the cluster tuning).
 
-. Once it succeeds, click the PipelineRun entry and navigate to the `build-container` task results.
-Copy the `IMAGE_DIGEST` value (the `sha256:...` string) — you will use it in Modules 4-6.
-+
-Store it in your terminal:
-+
-[source,bash]
-----
-export IMAGE_DIGEST="sha256:..."
-----
-
-. NOW return to GitLab and merge the MR:
+. Return to GitLab and merge the MR:
 +
 Navigate back to the MR detail page and click *Merge*.
 +
@@ -80,16 +70,26 @@ A THIRD PipelineRun appears — this time with `on-push` in the name (not `on-pu
 +
 This is the `main` branch build, triggered by the merge.
 
-. Wait for this `on-push` build to complete as well.
+. Wait for this `on-push` build to complete (12-15 minutes).
+
+. Once it succeeds, click the PipelineRun entry and navigate to the `build-container` task results.
+Copy the `IMAGE_DIGEST` value (the `sha256:...` string) — you will use this `on-push` image in Modules 4-6.
++
+Store it in your terminal:
++
+[source,bash]
+----
+export IMAGE_DIGEST="sha256:..."
+----
 
 === Verify
 
 [%interactive]
 * [ ] The first commit (`chore: trigger module-03 build`) triggered an `on-pull-request` PipelineRun.
-* [ ] You copied the `IMAGE_DIGEST` from the `build-container` task results.
 * [ ] The MR is now merged.
 * [ ] A second PipelineRun with `on-push` in the name appeared after the merge.
 * [ ] Both builds succeeded.
+* [ ] You copied the `IMAGE_DIGEST` from the `on-push` build's `build-container` task results.
 
 == 2. Trace the Pipeline Stages
 
