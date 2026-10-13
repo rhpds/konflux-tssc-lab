@@ -259,7 +259,6 @@ You should see tags including:
 * `sample-componen<hash>-build-container` — the actual container image
 +
 This confirms the MR branch build pushed an image.
-The `on-pr-` prefix distinguishes MR builds from `main` branch builds (which use `on-push-` prefix).
 
 === Verify
 
@@ -267,7 +266,7 @@ The `on-pr-` prefix distinguishes MR builds from `main` branch builds (which use
 * [ ] `oc get pipelineruns -n {openshift_username}-tenant` returns one PipelineRun with `on-pull-request` in the name.
 * [ ] The PipelineRun status in the Konflux UI is `Running` or `Succeeded`.
 * [ ] The Component card in the Applications view shows the linked GitLab repository URL.
-* [ ] Quay shows an image tagged with `on-pr-` prefix in your organization.
+* [ ] Quay shows tags including `on-pr-<commit-hash>`.
 * [ ] The GitLab MR is still OPEN (not merged).
 
 == Learning Outcomes Checkpoint
