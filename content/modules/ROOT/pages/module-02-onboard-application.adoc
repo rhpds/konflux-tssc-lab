@@ -253,7 +253,10 @@ Do not proceed to Module 3 with a failed PipelineRun — later modules depend on
 Locate the repository named `sample-component-golang-XXXXX` (where `XXXXX` is a generated suffix matching your component) and click into it.
 
 . Check the *Tags* tab.
-You should see one image tagged with `on-pr-` prefix (e.g., `sample-component-golang-afc11-on-pr-ee0dd6e-build-container`).
+You should see tags including:
++
+* `on-pr-<commit-hash>` — the merge request build tag
+* `sample-componen<hash>-build-container` — the actual container image
 +
 This confirms the MR branch build pushed an image.
 The `on-pr-` prefix distinguishes MR builds from `main` branch builds (which use `on-push-` prefix).
