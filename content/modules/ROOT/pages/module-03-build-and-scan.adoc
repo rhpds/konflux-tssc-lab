@@ -16,53 +16,80 @@ By the end of this module, you will be able to:
 * Observe how the pipeline scan tasks report findings and how results surface in the Konflux UI.
 * Verify that the built image and its associated SBOM and attestation artifacts are present in the Quay registry after the pipeline completes.
 
-== 1. Trigger a Build with a Code Change
+== 1. Trigger a Build on the MR Branch, Then Merge
 
-Pipelines-as-Code watches your GitLab repository.
-Any push to the default branch starts a new PipelineRun automatically.
-You will make a minimal change using the GitLab web editor — no local tooling required.
+You still have the open merge request from Module 2.
+In this section you will edit a file on the MR source branch (not `main`), triggering a second `on-pull-request` build.
+After verifying that build, you will merge the MR to `main`, triggering a third build with the `on-push-` tag.
 
-. Open link:{gitlab_url}/{gitlab_username}/sample-component-golang[your GitLab sample repository,window=_blank].
+. Open link:{gitlab_url}[GitLab,window=_blank] and navigate to *Merge Requests*.
 
-. In the file list, click `README.md`.
-On the file view page, click the *Edit* dropdown button and select *Edit single file*.
+. Locate the open MR titled *Konflux update sample-component-golang-XXXX* and click it.
+
+. At the top of the MR detail page, note the *Source branch* field.
+The branch name follows the pattern: `konflux-sample-component-golang-XXXXX`
 +
-.GitLab Edit dropdown showing the Edit single file option
-image::module-03-readme-edit.png[GitLab README.md file view showing the Edit dropdown button expanded with Open in web IDE and Edit single file options,800]
+This is the feature branch you will work on — *NOT* the `main` branch.
 
-. Scroll to the bottom of the file.
+. Click the source branch name to browse files on that branch.
++
+IMPORTANT: Verify the branch selector at the top shows `konflux-sample-component-golang-XXXXX` (not `main`).
+
+. Navigate to `README.md` and click *Edit*.
+Scroll to the bottom of the file.
 Add a new line:
 +
 ----
 # Lab update - module 03
 ----
 
-. In the *Commit message* field, enter:
+. Commit the change:
 +
-----
-chore: trigger module-03 build
-----
+* Commit message: `chore: trigger module-03 build`
+* Target branch: (already set to the MR branch — do NOT change it to `main`)
+* Click *Commit*
 
-. Leave *Commit directly to the `main` branch* selected and click *Commit changes*.
-
-. Confirm the new commit appears at the top of the repository's *Commits* list.
-+
-.GitLab commit history showing the new commit
-image::module-03-commit-history.png[GitLab Commits page showing the new chore: trigger module-03 build commit at the top of the list,800]
-
-. Switch to the link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux UI,window=_blank].
+. Return to the link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux UI,window=_blank].
 Navigate to *Applications → my-sample-app → Activity*.
 
-. Within 30–60 seconds, a new PipelineRun entry appears in the Activity feed, linked to the commit you just pushed.
+. Within 30–60 seconds, a NEW `on-pull-request` PipelineRun appears (your second MR build).
 +
-.Konflux Activity tab showing the new PipelineRun triggered by the push
+.Konflux Activity tab showing the new PipelineRun triggered by the MR commit
 image::module-03-activity-new-run.png[Konflux Activity tab listing a new PipelineRun entry triggered by the chore: trigger module-03 build commit,800]
+
+. Wait for the PipelineRun to complete (12-15 minutes with the increased quota from the cluster tuning).
+
+. Once it succeeds, click the PipelineRun entry and navigate to the `build-container` task results.
+Copy the `IMAGE_DIGEST` value (the `sha256:...` string) — you will use it in Modules 4-6.
++
+Store it in your terminal:
++
+[source,bash]
+----
+export IMAGE_DIGEST="sha256:..."
+----
+
+. NOW return to GitLab and merge the MR:
++
+Navigate back to the MR detail page and click *Merge*.
++
+NOTE: Use the default merge strategy. Do not squash or rebase — Pipelines-as-Code reads the merge commit to identify the triggering event.
+
+. After merging, return to Konflux Activity.
+A THIRD PipelineRun appears — this time with `on-push` in the name (not `on-pull-request`).
++
+This is the `main` branch build, triggered by the merge.
+
+. Wait for this `on-push` build to complete as well.
 
 === Verify
 
 [%interactive]
-* [ ] The commit `chore: trigger module-03 build` appears in the GitLab commit history.
-* [ ] A new PipelineRun entry appears in the Konflux Activity tab within 60 seconds of the push.
+* [ ] The first commit (`chore: trigger module-03 build`) triggered an `on-pull-request` PipelineRun.
+* [ ] You copied the `IMAGE_DIGEST` from the `build-container` task results.
+* [ ] The MR is now merged.
+* [ ] A second PipelineRun with `on-push` in the name appeared after the merge.
+* [ ] Both builds succeeded.
 
 == 2. Trace the Pipeline Stages
 
@@ -238,6 +265,15 @@ Each package entry includes at minimum: `name`, `versionInfo`, and `licenseDecla
 Most entries also include an `externalRefs` array containing a `purl` (Package URL), which uniquely identifies the package across ecosystems and is the format used by vulnerability scanners such as Grype and Trivy.
 +
 NOTE: Some entries show `UNKNOWN` or `NOASSERTION` for version or license — this is normal for internal build artifacts. Try incrementing the index (`packages[2]`, `packages[3]`, etc.) to find entries with richer metadata such as a real version string and a declared license like `BSD-3-Clause`.
++
+NOTE: Konflux tags images differently based on the triggering event:
+
+* `on-pr-<commit>` — builds triggered by commits to a merge request branch
+* `on-push-<commit>` — builds triggered by pushes to the `main` branch after merge
+* `production` — release builds created in Module 6
++
+For Modules 4-6, you will use the image from the `on-push` build (the one triggered after merging to `main`).
+If you see multiple tags, locate the one with the `on-push-` prefix.
 
 === Verify
 

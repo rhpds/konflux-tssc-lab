@@ -17,56 +17,109 @@ By the end of this module, you will be able to:
 * Verify the signed image and its attestations are present in the production Quay organization after a successful release.
 * Trace the artifact from the source commit through signing, policy validation, and production release to demonstrate end-to-end supply chain integrity.
 
-== 1. Review the ReleasePlan and ReleasePlanAdmission
+== 1. Create the ReleasePlan and ReleasePlanAdmission
 
 A Konflux release requires two objects to agree with each other: a *ReleasePlan* in your tenant namespace (which you own) and a *ReleasePlanAdmission* in the managed namespace (which the platform team owns).
 Neither side can push an image to production without the other.
 This separation is intentional — it prevents any single team from unilaterally bypassing release policy.
 
-. In the terminal, retrieve the ReleasePlan pre-provisioned in your tenant namespace:
+These resources are *not* pre-provisioned in this lab.
+You will create them now using `oc apply`.
+
+. In the terminal, create the ReleasePlan in your tenant namespace:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
-oc get releaseplan -n {openshift_username}-tenant -o yaml
+cat <<EOF | oc apply -f -
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: ReleasePlan
+metadata:
+  name: my-sample-app-release
+  namespace: {openshift_username}-tenant
+spec:
+  application: my-sample-app
+  target: {openshift_username}-managed
+  releaseGracePeriodDays: 0
+EOF
 ----
 +
-Expected output: a single ReleasePlan resource.
+Expected output: `releaseplan.appstudio.redhat.com/my-sample-app-release created`
 
-. In the output, identify these fields:
-** `spec.application` — the Konflux Application name.
-It should match `my-sample-app`, the Application you created in Module 2.
-** `spec.target` — the managed namespace where the ReleasePlanAdmission lives.
-This is `{openshift_username}-managed`.
-** `spec.releaseGracePeriodDays` — set to `0` for this lab, meaning the release pipeline triggers immediately after the Release object is created.
-
-. Retrieve the ReleasePlanAdmission from the managed namespace:
+. Verify the ReleasePlan was created:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
-oc get releaseplanadmission -n {openshift_username}-managed -o yaml
+oc get releaseplan -n {openshift_username}-tenant
 ----
-
-. In the ReleasePlanAdmission output, identify:
-** `spec.applications` — the list of Applications authorized to release into this managed namespace.
-Confirm `my-sample-app` is listed.
-** `spec.policy` — the Conforma policy bundle reference that the release pipeline enforces.
-** `spec.pipeline` — the Tekton pipeline that runs when a release is triggered.
-
-. Confirm that `spec.policy` in the ReleasePlanAdmission references the same policy bundle you saw in Module 5.
-The release policy is never weaker than the integration-time policy.
 +
-NOTE: You do not have write access to `{openshift_username}-managed`.
-That is by design.
-The ReleasePlanAdmission is controlled by the platform team.
+Expected output: one ReleasePlan named `my-sample-app-release`.
+
+. Identify the key fields in the ReleasePlan:
++
+* `spec.application` — the Konflux Application name (`my-sample-app`).
+* `spec.target` — the managed namespace where the ReleasePlanAdmission lives (`{openshift_username}-managed`).
+* `spec.releaseGracePeriodDays` — set to `0` for this lab, meaning the release pipeline triggers immediately after the Release object is created.
+
+. Create the ReleasePlanAdmission in the managed namespace:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+cat <<EOF | oc apply -f -
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: ReleasePlanAdmission
+metadata:
+  name: production-admission
+  namespace: {openshift_username}-managed
+spec:
+  applications:
+  - my-sample-app
+  policy: enterprise-contract-service/lab-policy
+  pipeline:
+    pipelineRef:
+      resolver: git
+      params:
+      - name: url
+        value: https://github.com/rhpds/konflux-tssc-lab.git
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: tekton/pipelines/managed-release.yaml
+  environment:
+    type: production
+EOF
+----
++
+Expected output: `releaseplanadmission.appstudio.redhat.com/production-admission created`
+
+. Verify the ReleasePlanAdmission was created:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+oc get releaseplanadmission -n {openshift_username}-managed
+----
++
+Expected output: one ReleasePlanAdmission named `production-admission`.
+
+. Identify the key fields in the ReleasePlanAdmission:
++
+* `spec.applications` — the list of Applications authorized to release into this managed namespace (includes `my-sample-app`).
+* `spec.policy` — the Conforma policy bundle reference that the release pipeline enforces (`enterprise-contract-service/lab-policy`).
+* `spec.pipeline` — the Tekton pipeline that runs when a release is triggered (Git resolver pointing to `managed-release.yaml`).
++
+NOTE: You do not have write access to `{openshift_username}-managed` under normal circumstances.
+That is by design — the ReleasePlanAdmission is controlled by the platform team.
 Your tenant-side ReleasePlan can request a release; the managed-side ReleasePlanAdmission decides whether to honor it.
+In this lab environment, you have been granted temporary write access to the managed namespace for learning purposes.
 
 === Verify
 
 [%interactive]
-* [ ] `oc get releaseplan -n {openshift_username}-tenant` returns one ReleasePlan resource.
+* [ ] `oc apply` succeeded for the ReleasePlan.
+* [ ] `oc get releaseplan -n {openshift_username}-tenant` returns one ReleasePlan named `my-sample-app-release`.
 * [ ] `spec.application` in the ReleasePlan matches `my-sample-app`.
 * [ ] `spec.target` in the ReleasePlan points to `{openshift_username}-managed`.
-* [ ] `oc get releaseplanadmission -n {openshift_username}-managed` returns one ReleasePlanAdmission resource.
+* [ ] `oc apply` succeeded for the ReleasePlanAdmission.
+* [ ] `oc get releaseplanadmission -n {openshift_username}-managed` returns one ReleasePlanAdmission named `production-admission`.
 * [ ] `spec.applications` in the ReleasePlanAdmission includes `my-sample-app`.
 
 == 2. Trigger the Release

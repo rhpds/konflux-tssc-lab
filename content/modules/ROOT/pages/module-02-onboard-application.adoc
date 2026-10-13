@@ -190,28 +190,31 @@ image::module-02-merge-request.png[GitLab Merge Requests page showing an open me
 . Click into the merge request and review the files under `.tekton/`.
 These are the Tekton PipelineRun definitions that Pipelines-as-Code will execute on future push and merge-request events.
 
-. Click *Merge* to merge the request into the default branch.
 +
-NOTE: Use the default merge strategy. Do not squash or rebase — Pipelines-as-Code reads the merge commit to identify the triggering event.
+IMPORTANT: *Do not merge this MR yet.* You will use it in Module 3 to trigger additional builds on the feature branch before merging to `main`.
 
 === Verify
 
 [%interactive]
 * [ ] `pipelines-as-code-secret` exists in your tenant namespace.
 * [ ] The Konflux Component detail page shows `sample-component-golang` linked to your GitLab repository URL.
-* [ ] The GitLab merge request from Konflux is merged into the default branch.
-* [ ] The `.tekton/` directory is visible in the repository root on the default branch.
+* [ ] The GitLab merge request from Konflux is OPEN (not merged).
+* [ ] The MR contains `.tekton/` directory changes ready for review.
 
-== 3. Trigger and Verify the First PipelineRun
+== 3. Observe the First PipelineRun on the MR Branch
 
-Merging the `.tekton/` directory into the default branch triggers Pipelines-as-Code immediately.
-A PipelineRun is created in your tenant namespace in response to that merge event.
+Creating the Component triggers Pipelines-as-Code immediately — *before* merging the MR.
+Konflux creates a PipelineRun on the MR source branch (named `konflux-sample-component-golang-XXXXX`).
+This first build tests the `.tekton/` configuration on the feature branch before it reaches `main`.
 You now confirm that the run was created and is progressing.
 
 . Return to the Konflux UI.
 Inside `my-sample-app`, click the *Activity* tab.
 
-. Observe that a PipelineRun appears automatically in response to the merge event.
+. Observe that a PipelineRun appears automatically — triggered by the MR creation, not a merge.
++
+The PipelineRun name will contain `on-pull-request` (e.g., `sample-component-golang-c5684-on-pull-request-xhjxj`).
+This indicates the build is running on the MR branch.
 +
 .Konflux Activity tab showing the first PipelineRun
 image::module-02-activity.png[Konflux Activity tab listing a completed PipelineRun entry for sample-component-golang,800]
@@ -224,7 +227,7 @@ List the PipelineRuns in your tenant namespace:
 oc get pipelineruns -n {openshift_username}-tenant
 ----
 +
-Expected output: one PipelineRun with a `Running` or `Succeeded` status.
+Expected output: one PipelineRun with a name containing `on-pull-request` and a `Running` or `Succeeded` status.
 
 . In the Konflux UI, click the commit entry in the Activity tab to open its detail view.
 Observe the events progression — it shows two stages: the build (`sample-component-golang-XXXX-build`) and an enterprise contract check (`my-sample-app-enterprise-contract`), both showing *Succeeded*.
@@ -241,12 +244,22 @@ Do not proceed to Module 3 with a failed PipelineRun — later modules depend on
 
 . Return to the *Applications* view and confirm the `sample-component-golang` Component card shows the linked GitLab repository URL.
 
+. In Quay, navigate to your organization and locate the `sample-component-golang` repository.
++
+Click into it and check the *Tags* tab.
+You should see one image tagged with `on-pr-` prefix (e.g., `sample-component-golang-c5684-on-pr-ee0dd6e-build-container`).
++
+This confirms the MR branch build pushed an image.
+The `on-pr-` prefix distinguishes MR builds from `main` branch builds (which use `on-push-` prefix).
+
 === Verify
 
 [%interactive]
-* [ ] `oc get pipelineruns -n {openshift_username}-tenant` returns at least one PipelineRun.
+* [ ] `oc get pipelineruns -n {openshift_username}-tenant` returns one PipelineRun with `on-pull-request` in the name.
 * [ ] The PipelineRun status in the Konflux UI is `Running` or `Succeeded`.
 * [ ] The Component card in the Applications view shows the linked GitLab repository URL.
+* [ ] Quay shows an image tagged with `on-pr-` prefix in your organization.
+* [ ] The GitLab MR is still OPEN (not merged).
 
 == Learning Outcomes Checkpoint
 
