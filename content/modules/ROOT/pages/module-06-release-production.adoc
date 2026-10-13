@@ -110,9 +110,8 @@ You select the passing Snapshot from Module 3 and pair it with the ReleasePlan y
 
 . Click the *Snapshots* tab.
 +
-// TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/6
 .Konflux Snapshots tab for my-sample-app
-image::screenshot-placeholder.svg[Konflux Snapshots tab showing snapshots with their commit messages and status,800]
+image::module-06-snapshots-tab.png[Konflux Snapshots tab showing snapshots with their commit messages including the merge commit,800]
 
 . Locate the Snapshot associated with the merge commit from Module 3.
 Look for the commit message: *Merge branch 'konflux-sample-component-golang-XXXXX' into 'main'*.
