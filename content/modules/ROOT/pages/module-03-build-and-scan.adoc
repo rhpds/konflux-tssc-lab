@@ -57,7 +57,7 @@ Navigate to *Applications → my-sample-app → Activity*.
 .Konflux Activity tab showing the new PipelineRun triggered by the MR commit
 image::module-03-activity-new-run.png[Konflux Activity tab listing a new PipelineRun entry triggered by the chore: trigger module-03 build commit,800]
 
-. Wait for the PipelineRun to complete (12-15 minutes with the increased quota from the cluster tuning).
+. Wait for the PipelineRun to complete (12-15 minutes).
 
 . Return to GitLab and merge the MR:
 +
