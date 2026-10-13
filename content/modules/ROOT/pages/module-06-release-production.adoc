@@ -127,9 +127,10 @@ NOTE: If you completed Module 5, the integration tests for this snapshot have al
 .Konflux Trigger release menu option
 image::module-06-trigger-release-menu.png[Konflux Snapshots tab showing the three-dot menu with Trigger release option,800]
 
-. If prompted to select a ReleasePlan, choose `production-release`.
+. In the dialog that appears, select `production-release` from the ReleasePlan dropdown.
 
-. Confirm the release creation.
+. Click the *Trigger release* button at the bottom of the dialog.
++
 Konflux creates a Release object in your tenant namespace.
 
 . In the terminal, verify the Release object exists:
