@@ -38,15 +38,22 @@ For this lab, you will create the ReleasePlanAdmission yourself to understand:
 
 In real deployments, you would only create the ReleasePlan (tenant side) and reference a pre-existing ReleasePlanAdmission that the platform team set up.
 
-**How the reference works:**
+**How the matching works:**
 
-* ReleasePlan (tenant side) → sets `target: <managed-namespace>` (points to where the admission control lives)
-* ReleasePlanAdmission (managed side) → sets `origin: <tenant-namespace>` and `applications: [<app-name>]` (authorizes specific tenant apps)
+When you trigger a release:
 
-This bidirectional authorization ensures:
+1. The Release Service reads your ReleasePlan's `application` field (my-sample-app) and `target` field ({openshift_username}-managed)
+2. It looks in the target namespace for a ReleasePlanAdmission that has `my-sample-app` in its `applications` list
+3. It verifies the ReleasePlanAdmission's `origin` field matches your tenant namespace
 
-* Developers can only release to namespaces the platform team has authorized
-* Platform admins control which applications can use which managed pipelines
+The **application name** is the key link between the two resources.
+
+This creates bidirectional authorization:
+
+* ReleasePlan says: "I want to release **my-sample-app** to **{openshift_username}-managed**"
+* ReleasePlanAdmission says: "I accept releases of **my-sample-app** from **{openshift_username}-tenant**"
+
+Both must match for the release to proceed.
 ====
 
 You will create the ReleasePlanAdmission first (platform side), then create the ReleasePlan through the Konflux UI (tenant side).
@@ -100,7 +107,7 @@ Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_
 * *Application*: `my-sample-app` (should be pre-selected)
 * *Target*: `{openshift_username}-managed`
 +
-NOTE: The *Target* field is how the ReleasePlan references the ReleasePlanAdmission. By setting `Target: {openshift_username}-managed`, you are telling Konflux: "Look in the managed namespace for a ReleasePlanAdmission that authorizes my application." The ReleasePlanAdmission you created earlier has `origin: {openshift_username}-tenant` and `applications: [my-sample-app]`, which authorizes this exact connection.
+NOTE: The *Application* and *Target* fields are how the ReleasePlan connects to the ReleasePlanAdmission. Konflux looks in the `{openshift_username}-managed` namespace for a ReleasePlanAdmission that has `my-sample-app` in its `applications` list and `{openshift_username}-tenant` in its `origin` field. The matching is based on the **application name**, not the resource names.
 +
 * Expand *Git options for the release pipeline* section:
 ** *Git URL for the release pipeline*: `https://github.com/rhpds/konflux-tssc-lab.git`
