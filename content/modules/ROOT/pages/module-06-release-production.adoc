@@ -152,9 +152,20 @@ image::module-06-releases-tab.png[Konflux Releases tab showing the production re
 
 The Release object triggers TWO pipelines that run in sequence:
 
-1. **Tenant pipeline** (`tenant-release.yaml`) — runs in your tenant namespace, performs simple validation
-2. **Managed pipeline** (`managed-release.yaml`) — runs in the managed namespace, performs Enterprise Contract validation and pushes to production
+1. **Tenant pipeline** (`tenant-release.yaml`) — runs in your tenant namespace
+   * Purpose: User-defined validation checks
+   * Allows developers to add custom validation logic before enterprise checks
+   * Fails fast if basic requirements aren't met
+   * Runs with tenant namespace permissions
 
+2. **Managed pipeline** (`managed-release.yaml`) — runs in the managed namespace
+   * Purpose: Enterprise compliance validation and production promotion
+   * Validates against Enterprise Contract policy (security, compliance, attestation requirements)
+   * Only runs if the tenant pipeline succeeds
+   * Pushes the verified image to production Quay on success
+   * Runs with managed namespace permissions (platform team controls)
+
+This two-stage architecture separates developer concerns (tenant) from organizational compliance requirements (managed).
 You will observe both pipeline runs from the Release detail view.
 
 . On the Release detail page, click the *Pipeline runs* tab.
@@ -164,13 +175,15 @@ image::module-06-pipeline-runs.png[Konflux Pipeline runs tab showing both tenant
 +
 You will see two pipeline runs:
 +
-[cols="1,3",options="header"]
+[cols="1,1,3",options="header"]
 |===
-|Pipeline |What it does
+|Pipeline |Type |Purpose
 |**Tenant** (e.g., `tenant-9ktp9`)
-|Runs `tekton/pipelines/tenant-release.yaml` in your tenant namespace. Performs basic validation before handing off to the managed pipeline.
+|User checks
+|Custom validation logic defined by your team. In this lab it performs a simple snapshot validation. In production you might add functional tests, security scans, or deployment readiness checks.
 |**Managed** (e.g., `managed-9gqjh`)
-|Runs `tekton/pipelines/managed-release.yaml` in the managed namespace. Validates with Enterprise Contract and pushes the image to production.
+|Enterprise compliance
+|Platform-enforced validation: Enterprise Contract policy evaluation, signature verification, SLSA attestation checks. Only this pipeline can push to production. Controlled by the platform team, not individual developers.
 |===
 
 . Wait for both pipelines to complete.
