@@ -19,7 +19,7 @@ By the end of this module, you will be able to:
 == 1. Trigger a Build on the MR Branch, Then Merge
 
 You still have the open merge request from Module 2.
-In this section you will edit a file on the MR source branch (not `main`), triggering a second `on-pull-request` build.
+In this section you will edit a file on the MR source branch, triggering a second `on-pull-request` build.
 After verifying that build, you will merge the MR to `main`, triggering a third build with the `on-push-` tag.
 
 . Open link:{gitlab_url}[GitLab,window=_blank] and navigate to *Merge Requests*.
@@ -28,12 +28,10 @@ After verifying that build, you will merge the MR to `main`, triggering a third 
 
 . At the top of the MR detail page, note the *Source branch* field.
 The branch name follows the pattern: `konflux-sample-component-golang-XXXXX`
-+
-This is the feature branch you will work on — *NOT* the `main` branch.
 
 . Click the source branch name to browse files on that branch.
 +
-IMPORTANT: Verify the branch selector at the top shows `konflux-sample-component-golang-XXXXX` (not `main`).
+Verify the branch selector at the top shows `konflux-sample-component-golang-XXXXX`.
 
 . Navigate to `README.md` and click *Edit*.
 Scroll to the bottom of the file.
@@ -46,7 +44,7 @@ Add a new line:
 . Commit the change:
 +
 * Commit message: `chore: trigger module-03 build`
-* Target branch: (already set to the MR branch — do NOT change it to `main`)
+* Target branch: (keep the MR branch selected)
 * Click *Commit*
 
 . Return to the link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux UI,window=_blank].
