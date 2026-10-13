@@ -187,7 +187,11 @@ The title reads *Konflux update sample-component-golang-XXXX*, where `XXXX` matc
 .GitLab merge request created by Konflux
 image::module-02-merge-request.png[GitLab Merge Requests page showing an open merge request titled Konflux initial PipelineRun configuration with a green Open badge,800]
 
-. Click into the merge request and review the files under `.tekton/`.
+. Click the merge request title to open it.
+
+. Click the *Changes* tab to view the files added by this merge request.
++
+You will see files under the `.tekton/` directory.
 These are the Tekton PipelineRun definitions that Pipelines-as-Code will execute on future push and merge-request events.
 
 +
