@@ -290,9 +290,9 @@ Log in with `{quay_user}` / `{quay_password}` if prompted.
 
 . Navigate to the *tsf* organization and search for `{openshift_username}-tenant`.
 +
-Locate your component repository: `sample-component-golang`
+Locate your component repository: `sample-component-golang-XXXXX` (where `XXXXX` is the generated suffix)
 +
-TIP: The full path is `{quay_url}/tsf/{openshift_username}-tenant/sample-component-golang` or print it from your terminal: `echo "${IMAGE_BASE}"`.
+TIP: Print the exact path from your terminal: `echo "${IMAGE_BASE}"`.
 
 . In the *Tags* view, locate the tag that matches the pattern `<component>-on-push-<hash>-build-container`.
 This is the container image your pipeline just built.
