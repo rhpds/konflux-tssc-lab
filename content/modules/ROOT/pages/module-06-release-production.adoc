@@ -133,40 +133,49 @@ image::module-06-trigger-release-menu.png[Konflux Snapshots tab showing the thre
 +
 Konflux creates a Release object in your tenant namespace.
 
-. In the terminal, verify the Release object exists:
+. The release is now triggered.
+Navigate back to the *my-sample-app* Application page and click the *Releases* tab.
 +
-[source,bash,role="execute",subs="attributes+"]
-----
-oc get release -n {openshift_username}-tenant
-----
-+
-Expected output: one Release resource with a status of `Running` or `Progressing`.
+.Konflux Releases tab showing the triggered release
+image::module-06-releases-tab.png[Konflux Releases tab showing the production release with status and duration,800]
 
-. Note the Release name from the output — you will use it in the next section.
+. Click the release name (e.g., `production-release...`) to open its detail view.
 
 === Verify
 
 [%interactive]
 * [ ] The merge commit Snapshot is visible in the Snapshots tab.
-* [ ] `oc get release -n {openshift_username}-tenant` returns at least one Release object.
-* [ ] The Release status is `Running` or `Progressing`, not `Failed`.
+* [ ] The Releases tab shows the triggered release.
+* [ ] The release status is `Succeeded` or in progress (not `Failed`).
 
 == 3. Monitor the Release Pipeline
 
-The Release object triggers a release pipeline in the managed namespace.
-This pipeline re-evaluates Conforma policy against the signed artifact — it does not inherit or trust the integration result from Module 5.
-The image reaches the production Quay organization only if the policy task passes.
+The Release object triggers TWO pipelines that run in sequence:
 
-. In the Konflux UI, click the Release to open its detail view.
+1. **Tenant pipeline** (`tenant-release.yaml`) — runs in your tenant namespace, performs simple validation
+2. **Managed pipeline** (`managed-release.yaml`) — runs in the managed namespace, performs Enterprise Contract validation and pushes to production
+
+You will observe both pipeline runs from the Release detail view.
+
+. On the Release detail page, click the *Pipeline runs* tab.
 +
-// TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/6
-.Konflux Release detail view showing release pipeline stages
-image::screenshot-placeholder.svg[Konflux Release detail view showing the Conforma evaluation, image push, and release record pipeline stages,800]
+.Konflux Pipeline runs tab showing tenant and managed pipelines
+image::module-06-pipeline-runs.png[Konflux Pipeline runs tab showing both tenant and managed pipeline runs,800]
++
+You will see two pipeline runs:
++
+[cols="1,3",options="header"]
+|===
+|Pipeline |What it does
+|**Tenant** (e.g., `tenant-9ktp9`)
+|Runs `tekton/pipelines/tenant-release.yaml` in your tenant namespace. Performs basic validation before handing off to the managed pipeline.
+|**Managed** (e.g., `managed-9gqjh`)
+|Runs `tekton/pipelines/managed-release.yaml` in the managed namespace. Validates with Enterprise Contract and pushes the image to production.
+|===
 
-. Observe the release pipeline stages:
-** A *Conforma evaluation* task that re-validates the signed artifact against the production policy bundle.
-** An *image push* task that copies the image, SBOM, and SLSA provenance attestation to the production Quay organization.
-** A *release record* task that writes the release event to the audit trail.
+. Wait for both pipelines to complete.
+The tenant pipeline runs first and typically completes quickly (under 30 seconds).
+The managed pipeline runs second and takes 2-3 minutes.
 
 . Wait for the Conforma evaluation task to complete.
 In the task logs, confirm the result is *Pass*.
