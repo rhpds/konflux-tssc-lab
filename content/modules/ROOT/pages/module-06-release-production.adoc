@@ -25,14 +25,6 @@ This separation prevents any single team from unilaterally bypassing release pol
 
 You will create the ReleasePlanAdmission first (platform side), then create the ReleasePlan through the Konflux UI (tenant side).
 
-. Store your managed namespace name in a variable:
-+
-[source,bash,role="execute",subs="attributes+"]
-----
-export MANAGED_NS="{openshift_username}-managed"
-echo "Managed namespace: ${MANAGED_NS}"
-----
-
 . Create the ReleasePlanAdmission in the managed namespace:
 +
 [source,bash,role="execute",subs="attributes+"]
@@ -42,7 +34,7 @@ apiVersion: appstudio.redhat.com/v1alpha1
 kind: ReleasePlanAdmission
 metadata:
   name: production-admission
-  namespace: ${MANAGED_NS}
+  namespace: {openshift_username}-managed
 spec:
   applications:
   - my-sample-app
@@ -77,7 +69,7 @@ Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_
 +
 * *Name*: `production-release`
 * *Application*: `my-sample-app` (should be pre-selected)
-* *Target*: Paste `${MANAGED_NS}` value from your terminal (e.g., `{openshift_username}-managed`)
+* *Target*: `{openshift_username}-managed`
 * Expand *Git options for the release pipeline* section:
 ** *Git URL for the release pipeline*: `https://github.com/rhpds/konflux-tssc-lab.git`
 ** *Revision*: `main`
@@ -92,7 +84,7 @@ In your terminal:
 [source,bash,role="execute",subs="attributes+"]
 ----
 oc get releaseplan -n {openshift_username}-tenant
-oc get releaseplanadmission -n ${MANAGED_NS}
+oc get releaseplanadmission -n {openshift_username}-managed
 ----
 +
 Expected output: one ReleasePlan in your tenant namespace and one ReleasePlanAdmission in the managed namespace.
@@ -100,11 +92,10 @@ Expected output: one ReleasePlan in your tenant namespace and one ReleasePlanAdm
 === Verify
 
 [%interactive]
-* [ ] `${MANAGED_NS}` environment variable is set to `{openshift_username}-managed`.
 * [ ] `oc apply` succeeded for the ReleasePlanAdmission.
 * [ ] ReleasePlan `production-release` created successfully through the Konflux UI.
 * [ ] `oc get releaseplan -n {openshift_username}-tenant` returns `production-release`.
-* [ ] `oc get releaseplanadmission -n ${MANAGED_NS}` returns `production-admission`.
+* [ ] `oc get releaseplanadmission -n {openshift_username}-managed` returns `production-admission`.
 
 == 2. Trigger the Release
 
