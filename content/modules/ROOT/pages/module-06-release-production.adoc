@@ -108,20 +108,23 @@ You select the passing Snapshot from Module 3 and pair it with the ReleasePlan y
 
 . Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_blank] and navigate to your `my-sample-app` Application.
 
-. Click the *Releases* tab.
+. Click the *Snapshots* tab.
 +
 // TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/6
-.Konflux Releases tab for my-sample-app
-image::screenshot-placeholder.svg[Konflux Releases tab showing no releases yet for the my-sample-app application,800]
+.Konflux Snapshots tab for my-sample-app
+image::screenshot-placeholder.svg[Konflux Snapshots tab showing snapshots with their commit messages and status,800]
 
-. Locate the Snapshot from your Module 3 build.
-Snapshots appear by name and associated image digest.
+. Locate the Snapshot associated with the merge commit from Module 3.
+Look for the commit message: *Merge branch 'konflux-sample-component-golang-XXXXX' into 'main'*.
++
+This is the snapshot created by the `on-push` build after you merged the MR — the same build you captured `IMAGE_DIGEST` from.
++
 The status column should read *Passing* or *Eligible*.
 +
 If no Snapshot is in a passing state, return to the Activity tab and confirm that the integration pipeline from Module 5 completed successfully before continuing.
 
-. Click *Create release* for the passing Snapshot.
-If prompted to select a ReleasePlan, choose the one pre-provisioned in your tenant namespace.
+. Click *Create release* for the merge commit Snapshot.
+If prompted to select a ReleasePlan, choose `production-release`.
 +
 // TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/6
 .Konflux Create release dialog
