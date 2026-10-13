@@ -49,8 +49,7 @@ spec:
         value: main
       - name: pathInRepo
         value: tekton/pipelines/managed-release.yaml
-  environment:
-    type: production
+  environment: production
 EOF
 ----
 +
