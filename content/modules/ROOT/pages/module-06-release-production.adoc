@@ -58,7 +58,11 @@ Expected output: `releaseplanadmission.appstudio.redhat.com/production-release c
 This object runs the `managed-release.yaml` pipeline in the managed namespace — it validates the release with Enterprise Contract and pushes the image to production.
 
 . Now create the ReleasePlan through the Konflux UI.
-Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_blank] and navigate to *Applications → my-sample-app*.
+Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_blank].
+
+. Verify you are in your tenant namespace `{openshift_username}-tenant` (check the namespace selector at the top of the page).
+
+. Navigate to *Applications → my-sample-app*.
 
 . Click the *Release plans* tab in the left navigation.
 
