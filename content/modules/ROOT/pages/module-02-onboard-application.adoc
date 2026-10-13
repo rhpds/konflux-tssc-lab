@@ -45,7 +45,7 @@ image::module-02-applications.png[Konflux Applications page showing an empty app
 +
 Record this name — you will reference it in later modules.
 
-. Leave all other fields at their defaults and click *Create*.
+. Leave all other fields at their defaults and click *Create application*.
 
 . After creation, Konflux takes you directly to the new Application page.
 +
