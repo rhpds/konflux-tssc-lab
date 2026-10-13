@@ -118,9 +118,7 @@ Look for the commit message: *Merge branch 'konflux-sample-component-golang-XXXX
 +
 This is the snapshot created by the `on-push` build after you merged the MR — the same build you captured `IMAGE_DIGEST` from.
 +
-The status column should read *Passing* or *Eligible*.
-+
-If no Snapshot is in a passing state, return to the Activity tab and confirm that the integration pipeline from Module 5 completed successfully before continuing.
+NOTE: If you completed Module 5, the integration tests for this snapshot have already passed. If you skipped Module 5, you can still create a release — the release pipeline will perform its own validation.
 
 . Click *Create release* for the merge commit Snapshot.
 If prompted to select a ReleasePlan, choose `production-release`.
@@ -146,7 +144,7 @@ Expected output: one Release resource with a status of `Running` or `Progressing
 === Verify
 
 [%interactive]
-* [ ] The Konflux UI shows a Snapshot in *Passing* or *Eligible* status.
+* [ ] The merge commit Snapshot is visible in the Snapshots tab.
 * [ ] `oc get release -n {openshift_username}-tenant` returns at least one Release object.
 * [ ] The Release status is `Running` or `Progressing`, not `Failed`.
 
