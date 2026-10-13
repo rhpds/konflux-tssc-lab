@@ -33,12 +33,13 @@ cat <<EOF | oc apply -f -
 apiVersion: appstudio.redhat.com/v1alpha1
 kind: ReleasePlanAdmission
 metadata:
-  name: production-admission
+  name: production-release
   namespace: {openshift_username}-managed
 spec:
   applications:
   - my-sample-app
-  policy: enterprise-contract-service/lab-policy
+  origin: {openshift_username}-tenant
+  policy: release-policy
   pipeline:
     pipelineRef:
       resolver: git
@@ -49,11 +50,10 @@ spec:
         value: main
       - name: pathInRepo
         value: tekton/pipelines/managed-release.yaml
-  environment: production
 EOF
 ----
 +
-Expected output: `releaseplanadmission.appstudio.redhat.com/production-admission created`
+Expected output: `releaseplanadmission.appstudio.redhat.com/production-release created`
 +
 This object runs the `managed-release.yaml` pipeline in the managed namespace — it validates the release with Enterprise Contract and pushes the image to production.
 
@@ -94,7 +94,7 @@ Expected output: one ReleasePlan in your tenant namespace and one ReleasePlanAdm
 * [ ] `oc apply` succeeded for the ReleasePlanAdmission.
 * [ ] ReleasePlan `production-release` created successfully through the Konflux UI.
 * [ ] `oc get releaseplan -n {openshift_username}-tenant` returns `production-release`.
-* [ ] `oc get releaseplanadmission -n {openshift_username}-managed` returns `production-admission`.
+* [ ] `oc get releaseplanadmission -n {openshift_username}-managed` returns `production-release`.
 
 == 2. Trigger the Release
 
