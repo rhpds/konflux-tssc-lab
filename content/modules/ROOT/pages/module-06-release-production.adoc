@@ -93,11 +93,13 @@ This object runs the `managed-release.yaml` pipeline in the managed namespace â€
 . Now create the ReleasePlan through the Konflux UI.
 Switch to the *Konflux* tab.
 
+. In the left navigation, click *Releases*.
+
 . Verify you are in your tenant namespace `{openshift_username}-tenant` (check the namespace selector at the top of the page).
 
-. In the left navigation, click *Releases*, then click the *Release plans* tab.
+. Ensure the *Release plans* tab is selected.
 
-. Click *Create release plan*.
+. Click *Actions â†’ Create release plan*.
 
 . Fill in the form:
 +
