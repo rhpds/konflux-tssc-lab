@@ -217,21 +217,7 @@ export IMAGE_BASE=$(oc get component -n {openshift_username}-tenant \
 echo "Base image path: ${IMAGE_BASE}"
 ----
 
-. Confirm your image digest is set from Section 1.
-If you are continuing in the same terminal session it will already be present.
-If not, paste the digest you copied from the `build-container` task results in Section 1:
-+
-[source,bash]
-----
-if [ -z "${IMAGE_DIGEST}" ]; then
-  echo "IMAGE_DIGEST not set — enter the sha256 digest from Section 1:"
-  read -r IMAGE_DIGEST
-  export IMAGE_DIGEST
-fi
-echo "Digest: ${IMAGE_DIGEST}"
-----
-
-. Construct the full image reference:
+. Construct the full image reference using the digest you set in Section 1:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
