@@ -95,9 +95,7 @@ Switch to the *Konflux* tab.
 
 . Verify you are in your tenant namespace `{openshift_username}-tenant` (check the namespace selector at the top of the page).
 
-. Navigate to *Applications → my-sample-app*.
-
-. Click the *Release plans* tab in the left navigation.
+. In the left navigation, click *Releases*, then click the *Release plans* tab.
 
 . Click *Create release plan*.
 
