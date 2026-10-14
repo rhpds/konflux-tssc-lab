@@ -222,6 +222,8 @@ This indicates the build is running on the MR branch.
 +
 .Konflux Activity tab showing the first PipelineRun
 image::module-02-activity.png[Konflux Activity tab listing a completed PipelineRun entry for sample-component-golang,800]
++
+NOTE: If viewing the *Latest commits* tab, the Branch column shows `main` even though this commit is on the MR branch. This is a Konflux UI quirk — it displays the merge target branch, not the source branch. To confirm this is an MR build (not a main branch build), look for `on-pull-request` in the pipeline name on the *Pipeline runs* tab.
 
 . Click the *Terminal* tab in the right-hand panel.
 List the PipelineRuns in your tenant namespace:

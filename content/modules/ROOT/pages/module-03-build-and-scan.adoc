@@ -56,6 +56,8 @@ Navigate to *Applications → my-sample-app → Activity*.
 +
 .Konflux Activity tab - Latest commits showing the new commit
 image::module-03-activity-commits.png[Konflux Activity tab with Latest commits showing chore: trigger module-03 build commit with Running status,800]
++
+NOTE: The Branch column shows `main` even though you committed to the MR branch. This is a Konflux UI quirk — it displays the merge target branch, not the source branch where the commit actually lives. To confirm this is an MR build, check the *Pipeline runs* tab for the `on-pull-request` pipeline name.
 
 . Click the *Pipeline runs* tab to see the corresponding `on-pull-request` PipelineRun with `on-pull-request` in the Name column and Running status.
 +
