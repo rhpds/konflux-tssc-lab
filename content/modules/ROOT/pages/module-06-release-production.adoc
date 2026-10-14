@@ -239,15 +239,17 @@ That is precisely the protection this architecture provides.
 . Wait for the image push task to complete.
 In its logs, confirm the task pushed the image with tag `production`.
 
-. In the terminal, construct the production image reference using the same digest from Module 3 (the release pipeline promotes the existing image, it does not rebuild):
+. In the terminal, retrieve the digest of the production image that was just pushed:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
-export PROD_IMAGE="${IMAGE_BASE}@${IMAGE_DIGEST}"
+export PROD_DIGEST=$(skopeo inspect docker://${IMAGE_BASE}:production \
+  --tls-verify=false 2>/dev/null | jq -r '.Digest')
+export PROD_IMAGE="${IMAGE_BASE}@${PROD_DIGEST}"
 echo "Production image: ${PROD_IMAGE}"
 ----
 +
-NOTE: The digest is identical to the Module 3 build — the release pipeline tags the existing image as `production`, it does not create a new build.
+This queries the production tag in Quay and extracts its digest.
 
 . Monitor the release pipeline until it reaches *Succeeded*.
 
@@ -265,7 +267,8 @@ Expected output: a conditions list that includes an entry with `type: Released` 
 [%interactive]
 * [ ] The Conforma evaluation task logs show *Pass*.
 * [ ] The image push task completed and pushed the `production` tag.
-* [ ] `$PROD_IMAGE` is set in your terminal and contains the digest reference.
+* [ ] `skopeo inspect` successfully extracted `$PROD_DIGEST` from the production tag.
+* [ ] `$PROD_IMAGE` is set in your terminal and contains the full digest reference.
 * [ ] The release pipeline status in Konflux shows *Succeeded*.
 * [ ] `oc get release` conditions include `type: Released` with `status: "True"`.
 
@@ -283,8 +286,24 @@ The production image is in the same `tsf` organization as your development image
 Confirm the push timestamp matches the time the release pipeline ran.
 
 . Click the `production` tag and note the digest shown in Quay.
-Compare it with `$IMAGE_DIGEST` from Module 3 — they must be identical.
-Image promotion copies the existing artifact; it does not rebuild it.
+
+. In the terminal, verify that the production digest matches the Module 3 build digest (confirming no rebuild occurred):
++
+[source,bash,role="execute"]
+----
+if [ "$PROD_DIGEST" = "$IMAGE_DIGEST" ]; then
+  echo "✓ Verified: Production digest matches Module 3 build"
+  echo "  Digest: $PROD_DIGEST"
+else
+  echo "✗ Warning: Digests differ"
+  echo "  Module 3: $IMAGE_DIGEST"
+  echo "  Production: $PROD_DIGEST"
+fi
+----
++
+Expected output: `✓ Verified: Production digest matches Module 3 build`
++
+This confirms the release pipeline promoted the existing artifact rather than rebuilding it.
 
 . In the terminal, verify the cryptographic signature on the production image:
 +
@@ -376,7 +395,8 @@ This confirms that starting from the production image digest alone, any authoriz
 === Verify
 
 [%interactive]
-* [ ] The production image digest in Quay matches the digest from Module 3 — no rebuild occurred.
+* [ ] The digest comparison in the terminal shows `✓ Verified: Production digest matches Module 3 build`.
+* [ ] The production image digest in Quay matches `$PROD_DIGEST` — no rebuild occurred.
 * [ ] `cosign verify` returns *Verified OK* for the production image reference.
 * [ ] `cosign download attestation` returns at least one attestation on the production reference.
 * [ ] The provenance attestation output includes the source repository URL and commit SHA.
