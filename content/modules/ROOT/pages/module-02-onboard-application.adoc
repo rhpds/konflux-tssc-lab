@@ -78,7 +78,7 @@ image::module-02-pat.png[GitLab Personal access tokens page accessed via the use
 
 . Fill in the form:
 ** *Token name*: `konflux-pac`
-** *Expiration date*: leave blank or set to end of lab
+** *Expiration date*: leave default
 ** *Scopes*: select *api*
 
 . Click *Generate token* and copy the generated token.
