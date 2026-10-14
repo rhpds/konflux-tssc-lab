@@ -218,11 +218,11 @@ echo "Base image path: ${IMAGE_BASE}"
 ----
 
 . Set the digest you copied from the `build-container` task logs.
-Replace `sha256:PASTE_YOUR_DIGEST_HERE` with your actual digest value:
+Paste your digest (which already includes `sha256:`):
 +
-[source,bash,subs="attributes+"]
+[source,bash]
 ----
-export IMAGE_DIGEST=sha256:PASTE_YOUR_DIGEST_HERE
+export IMAGE_DIGEST=sha256:03359...  # Replace with your actual digest
 ----
 
 . Construct the full image reference:
