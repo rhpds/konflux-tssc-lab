@@ -52,10 +52,11 @@ Verify the branch selector at the top shows `konflux-sample-component-golang-XXX
 . Switch to the *Konflux* tab.
 Navigate to *Applications → my-sample-app → Activity*.
 
-. Within 30–60 seconds, a NEW `on-pull-request` PipelineRun appears (your second MR build).
+. Click the *Pipeline runs* tab.
+Within 30–60 seconds, a NEW `on-pull-request` PipelineRun appears with `on-pull-request` in the Name column and Running status (your second MR build).
 +
-.Konflux Activity tab showing the new PipelineRun triggered by the MR commit
-image::module-03-activity-new-run.png[Konflux Activity tab listing a new PipelineRun entry triggered by the chore: trigger module-03 build commit,800]
+.Konflux Activity tab - Pipeline runs showing the new on-pull-request build
+image::module-03-activity-new-run.png[Konflux Activity tab with Pipeline runs tab selected showing sample-component-golang-d4ble-on-pull-request pipeline with Running status,800]
 
 . Wait for the PipelineRun to complete (12-15 minutes).
 
