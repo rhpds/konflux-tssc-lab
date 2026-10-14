@@ -233,11 +233,11 @@ oc get pipelineruns -n {openshift_username}-tenant
 +
 Expected output: one PipelineRun with a name containing `on-pull-request` and a `Running` or `Succeeded` status.
 
-. In the Konflux UI, click the PipelineRun name in the Activity tab to open the pipeline detail view.
-Observe the task graph — it shows all pipeline tasks from `init` through `build-container` and the scan tasks (`deprecated-base-image-check`, `clamav-scan`, `sast-shell-check`, `sast-unicode-check`, `rpms-signature-scan`, `tpa-scan`), all showing green checkmarks indicating success.
+. In the Konflux UI, click the commit entry in the Activity tab to open its detail view.
+Observe the events progression — it shows two stages: the build (`sample-component-golang-XXXX-build`) and an enterprise contract check (`my-sample-app-enterprise-contract`), both showing *Succeeded*.
 +
-.Konflux PipelineRun detail showing all pipeline tasks
-image::module-02-pipeline-detail.png[Konflux PipelineRun detail view showing the complete task graph with init, clone-repository, prefetch-dependencies, build-container, build-image-index, and all scan tasks succeeding,800]
+.Konflux commit detail showing build and enterprise contract stages
+image::module-02-pipeline-detail.png[Konflux commit detail view showing the commit, build, and enterprise-contract stages all succeeding,800]
 
 . Wait for the PipelineRun to reach *Running* or *Succeeded* before moving to Module 3.
 +
