@@ -285,7 +285,7 @@ Expected output: a conditions list that includes an entry with `type: Released` 
 == 4. Verify the Production Artifact and Supply Chain Integrity
 
 The image is in production.
-You now confirm three things: the digest in the production registry matches the build digest from Module 3 (no rebuild occurred), the cryptographic signature is valid on the production reference, and the SLSA provenance attestation traveled alongside the image.
+You now confirm three things: the digest in the production registry matches the merged MR build digest (no rebuild occurred), the cryptographic signature is valid on the production reference, and the SLSA provenance attestation traveled alongside the image.
 Then you walk the full supply chain to confirm every link is traceable from source commit to production.
 
 . Switch to the *Quay* tab and navigate to the `tsf` organization.
@@ -297,31 +297,31 @@ Confirm the push timestamp matches the time the release pipeline ran.
 
 . Click the `production` tag and note the digest shown in Quay.
 
-. In the terminal, retrieve the Module 3 build digest from the Snapshot for comparison:
+. In the terminal, retrieve the merged MR build digest from the Snapshot for comparison:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
 export IMAGE_DIGEST=$(oc get snapshot -n {openshift_username}-tenant \
   --sort-by=.metadata.creationTimestamp \
   -o jsonpath='{.items[-1].spec.components[0].containerImage}' | cut -d@ -f2)
-echo "Module 3 build digest: ${IMAGE_DIGEST}"
+echo "Merged MR build digest: ${IMAGE_DIGEST}"
 ----
 
-. Verify that the production digest matches the Module 3 build digest (confirming no rebuild occurred):
+. Verify that the production digest matches the merged MR build digest (confirming no rebuild occurred):
 +
 [source,bash,role="execute"]
 ----
 if [ "$PROD_DIGEST" = "$IMAGE_DIGEST" ]; then
-  echo "✓ Verified: Production digest matches Module 3 build"
+  echo "✓ Verified: Production digest matches merged MR build"
   echo "  Digest: $PROD_DIGEST"
 else
   echo "✗ Warning: Digests differ"
-  echo "  Module 3: $IMAGE_DIGEST"
+  echo "  Merged MR: $IMAGE_DIGEST"
   echo "  Production: $PROD_DIGEST"
 fi
 ----
 +
-Expected output: `✓ Verified: Production digest matches Module 3 build`
+Expected output: `✓ Verified: Production digest matches merged MR build`
 +
 This confirms the release pipeline promoted the existing artifact rather than rebuilding it.
 
@@ -381,7 +381,7 @@ cosign download attestation ${PROD_IMAGE} | \
      pipeline: .predicate.builder.id}'
 ----
 +
-Expected output: a JSON object showing the source repository URL, the commit SHA from your Module 3 code push, and the Konflux builder identifier.
+Expected output: a JSON object showing the source repository URL, the merge commit SHA, and the Konflux builder identifier.
 +
 This confirms that starting from the production image digest alone, any authorized party can recover the source commit, the signing event in the Rekor transparency log, and the Conforma policy evaluation that approved the release.
 
@@ -415,7 +415,7 @@ This confirms that starting from the production image digest alone, any authoriz
 === Verify
 
 [%interactive]
-* [ ] The digest comparison in the terminal shows `✓ Verified: Production digest matches Module 3 build`.
+* [ ] The digest comparison in the terminal shows `✓ Verified: Production digest matches merged MR build`.
 * [ ] The production image digest in Quay matches `$PROD_DIGEST` — no rebuild occurred.
 * [ ] `cosign verify` returns *Verified OK* for the production image reference.
 * [ ] `cosign download attestation` returns at least one attestation on the production reference.
@@ -460,7 +460,7 @@ No gap exists between the production artifact and its complete build history.
 
 * The ReleasePlan / ReleasePlanAdmission model separates release requests (application team, tenant namespace) from release governance (platform team, managed namespace). No single team controls both sides of the gate.
 * The release pipeline re-evaluates Conforma policy at release time. Policy changes between build and release are caught, not bypassed.
-* Image promotion copies the immutable digest built and signed in Module 3. No rebuild occurs and no new artifact is introduced.
+* Image promotion copies the immutable digest built and signed by the merged MR pipeline. No rebuild occurs and no new artifact is introduced.
 * Attestations — SBOM and SLSA provenance — travel with the image because Quay stores them in the same repository keyed to the same digest.
 * End-to-end traceability is the core value: starting from a production image digest, any authorized party can reconstruct the full supply chain history — source commit, build, signing event, policy evaluation, and release approval.
 * This pipeline aligns with SLSA Level 3 requirements: isolated build environment, signed provenance, policy-gated promotion, and a tamper-evident transparency log.
