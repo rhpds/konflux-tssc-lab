@@ -74,9 +74,8 @@ echo "Policy bundle: ${EC_POLICY}"
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
-export IMAGE=$(oc get component sample-component-golang \
-  -n {openshift_username}-tenant \
-  -o jsonpath='{.spec.containerImage}')
+export IMAGE=$(oc get component -n {openshift_username}-tenant \
+  -o jsonpath='{.items[0].spec.containerImage}')
 echo "Image: ${IMAGE}"
 ----
 
@@ -91,7 +90,7 @@ ec validate image --image "${IMAGE}" --policy "${EC_POLICY}" \
 Expected output: an empty array (`[]`) for each component, confirming no violations were found against the artifact from Module 3.
 +
 NOTE: The `ec` CLI works best with a full digest reference.
-If `$IMAGE` does not include `@sha256:...`, run `oc get component sample-component-golang -n {openshift_username}-tenant -o jsonpath='{.spec.containerImage}'` — after the first successful build, Konflux stores the digest-pinned reference there automatically.
+If `$IMAGE` does not include `@sha256:...`, run `oc get component -n {openshift_username}-tenant -o jsonpath='{.items[0].spec.containerImage}'` — after the first successful build, Konflux stores the digest-pinned reference there automatically.
 
 === Verify
 
