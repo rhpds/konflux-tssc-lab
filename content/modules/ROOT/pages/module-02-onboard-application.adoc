@@ -243,6 +243,8 @@ image::module-02-pipeline-detail.png[Konflux commit detail view showing the comm
 +
 TIP: A first build typically takes 3–8 minutes. Use the time to review the stage breakdown in the UI.
 +
+WARNING: If you see two `Cancelled` pipelines in the Activity tab, this is a race condition when the MR is first created. To retrigger: switch to the *GitLab* tab, navigate to your open MR, click *Close merge request*, then immediately click *Reopen merge request*. This will trigger a new `on-pull-request` pipeline.
++
 If the run fails, read the task logs displayed in the UI and report the error to the instructor.
 Do not proceed to Module 3 with a failed PipelineRun — later modules depend on artifacts produced by this run.
 
