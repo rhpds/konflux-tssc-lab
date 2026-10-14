@@ -142,7 +142,8 @@ With both sides of the release gate confirmed, you now create a Release from the
 A Konflux Release always references a specific Snapshot — the immutable record of the set of images produced by a build pipeline run.
 You select the passing Snapshot from Module 3 and pair it with the ReleasePlan you just reviewed.
 
-. Switch to the *Konflux* tab and navigate to your `my-sample-app` Application.
+. Switch to the *Konflux* tab.
+In the left navigation, click *Applications*, then click *my-sample-app*.
 
 . Click the *Snapshots* tab.
 +
