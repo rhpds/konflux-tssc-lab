@@ -21,10 +21,8 @@ A Konflux Application is the top-level grouping for one or more related componen
 Think of it as the logical boundary around a service or product you own.
 You create the Application first, then add the Component that points at your source code.
 
-. Click the *Konflux* tab.
-Log in with `{openshift_username}` / `{openshift_password}` if prompted.
-
-. In the left navigation, click *Namespaces*.
+. Switch to the *Konflux* tab.
+In the left navigation, click *Namespaces*.
 +
 .Konflux Namespaces page
 image::module-02-namespaces.png[Konflux Namespaces page listing the available namespaces for the logged-in user,800]

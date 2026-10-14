@@ -294,10 +294,8 @@ For Modules 4-6, you will use the image tagged `on-push-<commit-hash>` (from the
 Konflux pushes the container image and its provenance artifacts to Quay for every successful build.
 You will confirm the image is present, verify the digest, and review the source provenance labels embedded in the image before moving to Module 4.
 
-. Open the *Quay* tab.
-Log in with `{quay_user}` / `{quay_password}` if prompted.
-
-. Navigate to the *tsf* organization and search for `{openshift_username}-tenant`.
+. Switch to the *Quay* tab and navigate to the *tsf* organization.
+Search for `{openshift_username}-tenant`.
 +
 Locate your component repository: `sample-component-golang-XXXXX` (where `XXXXX` is the generated suffix)
 +
