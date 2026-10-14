@@ -239,7 +239,16 @@ That is precisely the protection this architecture provides.
 . Wait for the image push task to complete.
 In its logs, confirm the task pushed the image with tag `production`.
 
-. In the terminal, retrieve the digest of the production image that was just pushed:
+. In the terminal, retrieve the base image path from your component:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+export IMAGE_BASE=$(oc get component -n {openshift_username}-tenant \
+  -o jsonpath='{.items[0].spec.containerImage}' | cut -d: -f1)
+echo "Base image path: ${IMAGE_BASE}"
+----
+
+. Retrieve the digest of the production image that was just pushed:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
@@ -267,6 +276,7 @@ Expected output: a conditions list that includes an entry with `type: Released` 
 [%interactive]
 * [ ] The Conforma evaluation task logs show *Pass*.
 * [ ] The image push task completed and pushed the `production` tag.
+* [ ] `$IMAGE_BASE` is set in your terminal with the base image path.
 * [ ] `skopeo inspect` successfully extracted `$PROD_DIGEST` from the production tag.
 * [ ] `$PROD_IMAGE` is set in your terminal and contains the full digest reference.
 * [ ] The release pipeline status in Konflux shows *Succeeded*.
@@ -287,7 +297,17 @@ Confirm the push timestamp matches the time the release pipeline ran.
 
 . Click the `production` tag and note the digest shown in Quay.
 
-. In the terminal, verify that the production digest matches the Module 3 build digest (confirming no rebuild occurred):
+. In the terminal, retrieve the Module 3 build digest from the Snapshot for comparison:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+export IMAGE_DIGEST=$(oc get snapshot -n {openshift_username}-tenant \
+  --sort-by=.metadata.creationTimestamp \
+  -o jsonpath='{.items[-1].spec.components[0].containerImage}' | cut -d@ -f2)
+echo "Module 3 build digest: ${IMAGE_DIGEST}"
+----
+
+. Verify that the production digest matches the Module 3 build digest (confirming no rebuild occurred):
 +
 [source,bash,role="execute"]
 ----
