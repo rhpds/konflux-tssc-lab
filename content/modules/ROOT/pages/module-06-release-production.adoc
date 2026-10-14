@@ -227,16 +227,15 @@ You will see two pipeline runs:
 The tenant pipeline runs first and typically completes quickly (under 30 seconds).
 The managed pipeline runs second and takes 2-3 minutes.
 
-. Wait for the Conforma evaluation task to complete.
-In the task logs, confirm the result is *Pass*.
+. In the managed pipeline task graph, confirm the *validate-release* task completes successfully.
 +
-If the Conforma task fails, the pipeline stops and the image is not pushed to production.
-Read the failure message in the task logs — it identifies the exact policy rule that blocked the release.
+This task performs the Enterprise Contract policy evaluation.
+If it fails, the pipeline stops and the image is not pushed to production.
 +
-NOTE: A Conforma failure at release time means either the policy changed between the Module 5 check and now, or the artifact was altered after the integration check passed.
+NOTE: A validation failure at release time means either the policy changed between the Module 5 check and now, or the artifact was altered after the integration check passed.
 That is precisely the protection this architecture provides.
 
-. Wait for the image push task to complete.
+. Wait for the *push-images* task to complete.
 In its logs, confirm the task pushed the image with tag `production`.
 
 . In the terminal, retrieve the base image path from your component:
@@ -274,8 +273,8 @@ Expected output: a conditions list that includes an entry with `type: Released` 
 === Verify
 
 [%interactive]
-* [ ] The Conforma evaluation task logs show *Pass*.
-* [ ] The image push task completed and pushed the `production` tag.
+* [ ] The *validate-release* task in the managed pipeline completed successfully.
+* [ ] The *push-images* task completed and pushed the `production` tag.
 * [ ] `$IMAGE_BASE` is set in your terminal with the base image path.
 * [ ] `skopeo inspect` successfully extracted `$PROD_DIGEST` from the production tag.
 * [ ] `$PROD_IMAGE` is set in your terminal and contains the full digest reference.
