@@ -71,7 +71,16 @@ Navigate back to the MR detail page and click *Merge*.
 NOTE: Use the default merge strategy. Do not squash or rebase — Pipelines-as-Code reads the merge commit to identify the triggering event.
 
 . After merging, return to Konflux Activity.
-A THIRD PipelineRun appears — this time with `on-push` in the name (not `on-pull-request`).
+On the *Latest commits* tab, a merge commit appears with the message `Merge branch 'konflux-sample-component-golang-XXXX' into 'main'` and Running status.
++
+.Konflux Activity - Latest commits showing the merge commit
+image::module-03-merge-commit.png[Konflux Activity Latest commits tab showing Merge branch commit with Running status on main branch,800]
+
+. Click the *Pipeline runs* tab.
+A THIRD PipelineRun appears — this time with `on-push` in the Name column (not `on-pull-request`) and `Push` in the Trigger column.
++
+.Konflux Activity - Pipeline runs showing the on-push build
+image::module-03-on-push-pipeline.png[Konflux Activity Pipeline runs tab showing sample-component-golang-d4ble-on-push pipeline with Push trigger and Running status,800]
 +
 This is the `main` branch build, triggered by the merge.
 
