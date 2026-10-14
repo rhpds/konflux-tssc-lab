@@ -13,8 +13,8 @@ The module ends by walking the full chain — from source commit to signed, prov
 By the end of this module, you will be able to:
 
 * Configure and trigger a Konflux ReleasePlan to initiate the controlled release pipeline for a policy-passing Snapshot.
-* Verify that the release pipeline re-evaluates Conforma policy before promoting the artifact to the production Quay registry.
-* Verify the signed image and its attestations are present in the production Quay organization after a successful release.
+* Verify that the release pipeline re-evaluates Conforma policy before promoting the artifact with the production tag.
+* Verify the signed image and its attestations are present in Quay with the production tag after a successful release.
 * Trace the artifact from the source commit through signing, policy validation, and production release to demonstrate end-to-end supply chain integrity.
 
 == 1. Create the ReleasePlanAdmission and ReleasePlan
@@ -91,7 +91,7 @@ Expected output: `releaseplanadmission.appstudio.redhat.com/production-release c
 This object runs the `managed-release.yaml` pipeline in the managed namespace — it validates the release with Enterprise Contract and pushes the image to production.
 
 . Now create the ReleasePlan through the Konflux UI.
-Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_blank].
+Switch to the *Konflux* tab.
 
 . Verify you are in your tenant namespace `{openshift_username}-tenant` (check the namespace selector at the top of the page).
 
@@ -142,7 +142,7 @@ With both sides of the release gate confirmed, you now create a Release from the
 A Konflux Release always references a specific Snapshot — the immutable record of the set of images produced by a build pipeline run.
 You select the passing Snapshot from Module 3 and pair it with the ReleasePlan you just reviewed.
 
-. Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_blank] and navigate to your `my-sample-app` Application.
+. Switch to the *Konflux* tab and navigate to your `my-sample-app` Application.
 
 . Click the *Snapshots* tab.
 +
@@ -271,11 +271,11 @@ The image is in production.
 You now confirm three things: the digest in the production registry matches the build digest from Module 3 (no rebuild occurred), the cryptographic signature is valid on the production reference, and the SLSA provenance attestation traveled alongside the image.
 Then you walk the full supply chain to confirm every link is traceable from source commit to production.
 
-. Open link:{quay_url}[Red Hat Quay,window=_blank] and navigate to your production Quay organization.
+. Switch to the *Quay* tab and navigate to the `tsf` organization.
 +
-The production organization URL is visible in the release pipeline task logs and in the `spec.environment` field of the ReleasePlanAdmission you reviewed in Section 1.
+The production image is in the same `tsf` organization as your development images, in the same repository (`{openshift_username}-tenant/sample-component-golang-XXXXX`), but with the `production` tag instead of `on-push-<commit>`.
 
-. Locate the image repository and find the newly released image tag.
+. Locate your component repository (`{openshift_username}-tenant/sample-component-golang-XXXXX`) and find the newly released `production` tag.
 Confirm the push timestamp matches the time the release pipeline ran.
 
 . Click the image tag and note the digest shown in Quay.
@@ -294,8 +294,8 @@ cosign verify \
 +
 Expected output: `Verification for <image> -- Verified OK`
 +
-The certificate identity regexp and OIDC issuer are the same values used in Module 4 — the image was signed by the same Konflux builder regardless of which registry it lives in.
-Only the image reference changes: `$PROD_IMAGE` points to the production Quay organization, not the development one.
+The certificate identity regexp and OIDC issuer are the same values used in Module 4 — the image was signed by the same Konflux builder.
+The same image digest is now tagged `production` instead of `on-push-<commit>` — the bytes are identical, only the tag changed.
 +
 NOTE: If `cosign verify` returns a certificate error, confirm that `$PROD_IMAGE` contains the full digest reference (`@sha256:...`) and that the `{tas_oidc_issuer}` value matches the OIDC issuer shown in your lab instructions.
 
@@ -366,7 +366,7 @@ This confirms that starting from the production image digest alone, any authoriz
 
 |6
 |Release
-|Signed, attested image promoted to the production Quay organization with all supply chain metadata intact
+|Signed, attested image tagged `production` in the tsf Quay organization with all supply chain metadata intact
 |===
 
 === Verify

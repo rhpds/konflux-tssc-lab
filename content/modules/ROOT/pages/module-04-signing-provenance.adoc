@@ -241,7 +241,7 @@ Any gap in the sequence would be detectable by independent log monitors.
 This is a Unix timestamp for when the entry was added to the log.
 Confirm it is close to when your PipelineRun completed in Module 3.
 
-. Open the link:https://rekor-search-ui-tsf-tas.{openshift_apps_domain}[Rekor Search UI,window=_blank].
+. Switch to the *Rekor* tab.
 Select the *hash* attribute, enter the digest portion of `$IMAGE` (the `sha256:...` value, without the registry prefix), and search.
 +
 You will see multiple log entries — one for each signing event associated with this image: the SLSA provenance attestations and the SBOM attestation.

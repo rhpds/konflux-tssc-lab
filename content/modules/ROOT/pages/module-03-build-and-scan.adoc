@@ -22,7 +22,7 @@ You still have the open merge request from Module 2.
 In this section you will edit a file on the MR source branch, triggering a second `on-pull-request` build.
 After verifying that build, you will merge the MR to `main`, triggering a third build with the `on-push-` tag.
 
-. Open link:{gitlab_url}[GitLab,window=_blank] and navigate to *Merge Requests*.
+. Switch to the *GitLab* tab and navigate to *Merge Requests*.
 
 . Locate the open MR titled *Konflux update sample-component-golang-XXXX* and click it.
 
@@ -49,7 +49,7 @@ Verify the branch selector at the top shows `konflux-sample-component-golang-XXX
 * Target branch: (keep the MR branch selected)
 * Click *Commit*
 
-. Return to the link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux UI,window=_blank].
+. Switch to the *Konflux* tab.
 Navigate to *Applications → my-sample-app → Activity*.
 
 . Within 30–60 seconds, a NEW `on-pull-request` PipelineRun appears (your second MR build).

@@ -21,7 +21,7 @@ A Konflux Application is the top-level grouping for one or more related componen
 Think of it as the logical boundary around a service or product you own.
 You create the Application first, then add the Component that points at your source code.
 
-. Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_blank].
+. Click the *Konflux* tab.
 Log in with `{openshift_username}` / `{openshift_password}` if prompted.
 
 . In the left navigation, click *Namespaces*.
@@ -67,7 +67,7 @@ Merging that commit completes the Pipelines-as-Code wiring.
 Before adding the Component, you must give Konflux permission to open merge requests on your GitLab repository.
 This requires a GitLab Personal Access Token (PAT) stored as a Kubernetes secret in your tenant namespace.
 
-. Switch to your GitLab browser tab.
+. Switch to the *GitLab* tab.
 In the top-right corner, click your avatar and select *Preferences*.
 In the left sidebar, navigate to *Access → Personal access tokens*.
 +
@@ -178,8 +178,8 @@ image::module-02-component-2.png[Konflux Add component form showing the Dockerfi
 Konflux now opens a merge request against your GitLab repository that adds the `.tekton/` directory.
 This step may take 15–30 seconds.
 
-. Switch to your GitLab browser tab.
-Open link:{gitlab_url}/{gitlab_username}/sample-component-golang[your repository,window=_blank] and navigate to *Merge Requests*.
+. Switch to the *GitLab* tab.
+Navigate to your repository (`{gitlab_username}/sample-component-golang`) and click *Merge Requests*.
 
 . Locate the merge request opened by Konflux.
 The title reads *Konflux update sample-component-golang-XXXX*, where `XXXX` matches the generated suffix in your component name.

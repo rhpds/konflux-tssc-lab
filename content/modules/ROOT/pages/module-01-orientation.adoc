@@ -41,11 +41,12 @@ The following stages make up the supply chain you will build and observe through
 ....
 flowchart TD
     A("Source Commit") --> B("Build — Konflux/Tekton")
-    B --> C("SBOM — SPDX 2.3")
-    C --> D("Sign — Trusted Artifact Signer")
-    D --> E("Attest — SLSA Level 3")
-    E --> F("Policy Check — Conforma")
-    F --> G("Release — Production Quay")
+    B --> C("Snapshot Created")
+    C --> D("Integration Test<br/>Policy Check #1 — Conforma")
+    D --> E("Release Triggered<br/>(Manual)")
+    E --> F("Tenant Pipeline<br/>(User Checks)")
+    F --> G("Managed Pipeline<br/>Policy Check #2 — Conforma")
+    G --> H("Production Quay")
 ....
 
 [cols="20h,~", options="header"]
@@ -56,22 +57,25 @@ flowchart TD
 |You push code to GitLab. A merge request triggers Pipelines-as-Code.
 
 |Build
-|Konflux runs a Tekton pipeline that compiles the application and produces a container image.
+|Konflux runs a Tekton pipeline that produces four artifacts: the container image, an SBOM in SPDX 2.3 format, a cryptographic signature from Trusted Artifact Signer, and a SLSA Level 3 provenance attestation. All are pushed to Quay together.
 
-|SBOM generation
-|The pipeline automatically generates a Software Bill of Materials (SBOM) in SPDX 2.3 format, listing every dependency in the image.
+|Snapshot created
+|Konflux creates an immutable Snapshot object — a record of the exact set of images built, referenced by digest.
 
-|Sign
-|Red Hat Trusted Artifact Signer signs the image using a short-lived certificate. The signature is recorded in the Rekor transparency log.
+|Integration test / Policy check #1
+|Conforma automatically evaluates the Snapshot against the policy bundle. If any image fails any rule, the entire Snapshot is blocked. Only passing Snapshots become eligible for release.
 
-|Attest
-|Konflux generates a SLSA Level 3 provenance attestation — a machine-readable record of how, where, and from what source the image was built.
+|Release triggered
+|You manually select a passing Snapshot and create a Release. This is a deliberate, auditable action — releases do not happen automatically.
 
-|Policy check
-|Conforma evaluates the image against a policy bundle. Only images that pass all checks advance to the next stage.
+|Tenant pipeline
+|A user-defined validation pipeline runs first in your tenant namespace. This allows application teams to add custom checks before enterprise validation.
 
-|Release
-|A verified, signed image is promoted to your production Quay organization.
+|Managed pipeline / Policy check #2
+|The platform-controlled pipeline re-evaluates the Conforma policy (in case the policy changed since integration), then tags the verified image as production. The image digest is identical to what was built — no rebuild occurs.
+
+|Production Quay
+|The signed, attested, policy-verified image is now tagged `production` in the tsf Quay organization, ready for deployment.
 |===
 
 You will build, observe, and stress-test this pipeline across the next seven modules.
@@ -88,7 +92,7 @@ Your lab card (provided by the instructor or shown in the lab portal) lists the 
 Konflux is the build and release orchestration platform.
 It manages your application onboarding, pipeline runs, and the release pipeline that gates promotion to production.
 
-. Open link:https://konflux-ui-konflux-ui.{openshift_apps_domain}[Konflux,window=_blank] in a browser tab.
+. Click the *Konflux* tab in the lab interface.
 . Log in with username `{openshift_username}` and password `{openshift_password}`.
 . If prompted to authorize access, review the requested permissions and click *Allow selected permissions*.
 +
@@ -105,7 +109,7 @@ image::module-01-konflux-workspace.png[Konflux overview page after login,800]
 GitLab hosts the sample application repository.
 Merge requests to this repository trigger Pipelines-as-Code builds in Konflux.
 
-. Open link:{gitlab_url}[GitLab,window=_blank] in a new browser tab.
+. Click the *GitLab* tab in the lab interface.
 . Log in with username `{gitlab_username}` and password `{gitlab_password}`.
 . Navigate to *Projects → Personal* and locate the `{gitlab_username}/sample-component-golang` repository.
 +
@@ -119,25 +123,26 @@ NOTE: Your username appears in place of the one shown in the screenshot above.
 === 2.3 Red Hat Quay
 
 Red Hat Quay is the image registry for this lab.
-Your signed, policy-verified images will be promoted here in Module 6.
+All images — development builds and production releases — are stored in the shared `tsf` organization.
 
-. Open link:{quay_url}[Red Hat Quay,window=_blank] in a new browser tab.
+. Click the *Quay* tab in the lab interface.
 . Log in with username `{quay_user}` and password `{quay_password}`.
-. Confirm the Organizations page lists an organization named after your username (`{quay_user}`).
+. Confirm the Organizations page lists the `tsf` organization.
+. Click the `tsf` organization name to open it.
+. Confirm you see the *Create New Repository* button at the top right.
 +
-This is your pre-provisioned Quay organization — note the name, as you will reference it when configuring the release pipeline in Module 6.
+You have push access to this shared organization.
+All participants push to `tsf`, but images are namespaced by your tenant namespace name (`{openshift_username}-tenant`) to keep them isolated.
 
-.Red Hat Quay — Organizations page showing your pre-provisioned organization
-image::module-01-quay-org.png[Quay Organizations page listing the student personal organization alongside the shared tsf organization,800]
-
-NOTE: Your username appears in place of the one shown in the screenshot above. Look for the organization that matches `{quay_user}`.
+.Red Hat Quay — Organizations page showing the shared tsf organization
+image::module-01-quay-org.png[Quay Organizations page showing the tsf organization where all lab images are stored,800]
 
 === 2.4 Red Hat Trusted Artifact Signer
 
 Red Hat Trusted Artifact Signer provides the cryptographic signing infrastructure for this lab.
 Rekor is its transparency log: every signature event is recorded there in a tamper-evident, append-only structure.
 
-. Open link:https://rekor-search-ui-tsf-tas.{openshift_apps_domain}[Rekor Search UI,window=_blank] in a new browser tab.
+. Click the *Rekor* tab in the lab interface.
 . Confirm the search interface loads.
 +
 In Module 4, you will use this UI to look up the transparency log entry for your signed image by digest.
