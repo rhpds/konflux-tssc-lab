@@ -31,29 +31,25 @@ image::screenshot-placeholder.svg[Konflux Integrations tab for my-sample-app lis
 . Locate the `IntegrationTestScenario` listed for your Application.
 Note that it references an enterprise contract check as the integration pipeline that runs against every new Snapshot.
 
-. In the terminal, retrieve the `EnterpriseContractPolicy` object from your tenant namespace:
+. In the terminal, retrieve the lab's `EnterpriseContractPolicy` object:
 +
-[source,bash,role="execute",subs="attributes+"]
+[source,bash,role="execute"]
 ----
-oc get enterprisecontractpolicy -n {openshift_username}-tenant -o yaml
+oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service -o yaml
 ----
 
 . In the output, find `spec.sources`.
 This field lists the policy bundle — an OCI image reference or Git URL that contains the Rego rules Conforma applies to your artifact.
 
-. Extract the policy bundle reference and store it in a shell variable.
-Read the value from the `policy` field under `spec.sources[0]` in the YAML output, then set it:
+. Extract the policy bundle reference and store it in a shell variable:
 +
-[source,bash,role="execute",subs="attributes+"]
+[source,bash,role="execute"]
 ----
-export EC_POLICY=$(oc get enterprisecontractpolicy \
-  -n {openshift_username}-tenant \
-  -o jsonpath='{.items[0].spec.sources[0].policy[0]}')
+export EC_POLICY=$(oc get enterprisecontractpolicy lab-policy \
+  -n enterprise-contract-service \
+  -o jsonpath='{.spec.sources[0].policy[0]}')
 echo "Policy bundle: ${EC_POLICY}"
 ----
-+
-NOTE: The exact field path in the YAML may vary depending on the Conforma version installed in the lab.
-If `$EC_POLICY` is empty, read the raw YAML output from step 3 and copy the bundle reference from the `policy` or `data` field under `spec.sources` manually.
 
 . In the YAML output, identify the four categories of active rules:
 +
@@ -100,7 +96,7 @@ If `$IMAGE` does not include `@sha256:...`, run `oc get component sample-compone
 === Verify
 
 [%interactive]
-* [ ] `oc get enterprisecontractpolicy -n {openshift_username}-tenant` returns at least one policy object.
+* [ ] `oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service` returns the lab policy object.
 * [ ] `spec.sources` in the policy YAML lists at least one bundle reference.
 * [ ] `$EC_POLICY` is set and non-empty in your terminal session.
 * [ ] `ec validate image` against your Module 3 image returns an empty violations array.
