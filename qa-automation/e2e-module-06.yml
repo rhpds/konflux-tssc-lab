@@ -1,0 +1,468 @@
+---
+# =============================================================================
+# Konflux TSSC Lab — E2E Test: Module 6 (Release to Production)
+# =============================================================================
+#
+# Simulates student workflow for Module 6:
+# 1. Create ReleasePlanAdmission in managed namespace
+# 2. Create ReleasePlan in tenant namespace
+# 3. Trigger Release for latest passing Snapshot
+# 4. Wait for tenant pipeline to complete
+# 5. Wait for managed pipeline to complete
+# 6. Verify production image in Quay with production tag
+# 7. Verify signature on production image
+# 8. Verify attestations on production image
+# 9. Verify production digest matches merged MR digest (no rebuild)
+#
+# Depends on: Module 5 completed successfully (passing Snapshot exists)
+#
+# Usage:
+#   ansible-playbook qa-automation/e2e-module-06.yml \
+#     -e "ocp_api_url=https://api.cluster-xxx:6443" \
+#     -e "ocp_admin_password=xxx" \
+#     -e "tenant_user=user-abc12"
+# =============================================================================
+
+- name: "E2E Module 6: Release to Production"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # --- Inputs ---
+    _api_url: "{{ ocp_api_url | default(openshift_api_url) }}"
+    _tenant_user: "{{ tenant_user | default(user) }}"
+    _use_sa_token: "{{ ocp_admin_password is not defined }}"
+
+    # --- Constants ---
+    application_name: my-sample-app
+    component_name: sample-component-golang
+
+    # --- Failure tracking ---
+    e2e_failures: []
+
+  tasks:
+    # =========================================================================
+    # Auth setup
+    # =========================================================================
+
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ocp_api_url is defined or openshift_api_url is defined
+          - ocp_admin_password is defined or _use_sa_token | bool
+          - tenant_user is defined or user is defined
+        fail_msg: Missing required variables.
+
+    - name: Get runtime-automation SA token
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        namespace: "{{ _tenant_user }}-showroom"
+        name: runtime-automation-token
+      register: _ra_secret
+      when: _use_sa_token | bool
+
+    - name: Set k8s auth for runtime-automation SA
+      ansible.builtin.set_fact:
+        _k8s_host: "{{ _api_url }}"
+        _k8s_api_key: "{{ _ra_secret.resources[0].data.token | b64decode }}"
+        _k8s_validate_certs: false
+      when: _use_sa_token | bool
+      no_log: true
+
+    - name: Login to OpenShift with password (CLI mode)
+      ansible.builtin.command:
+        cmd: >-
+          oc login {{ _api_url }}
+          --username admin
+          --password {{ ocp_admin_password }}
+          --insecure-skip-tls-verify
+      changed_when: false
+      no_log: true
+      when: not (_use_sa_token | bool)
+
+    - name: Set k8s auth for CLI mode
+      ansible.builtin.set_fact:
+        _k8s_host: ""
+        _k8s_api_key: ""
+        _k8s_validate_certs: true
+      when: not (_use_sa_token | bool)
+
+    # =========================================================================
+    # Pre-conditions
+    # =========================================================================
+
+    - name: Get Component
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: appstudio.redhat.com/v1alpha1
+        kind: Component
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ component_name }}"
+      register: r_component
+
+    - name: Fail if Component missing
+      ansible.builtin.fail:
+        msg: "Component {{ component_name }} not found"
+      when: r_component.resources | length == 0
+
+    - name: Get passing Snapshots
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: appstudio.redhat.com/v1alpha1
+        kind: Snapshot
+        namespace: "{{ _tenant_user }}-tenant"
+        label_selectors:
+          - "appstudio.openshift.io/application={{ application_name }}"
+      register: r_snapshots
+
+    - name: Fail if no Snapshots found
+      ansible.builtin.fail:
+        msg: "No Snapshots found — Module 5 may not have completed"
+      when: r_snapshots.resources | length == 0
+
+    - name: Get latest Snapshot
+      ansible.builtin.set_fact:
+        _latest_snapshot: "{{ r_snapshots.resources | sort(attribute='metadata.creationTimestamp') | last }}"
+
+    - name: Extract merged MR build digest from Snapshot
+      ansible.builtin.set_fact:
+        _merged_digest: "{{ _latest_snapshot.spec.components[0].containerImage | regex_search('sha256:[a-f0-9]+') }}"
+      when:
+        - _latest_snapshot.spec.components is defined
+        - _latest_snapshot.spec.components | length > 0
+
+    # =========================================================================
+    # Step 1: Create ReleasePlanAdmission in managed namespace
+    # =========================================================================
+
+    - name: Create ReleasePlanAdmission
+      kubernetes.core.k8s:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        state: present
+        definition:
+          apiVersion: appstudio.redhat.com/v1alpha1
+          kind: ReleasePlanAdmission
+          metadata:
+            name: production-release
+            namespace: "{{ _tenant_user }}-managed"
+          spec:
+            applications:
+              - "{{ application_name }}"
+            origin: "{{ _tenant_user }}-tenant"
+            policy: release-policy
+            pipeline:
+              pipelineRef:
+                resolver: git
+                params:
+                  - name: url
+                    value: https://github.com/rhpds/konflux-tssc-lab.git
+                  - name: revision
+                    value: main
+                  - name: pathInRepo
+                    value: tekton/pipelines/managed-release.yaml
+      register: r_create_rpa
+      ignore_errors: true
+
+    - name: Record ReleasePlanAdmission creation failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Failed to create ReleasePlanAdmission'] }}
+      when: r_create_rpa is failed
+
+    # =========================================================================
+    # Step 2: Create ReleasePlan in tenant namespace
+    # =========================================================================
+
+    - name: Create ReleasePlan
+      kubernetes.core.k8s:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        state: present
+        definition:
+          apiVersion: appstudio.redhat.com/v1alpha1
+          kind: ReleasePlan
+          metadata:
+            name: production-release
+            namespace: "{{ _tenant_user }}-tenant"
+          spec:
+            application: "{{ application_name }}"
+            target: "{{ _tenant_user }}-managed"
+            pipeline:
+              pipelineRef:
+                resolver: git
+                params:
+                  - name: url
+                    value: https://github.com/rhpds/konflux-tssc-lab.git
+                  - name: revision
+                    value: main
+                  - name: pathInRepo
+                    value: tekton/pipelines/tenant-release.yaml
+      register: r_create_rp
+      ignore_errors: true
+
+    - name: Record ReleasePlan creation failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Failed to create ReleasePlan'] }}
+      when: r_create_rp is failed
+
+    # =========================================================================
+    # Step 3: Trigger Release for latest Snapshot
+    # =========================================================================
+
+    - name: Create Release
+      kubernetes.core.k8s:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        state: present
+        definition:
+          apiVersion: appstudio.redhat.com/v1alpha1
+          kind: Release
+          metadata:
+            generateName: production-release-
+            namespace: "{{ _tenant_user }}-tenant"
+          spec:
+            snapshot: "{{ _latest_snapshot.metadata.name }}"
+            releasePlan: production-release
+      register: r_create_release
+      ignore_errors: true
+
+    - name: Record Release creation failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Failed to create Release'] }}
+      when: r_create_release is failed
+
+    - name: Set Release name
+      ansible.builtin.set_fact:
+        _release_name: "{{ r_create_release.result.metadata.name }}"
+      when: r_create_release is not failed
+
+    # =========================================================================
+    # Step 4: Wait for Release to complete
+    # =========================================================================
+
+    - name: Wait for Release to reach Released condition
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: appstudio.redhat.com/v1alpha1
+        kind: Release
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ _release_name }}"
+      register: r_release_status
+      until:
+        - r_release_status.resources[0].status.conditions is defined
+        - r_release_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Released') | list | length > 0
+        - r_release_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Released') | selectattr('status', 'equalto', 'True') | list | length > 0
+      retries: 60
+      delay: 10
+      ignore_errors: true
+      when: _release_name is defined
+
+    - name: Record Release completion failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Release did not complete successfully'] }}
+      when:
+        - r_release_status is not skipped
+        - (r_release_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Released') | selectattr('status', 'equalto', 'True') | list | length == 0 or r_release_status is failed)
+
+    # =========================================================================
+    # Step 5: Verify production image exists in Quay
+    # =========================================================================
+
+    - name: Get image base path
+      ansible.builtin.set_fact:
+        _image_base: "{{ r_component.resources[0].spec.containerImage | regex_replace(':.*$', '') }}"
+
+    - name: Verify production tag exists
+      ansible.builtin.command:
+        cmd: skopeo inspect docker://{{ _image_base }}:production --tls-verify=false
+      register: r_prod_inspect
+      ignore_errors: true
+      changed_when: false
+
+    - name: Record production image missing
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Production image not found in Quay'] }}
+      when: r_prod_inspect is failed
+
+    - name: Extract production digest
+      ansible.builtin.set_fact:
+        _prod_digest: "{{ (r_prod_inspect.stdout | from_json).Digest }}"
+      when:
+        - r_prod_inspect is not failed
+        - r_prod_inspect.stdout | length > 0
+      ignore_errors: true
+
+    - name: Construct production image reference
+      ansible.builtin.set_fact:
+        _prod_image_ref: "{{ _image_base }}@{{ _prod_digest }}"
+      when: _prod_digest is defined
+
+    # =========================================================================
+    # Step 6: Verify production digest matches merged MR digest
+    # =========================================================================
+
+    - name: Compare production and merged MR digests
+      ansible.builtin.set_fact:
+        _digests_match: "{{ _prod_digest == _merged_digest }}"
+      when:
+        - _prod_digest is defined
+        - _merged_digest is defined
+
+    - name: Record digest mismatch
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Production digest does not match merged MR digest — rebuild occurred'] }}
+      when:
+        - _digests_match is not defined or not (_digests_match | bool)
+
+    # =========================================================================
+    # Step 7: Verify signature on production image
+    # =========================================================================
+
+    - name: Get TAS OIDC issuer
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: v1
+        kind: ConfigMap
+        namespace: tsf-keycloak
+        name: public-info
+      register: r_tas_config
+      ignore_errors: true
+
+    - name: Set TAS OIDC issuer
+      ansible.builtin.set_fact:
+        _tas_oidc_issuer: "{{ r_tas_config.resources[0].data.OIDC_ISSUER_URL | default('https://kubernetes.default.svc') }}"
+      when:
+        - r_tas_config is not failed
+        - r_tas_config.resources | length > 0
+
+    - name: Get component image-pull secret
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: v1
+        kind: Secret
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ component_name }}-image-pull"
+      register: r_image_pull_secret
+      ignore_errors: true
+
+    - name: Write Docker config for cosign
+      ansible.builtin.copy:
+        content: "{{ r_image_pull_secret.resources[0].data['.dockerconfigjson'] | b64decode }}"
+        dest: /tmp/.docker-config-{{ _tenant_user }}.json
+        mode: '0600'
+      when:
+        - r_image_pull_secret is not failed
+        - r_image_pull_secret.resources | length > 0
+      no_log: true
+
+    - name: Verify production image signature
+      ansible.builtin.command:
+        cmd: >-
+          cosign verify
+          --certificate-identity-regexp 'https://konflux.*'
+          --certificate-oidc-issuer {{ _tas_oidc_issuer }}
+          {{ _prod_image_ref }}
+      environment:
+        DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
+        COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
+      register: r_prod_verify
+      ignore_errors: true
+      when: _prod_image_ref is defined
+      changed_when: false
+
+    - name: Record production signature verification failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Production image signature verification failed'] }}
+      when:
+        - r_prod_verify is not skipped
+        - r_prod_verify is failed
+
+    # =========================================================================
+    # Step 8: Verify attestations on production image
+    # =========================================================================
+
+    - name: Download production image attestations
+      ansible.builtin.command:
+        cmd: cosign download attestation {{ _prod_image_ref }}
+      environment:
+        DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
+        COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
+      register: r_prod_attestations
+      ignore_errors: true
+      when: _prod_image_ref is defined
+      changed_when: false
+
+    - name: Count production attestations
+      ansible.builtin.set_fact:
+        _prod_attestation_count: "{{ r_prod_attestations.stdout_lines | length }}"
+      when:
+        - r_prod_attestations is not failed
+        - r_prod_attestations.stdout_lines is defined
+
+    - name: Record attestation verification failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['No attestations found on production image'] }}
+      when:
+        - r_prod_attestations is not skipped
+        - (_prod_attestation_count is not defined or _prod_attestation_count | int == 0)
+
+    # =========================================================================
+    # Cleanup
+    # =========================================================================
+
+    - name: Remove temporary Docker config
+      ansible.builtin.file:
+        path: /tmp/.docker-config-{{ _tenant_user }}.json
+        state: absent
+
+    # =========================================================================
+    # Summary
+    # =========================================================================
+
+    - name: "E2E Module 6 — Summary"
+      ansible.builtin.debug:
+        msg: |
+          Module 6 E2E Test Results:
+          - ReleasePlanAdmission created: {{ 'Yes' if r_create_rpa is not failed else 'No' }}
+          - ReleasePlan created: {{ 'Yes' if r_create_rp is not failed else 'No' }}
+          - Release created: {{ 'Yes' if r_create_release is not failed else 'No' }}
+          - Release completed: {{ 'Yes' if r_release_status is not skipped and (r_release_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Released') | selectattr('status', 'equalto', 'True') | list | length > 0) else 'No' }}
+          - Production image exists: {{ 'Yes' if r_prod_inspect is not failed else 'No' }}
+          - Production digest: {{ _prod_digest | default('N/A') }}
+          - Merged MR digest: {{ _merged_digest | default('N/A') }}
+          - Digests match (no rebuild): {{ 'Yes' if _digests_match is defined and (_digests_match | bool) else 'No' }}
+          - Production signature verified: {{ 'Yes' if r_prod_verify is not skipped and not (r_prod_verify is failed) else 'No' }}
+          - Production attestations count: {{ _prod_attestation_count | default('N/A') }}
+          - Failures: {{ e2e_failures | length }}
+
+    - name: Fail if any e2e checks failed
+      ansible.builtin.fail:
+        msg: |
+          Module 6 E2E test failed with {{ e2e_failures | length }} issue(s):
+          {% for f in e2e_failures %}
+            - {{ f }}
+          {% endfor %}
+      when: e2e_failures | length > 0

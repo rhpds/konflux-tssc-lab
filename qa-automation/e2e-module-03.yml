@@ -1,0 +1,502 @@
+---
+# =============================================================================
+# Konflux TSSC Lab — E2E Test: Module 3 (Build and Scan)
+# =============================================================================
+#
+# Simulates student workflow for Module 3:
+# 1. Push commit to MR branch (edit README.md)
+# 2. Wait for on-pull-request PipelineRun
+# 3. Merge MR via GitLab API
+# 4. Wait for on-push PipelineRun (main branch build)
+# 5. Extract IMAGE_DIGEST from build-container task
+# 6. Verify SBOM via cosign
+# 7. Verify artifacts in Quay
+#
+# Depends on: Module 2 completed successfully
+#
+# Usage:
+#   ansible-playbook qa-automation/e2e-module-03.yml \
+#     -e "ocp_api_url=https://api.cluster-xxx:6443" \
+#     -e "ocp_admin_password=xxx" \
+#     -e "tenant_user=user-abc12"
+# =============================================================================
+
+- name: "E2E Module 3: Build and Scan"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # --- Inputs ---
+    _api_url: "{{ ocp_api_url | default(openshift_api_url) }}"
+    _tenant_user: "{{ tenant_user | default(user) }}"
+    _use_sa_token: "{{ ocp_admin_password is not defined }}"
+
+    # --- Constants ---
+    application_name: my-sample-app
+    component_name: sample-component-golang
+    gitlab_repo_name: sample-component-golang
+
+    # --- Failure tracking ---
+    e2e_failures: []
+
+  tasks:
+    # =========================================================================
+    # Auth setup
+    # =========================================================================
+
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ocp_api_url is defined or openshift_api_url is defined
+          - ocp_admin_password is defined or _use_sa_token | bool
+          - tenant_user is defined or user is defined
+        fail_msg: >-
+          Missing required variables.
+
+    - name: Get runtime-automation SA token
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        namespace: "{{ _tenant_user }}-showroom"
+        name: runtime-automation-token
+      register: _ra_secret
+      when: _use_sa_token | bool
+
+    - name: Set k8s auth for runtime-automation SA
+      ansible.builtin.set_fact:
+        _k8s_host: "{{ _api_url }}"
+        _k8s_api_key: "{{ _ra_secret.resources[0].data.token | b64decode }}"
+        _k8s_validate_certs: false
+      when: _use_sa_token | bool
+      no_log: true
+
+    - name: Login to OpenShift with password (CLI mode)
+      ansible.builtin.command:
+        cmd: >-
+          oc login {{ _api_url }}
+          --username admin
+          --password {{ ocp_admin_password }}
+          --insecure-skip-tls-verify
+      changed_when: false
+      no_log: true
+      when: not (_use_sa_token | bool)
+
+    - name: Set k8s auth for CLI mode
+      ansible.builtin.set_fact:
+        _k8s_host: ""
+        _k8s_api_key: ""
+        _k8s_validate_certs: true
+      when: not (_use_sa_token | bool)
+
+    # =========================================================================
+    # Pre-conditions
+    # =========================================================================
+
+    - name: Verify Component exists from Module 2
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: appstudio.redhat.com/v1alpha1
+        kind: Component
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ component_name }}"
+      register: r_component
+
+    - name: Fail if Component missing
+      ansible.builtin.fail:
+        msg: "Component {{ component_name }} not found — Module 2 may not have completed"
+      when: r_component.resources | length == 0
+
+    - name: Get GitLab route
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: route.openshift.io/v1
+        kind: Route
+        namespace: gitlab
+        name: gitlab
+      register: r_gitlab_route
+
+    - name: Set GitLab URL
+      ansible.builtin.set_fact:
+        _gitlab_url: "https://{{ r_gitlab_route.resources[0].spec.host }}"
+      when: r_gitlab_route.resources | length > 0
+
+    - name: Get GitLab root token
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: v1
+        kind: Secret
+        namespace: gitlab
+        name: root-user-personal-token
+      register: r_gitlab_token_secret
+
+    - name: Set GitLab root token
+      ansible.builtin.set_fact:
+        _gitlab_root_token: "{{ r_gitlab_token_secret.resources[0].data.token | b64decode }}"
+      when: r_gitlab_token_secret.resources | default([]) | length > 0
+      no_log: true
+
+    - name: Get GitLab project ID
+      ansible.builtin.uri:
+        url: "{{ _gitlab_url }}/api/v4/projects/{{ _tenant_user }}%2F{{ gitlab_repo_name }}"
+        method: GET
+        headers:
+          PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
+        validate_certs: false
+      register: r_gitlab_project
+
+    - name: Set GitLab project ID
+      ansible.builtin.set_fact:
+        _gitlab_project_id: "{{ r_gitlab_project.json.id }}"
+
+    # =========================================================================
+    # Step 1: Get open MR created by Konflux in Module 2
+    # =========================================================================
+
+    - name: Get open MRs
+      ansible.builtin.uri:
+        url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/merge_requests?state=opened"
+        method: GET
+        headers:
+          PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
+        validate_certs: false
+      register: r_open_mrs
+
+    - name: Find Konflux MR
+      ansible.builtin.set_fact:
+        _konflux_mr: "{{ r_open_mrs.json | selectattr('title', 'match', '^Konflux.*') | first }}"
+      when: r_open_mrs.json | length > 0
+
+    - name: Fail if no Konflux MR found
+      ansible.builtin.fail:
+        msg: "No open Konflux MR found — Module 2 may not have completed"
+      when: _konflux_mr is not defined
+
+    - name: Set MR details
+      ansible.builtin.set_fact:
+        _mr_iid: "{{ _konflux_mr.iid }}"
+        _mr_source_branch: "{{ _konflux_mr.source_branch }}"
+
+    # =========================================================================
+    # Step 2: Push commit to MR branch
+    # =========================================================================
+
+    - name: Push commit to MR branch
+      ansible.builtin.uri:
+        url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/repository/commits"
+        method: POST
+        headers:
+          PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
+        body_format: json
+        body:
+          branch: "{{ _mr_source_branch }}"
+          commit_message: "chore: trigger module-03 build"
+          actions:
+            - action: update
+              file_path: README.md
+              content: |
+                # sample-component-golang
+
+                Sample Go application for Konflux TSSC Lab.
+
+                # Lab update - module 03
+        validate_certs: false
+        status_code: [201]
+      register: r_push_commit
+      ignore_errors: true
+
+    - name: Record commit push failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Failed to push commit to MR branch'] }}
+      when: r_push_commit is failed
+
+    # =========================================================================
+    # Step 3: Wait for on-pull-request PipelineRun
+    # =========================================================================
+
+    - name: Wait for on-pull-request PipelineRun to appear
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        label_selectors:
+          - "appstudio.openshift.io/component={{ component_name }}"
+          - "pipelinesascode.tekton.dev/event-type=pull_request"
+      register: r_pr_pipelineruns
+      until: r_pr_pipelineruns.resources | length >= 2
+      retries: 30
+      delay: 10
+      ignore_errors: true
+
+    - name: Get latest on-pull-request PipelineRun
+      ansible.builtin.set_fact:
+        _pr_pipelinerun: "{{ r_pr_pipelineruns.resources | sort(attribute='metadata.creationTimestamp') | last }}"
+      when: r_pr_pipelineruns.resources | length >= 2
+
+    - name: Record on-pull-request PipelineRun creation failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['on-pull-request PipelineRun not created after commit'] }}
+      when: r_pr_pipelineruns.resources | length < 2
+
+    - name: Wait for on-pull-request PipelineRun to complete
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ _pr_pipelinerun.metadata.name }}"
+      register: r_pr_status
+      until:
+        - r_pr_status.resources[0].status.conditions is defined
+        - r_pr_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
+        - r_pr_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
+      retries: 90
+      delay: 20
+      ignore_errors: true
+      when: _pr_pipelinerun is defined
+
+    - name: Record on-pull-request PipelineRun failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['on-pull-request PipelineRun did not succeed'] }}
+      when:
+        - r_pr_status is not skipped
+        - (r_pr_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length == 0 or r_pr_status is failed)
+
+    # =========================================================================
+    # Step 4: Merge MR
+    # =========================================================================
+
+    - name: Merge MR
+      ansible.builtin.uri:
+        url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/merge_requests/{{ _mr_iid }}/merge"
+        method: PUT
+        headers:
+          PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
+        body_format: json
+        body:
+          should_remove_source_branch: false
+        validate_certs: false
+        status_code: [200]
+      register: r_merge_mr
+      ignore_errors: true
+
+    - name: Record MR merge failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Failed to merge MR'] }}
+      when: r_merge_mr is failed
+
+    # =========================================================================
+    # Step 5: Wait for on-push PipelineRun (merged MR build)
+    # =========================================================================
+
+    - name: Wait for on-push PipelineRun to appear
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        label_selectors:
+          - "appstudio.openshift.io/component={{ component_name }}"
+          - "pipelinesascode.tekton.dev/event-type=push"
+      register: r_push_pipelineruns
+      until: r_push_pipelineruns.resources | length > 0
+      retries: 30
+      delay: 10
+      ignore_errors: true
+
+    - name: Get latest on-push PipelineRun
+      ansible.builtin.set_fact:
+        _push_pipelinerun: "{{ r_push_pipelineruns.resources | sort(attribute='metadata.creationTimestamp') | last }}"
+      when: r_push_pipelineruns.resources | length > 0
+
+    - name: Record on-push PipelineRun creation failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['on-push PipelineRun not created after MR merge'] }}
+      when: r_push_pipelineruns.resources | length == 0
+
+    - name: Wait for on-push PipelineRun to complete
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ _push_pipelinerun.metadata.name }}"
+      register: r_push_status
+      until:
+        - r_push_status.resources[0].status.conditions is defined
+        - r_push_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
+        - r_push_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
+      retries: 90
+      delay: 20
+      ignore_errors: true
+      when: _push_pipelinerun is defined
+
+    - name: Record on-push PipelineRun failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['on-push PipelineRun did not succeed'] }}
+      when:
+        - r_push_status is not skipped
+        - (r_push_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length == 0 or r_push_status is failed)
+
+    # =========================================================================
+    # Step 6: Extract IMAGE_DIGEST from build-container task
+    # =========================================================================
+
+    - name: Extract IMAGE_DIGEST from PipelineRun
+      ansible.builtin.set_fact:
+        _image_digest: "{{ r_push_status.resources[0].status.pipelineResults | selectattr('name', 'equalto', 'IMAGE_DIGEST') | map(attribute='value') | first }}"
+      when:
+        - r_push_status is not skipped
+        - r_push_status.resources[0].status.pipelineResults is defined
+      ignore_errors: true
+
+    - name: Record IMAGE_DIGEST extraction failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Failed to extract IMAGE_DIGEST from on-push PipelineRun'] }}
+      when: _image_digest is not defined
+
+    - name: Get component image base
+      ansible.builtin.set_fact:
+        _image_base: "{{ r_component.resources[0].spec.containerImage | regex_replace(':.*$', '') }}"
+      when: r_component.resources | length > 0
+
+    - name: Construct full image reference
+      ansible.builtin.set_fact:
+        _image_ref: "{{ _image_base }}@{{ _image_digest }}"
+      when:
+        - _image_base is defined
+        - _image_digest is defined
+
+    # =========================================================================
+    # Step 7: Verify SBOM via cosign
+    # =========================================================================
+
+    - name: Get component image-pull secret
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: v1
+        kind: Secret
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ component_name }}-image-pull"
+      register: r_image_pull_secret
+      ignore_errors: true
+
+    - name: Write Docker config for cosign
+      ansible.builtin.copy:
+        content: "{{ r_image_pull_secret.resources[0].data['.dockerconfigjson'] | b64decode }}"
+        dest: /tmp/.docker-config-{{ _tenant_user }}.json
+        mode: '0600'
+      when:
+        - r_image_pull_secret is not failed
+        - r_image_pull_secret.resources | length > 0
+      no_log: true
+
+    - name: Download SBOM via cosign
+      ansible.builtin.command:
+        cmd: >-
+          cosign download sbom {{ _image_ref }}
+          --allow-insecure-registry
+      environment:
+        DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
+        COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
+      register: r_cosign_sbom
+      ignore_errors: true
+      when: _image_ref is defined
+      changed_when: false
+
+    - name: Verify SBOM has packages
+      ansible.builtin.set_fact:
+        _sbom_package_count: "{{ (r_cosign_sbom.stdout | from_json).packages | length }}"
+      when:
+        - r_cosign_sbom is not failed
+        - r_cosign_sbom.stdout | length > 0
+      ignore_errors: true
+
+    - name: Record SBOM verification failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Failed to download or parse SBOM'] }}
+      when:
+        - r_cosign_sbom is failed or _sbom_package_count is not defined
+
+    # =========================================================================
+    # Step 8: Verify image in Quay
+    # =========================================================================
+
+    - name: Verify merged MR build image in Quay
+      ansible.builtin.command:
+        cmd: skopeo inspect docker://{{ _image_ref }} --tls-verify=false
+      register: r_skopeo_merged
+      ignore_errors: true
+      when: _image_ref is defined
+      changed_when: false
+
+    - name: Record Quay image verification failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Merged MR build image not found in Quay'] }}
+      when:
+        - r_skopeo_merged is not skipped
+        - r_skopeo_merged is failed
+
+    # =========================================================================
+    # Cleanup
+    # =========================================================================
+
+    - name: Remove temporary Docker config
+      ansible.builtin.file:
+        path: /tmp/.docker-config-{{ _tenant_user }}.json
+        state: absent
+
+    # =========================================================================
+    # Summary
+    # =========================================================================
+
+    - name: "E2E Module 3 — Summary"
+      ansible.builtin.debug:
+        msg: |
+          Module 3 E2E Test Results:
+          - Commit pushed to MR: {{ 'Yes' if r_push_commit is not failed else 'No' }}
+          - on-pull-request PipelineRun: {{ 'Yes' if _pr_pipelinerun is defined else 'No' }}
+          - on-pull-request succeeded: {{ 'Yes' if r_pr_status is not skipped and (r_pr_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0) else 'No' }}
+          - MR merged: {{ 'Yes' if r_merge_mr is not failed else 'No' }}
+          - on-push PipelineRun: {{ 'Yes' if _push_pipelinerun is defined else 'No' }}
+          - on-push succeeded: {{ 'Yes' if r_push_status is not skipped and (r_push_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0) else 'No' }}
+          - IMAGE_DIGEST extracted: {{ 'Yes' if _image_digest is defined else 'No' }}
+          - SBOM downloaded: {{ 'Yes' if _sbom_package_count is defined else 'No' }}
+          - SBOM package count: {{ _sbom_package_count | default('N/A') }}
+          - Image in Quay: {{ 'Yes' if r_skopeo_merged is not skipped and not (r_skopeo_merged is failed) else 'No' }}
+          - Failures: {{ e2e_failures | length }}
+
+    - name: Fail if any e2e checks failed
+      ansible.builtin.fail:
+        msg: |
+          Module 3 E2E test failed with {{ e2e_failures | length }} issue(s):
+          {% for f in e2e_failures %}
+            - {{ f }}
+          {% endfor %}
+      when: e2e_failures | length > 0

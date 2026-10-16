@@ -3,9 +3,15 @@
 # Konflux TSSC Lab — E2E Smoke Tests (Orchestrator)
 # =============================================================================
 #
-# Thin orchestrator that includes per-module e2e playbooks.
-# Add new modules by creating qa-automation/e2e-module-XX.yml
-# and adding an include below.
+# Runs end-to-end tests for Modules 2-6 in sequence.
+# Module 7 (Real-World Incident Response) is intentionally manual.
+#
+# Each module playbook simulates the student workflow and validates outcomes:
+# - Module 2: Onboard application, create component, verify first PipelineRun
+# - Module 3: Push commit, merge MR, verify merged build and SBOM
+# - Module 4: Verify image signature, SLSA provenance, Rekor log entry
+# - Module 5: Validate with Enterprise Contract policy, check Snapshot status
+# - Module 6: Create release, verify production image, validate supply chain
 #
 # Usage:
 #   ansible-playbook qa-automation/e2e.yml \
@@ -35,7 +41,3 @@
 # --- Module 7: Real-World Incident Response ---
 # Module 7 is intentionally manual (break → diagnose → fix workflow).
 # No automated e2e — students explore failure modes hands-on.
-
-# --- Pending modules — uncomment when e2e tests are implemented ---
-# - name: "E2E — Module 2: Onboard Your Application"
-#   ansible.builtin.import_playbook: e2e-module-02.yml

@@ -1,0 +1,396 @@
+---
+# =============================================================================
+# Konflux TSSC Lab — E2E Test: Module 5 (Integration Testing and Policy)
+# =============================================================================
+#
+# Simulates student workflow for Module 5:
+# 1. Retrieve EnterpriseContractPolicy
+# 2. Run `ec validate image` against the merged MR build
+# 3. Verify Snapshot was created
+# 4. Verify IntegrationTestScenario ran
+# 5. Verify Snapshot has passing status (AppStudioIntegrationStatus)
+# 6. Test policy failure with unsigned image
+#
+# Depends on: Module 3 completed successfully (merged MR build exists)
+#
+# Usage:
+#   ansible-playbook qa-automation/e2e-module-05.yml \
+#     -e "ocp_api_url=https://api.cluster-xxx:6443" \
+#     -e "ocp_admin_password=xxx" \
+#     -e "tenant_user=user-abc12"
+# =============================================================================
+
+- name: "E2E Module 5: Integration Testing and Policy"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # --- Inputs ---
+    _api_url: "{{ ocp_api_url | default(openshift_api_url) }}"
+    _tenant_user: "{{ tenant_user | default(user) }}"
+    _use_sa_token: "{{ ocp_admin_password is not defined }}"
+
+    # --- Constants ---
+    application_name: my-sample-app
+    component_name: sample-component-golang
+
+    # --- Failure tracking ---
+    e2e_failures: []
+
+  tasks:
+    # =========================================================================
+    # Auth setup
+    # =========================================================================
+
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ocp_api_url is defined or openshift_api_url is defined
+          - ocp_admin_password is defined or _use_sa_token | bool
+          - tenant_user is defined or user is defined
+        fail_msg: Missing required variables.
+
+    - name: Get runtime-automation SA token
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        namespace: "{{ _tenant_user }}-showroom"
+        name: runtime-automation-token
+      register: _ra_secret
+      when: _use_sa_token | bool
+
+    - name: Set k8s auth for runtime-automation SA
+      ansible.builtin.set_fact:
+        _k8s_host: "{{ _api_url }}"
+        _k8s_api_key: "{{ _ra_secret.resources[0].data.token | b64decode }}"
+        _k8s_validate_certs: false
+      when: _use_sa_token | bool
+      no_log: true
+
+    - name: Login to OpenShift with password (CLI mode)
+      ansible.builtin.command:
+        cmd: >-
+          oc login {{ _api_url }}
+          --username admin
+          --password {{ ocp_admin_password }}
+          --insecure-skip-tls-verify
+      changed_when: false
+      no_log: true
+      when: not (_use_sa_token | bool)
+
+    - name: Set k8s auth for CLI mode
+      ansible.builtin.set_fact:
+        _k8s_host: ""
+        _k8s_api_key: ""
+        _k8s_validate_certs: true
+      when: not (_use_sa_token | bool)
+
+    # =========================================================================
+    # Pre-conditions
+    # =========================================================================
+
+    - name: Get Component
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: appstudio.redhat.com/v1alpha1
+        kind: Component
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ component_name }}"
+      register: r_component
+
+    - name: Fail if Component missing
+      ansible.builtin.fail:
+        msg: "Component {{ component_name }} not found"
+      when: r_component.resources | length == 0
+
+    - name: Get component containerImage
+      ansible.builtin.set_fact:
+        _component_image: "{{ r_component.resources[0].spec.containerImage }}"
+
+    # =========================================================================
+    # Step 1: Get EnterpriseContractPolicy
+    # =========================================================================
+
+    - name: Get EnterpriseContractPolicy
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: appstudio.redhat.com/v1alpha1
+        kind: EnterpriseContractPolicy
+        namespace: enterprise-contract-service
+        name: lab-policy
+      register: r_ec_policy
+
+    - name: Fail if EC policy not found
+      ansible.builtin.fail:
+        msg: "EnterpriseContractPolicy lab-policy not found in enterprise-contract-service namespace"
+      when: r_ec_policy.resources | length == 0
+
+    - name: Extract policy bundle reference
+      ansible.builtin.set_fact:
+        _ec_policy_bundle: "{{ r_ec_policy.resources[0].spec.sources[0].policy[0] }}"
+      when: r_ec_policy.resources[0].spec.sources is defined
+
+    - name: Record EC policy extraction failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Failed to extract policy bundle from EnterpriseContractPolicy'] }}
+      when: _ec_policy_bundle is not defined
+
+    # =========================================================================
+    # Step 2: Validate image with ec CLI
+    # =========================================================================
+
+    - name: Get TAS OIDC issuer from configmap
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: v1
+        kind: ConfigMap
+        namespace: tsf-keycloak
+        name: public-info
+      register: r_tas_config
+      ignore_errors: true
+
+    - name: Set TAS OIDC issuer
+      ansible.builtin.set_fact:
+        _tas_oidc_issuer: "{{ r_tas_config.resources[0].data.OIDC_ISSUER_URL }}"
+      when:
+        - r_tas_config is not failed
+        - r_tas_config.resources | length > 0
+        - r_tas_config.resources[0].data.OIDC_ISSUER_URL is defined
+
+    - name: Set TAS OIDC issuer (fallback)
+      ansible.builtin.set_fact:
+        _tas_oidc_issuer: "https://kubernetes.default.svc"
+      when: _tas_oidc_issuer is not defined
+
+    - name: Get component image-pull secret
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: v1
+        kind: Secret
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ component_name }}-image-pull"
+      register: r_image_pull_secret
+      ignore_errors: true
+
+    - name: Write Docker config for ec
+      ansible.builtin.copy:
+        content: "{{ r_image_pull_secret.resources[0].data['.dockerconfigjson'] | b64decode }}"
+        dest: /tmp/.docker-config-{{ _tenant_user }}.json
+        mode: '0600'
+      when:
+        - r_image_pull_secret is not failed
+        - r_image_pull_secret.resources | length > 0
+      no_log: true
+
+    - name: Run ec validate image
+      ansible.builtin.command:
+        cmd: >-
+          ec validate image
+          --image {{ _component_image }}
+          --policy {{ _ec_policy_bundle }}
+          --output json
+      environment:
+        DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
+        COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
+      register: r_ec_validate
+      ignore_errors: true
+      changed_when: false
+
+    - name: Parse ec validation result
+      ansible.builtin.set_fact:
+        _ec_result: "{{ r_ec_validate.stdout | from_json }}"
+      when:
+        - r_ec_validate is not failed
+        - r_ec_validate.stdout | length > 0
+      ignore_errors: true
+
+    - name: Check for violations
+      ansible.builtin.set_fact:
+        _ec_violations: "{{ _ec_result.components[0].violations | default([]) }}"
+      when: _ec_result is defined
+      ignore_errors: true
+
+    - name: Record EC validation failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['EC validation failed or returned violations'] }}
+      when:
+        - r_ec_validate is failed or (_ec_violations is defined and _ec_violations | length > 0)
+
+    # =========================================================================
+    # Step 3: Verify Snapshot exists
+    # =========================================================================
+
+    - name: Get Snapshots for application
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: appstudio.redhat.com/v1alpha1
+        kind: Snapshot
+        namespace: "{{ _tenant_user }}-tenant"
+        label_selectors:
+          - "appstudio.openshift.io/application={{ application_name }}"
+      register: r_snapshots
+
+    - name: Record if no Snapshots found
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['No Snapshots found for application ' + application_name] }}
+      when: r_snapshots.resources | length == 0
+
+    - name: Get latest Snapshot
+      ansible.builtin.set_fact:
+        _latest_snapshot: "{{ r_snapshots.resources | sort(attribute='metadata.creationTimestamp') | last }}"
+      when: r_snapshots.resources | length > 0
+
+    # =========================================================================
+    # Step 4: Verify IntegrationTestScenario exists
+    # =========================================================================
+
+    - name: Get IntegrationTestScenarios
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: appstudio.redhat.com/v1beta2
+        kind: IntegrationTestScenario
+        namespace: "{{ _tenant_user }}-tenant"
+      register: r_its
+
+    - name: Record if no IntegrationTestScenario found
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['No IntegrationTestScenario found in tenant namespace'] }}
+      when: r_its.resources | length == 0
+
+    # =========================================================================
+    # Step 5: Verify Snapshot has passing status
+    # =========================================================================
+
+    - name: Check Snapshot conditions
+      ansible.builtin.set_fact:
+        _snapshot_conditions: "{{ _latest_snapshot.status.conditions | default([]) }}"
+      when: _latest_snapshot is defined
+
+    - name: Find AppStudioIntegrationStatus condition
+      ansible.builtin.set_fact:
+        _integration_condition: "{{ _snapshot_conditions | selectattr('type', 'equalto', 'AppStudioIntegrationStatus') | first }}"
+      when:
+        - _snapshot_conditions is defined
+        - _snapshot_conditions | selectattr('type', 'equalto', 'AppStudioIntegrationStatus') | list | length > 0
+      ignore_errors: true
+
+    - name: Check if integration passed
+      ansible.builtin.set_fact:
+        _integration_passed: "{{ _integration_condition.status == 'True' }}"
+      when: _integration_condition is defined
+
+    - name: Record Snapshot integration failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Snapshot does not have passing AppStudioIntegrationStatus'] }}
+      when:
+        - _integration_passed is not defined or not (_integration_passed | bool)
+
+    # =========================================================================
+    # Step 6: Test policy failure with unsigned image
+    # =========================================================================
+
+    - name: Get Quay route
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: route.openshift.io/v1
+        kind: Route
+        namespace: quay-enterprise
+        name: quay-quay
+      register: r_quay_route
+
+    - name: Set unsigned image reference
+      ansible.builtin.set_fact:
+        _unsigned_image: "{{ r_quay_route.resources[0].spec.host }}/lab-examples/unsigned-sample:latest"
+      when: r_quay_route.resources | length > 0
+
+    - name: Validate unsigned image (expect failure)
+      ansible.builtin.command:
+        cmd: >-
+          ec validate image
+          --image {{ _unsigned_image }}
+          --policy {{ _ec_policy_bundle }}
+          --output json
+      environment:
+        COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
+      register: r_ec_unsigned
+      ignore_errors: true
+      changed_when: false
+      when: _unsigned_image is defined
+
+    - name: Parse unsigned image validation result
+      ansible.builtin.set_fact:
+        _ec_unsigned_result: "{{ r_ec_unsigned.stdout | from_json }}"
+      when:
+        - r_ec_unsigned is not skipped
+        - r_ec_unsigned.stdout | length > 0
+      ignore_errors: true
+
+    - name: Check unsigned image success field
+      ansible.builtin.set_fact:
+        _unsigned_success: "{{ _ec_unsigned_result.success }}"
+      when: _ec_unsigned_result is defined
+      ignore_errors: true
+
+    - name: Record if unsigned image incorrectly passed
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Unsigned image validation incorrectly returned success=true'] }}
+      when:
+        - _unsigned_success is defined
+        - _unsigned_success | bool
+
+    # =========================================================================
+    # Cleanup
+    # =========================================================================
+
+    - name: Remove temporary Docker config
+      ansible.builtin.file:
+        path: /tmp/.docker-config-{{ _tenant_user }}.json
+        state: absent
+
+    # =========================================================================
+    # Summary
+    # =========================================================================
+
+    - name: "E2E Module 5 — Summary"
+      ansible.builtin.debug:
+        msg: |
+          Module 5 E2E Test Results:
+          - EC Policy retrieved: {{ 'Yes' if _ec_policy_bundle is defined else 'No' }}
+          - Policy bundle: {{ _ec_policy_bundle | default('N/A') }}
+          - EC validation passed: {{ 'Yes' if r_ec_validate is not failed and (_ec_violations | default([]) | length == 0) else 'No' }}
+          - Violations count: {{ _ec_violations | default([]) | length }}
+          - Snapshots found: {{ r_snapshots.resources | length if r_snapshots.resources is defined else 0 }}
+          - IntegrationTestScenarios found: {{ r_its.resources | length if r_its.resources is defined else 0 }}
+          - Snapshot integration passed: {{ 'Yes' if _integration_passed is defined and (_integration_passed | bool) else 'No' }}
+          - Unsigned image validation failed (expected): {{ 'Yes' if _unsigned_success is not defined or not (_unsigned_success | bool) else 'No' }}
+          - Failures: {{ e2e_failures | length }}
+
+    - name: Fail if any e2e checks failed
+      ansible.builtin.fail:
+        msg: |
+          Module 5 E2E test failed with {{ e2e_failures | length }} issue(s):
+          {% for f in e2e_failures %}
+            - {{ f }}
+          {% endfor %}
+      when: e2e_failures | length > 0

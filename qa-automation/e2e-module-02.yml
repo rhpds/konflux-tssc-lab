@@ -1,0 +1,521 @@
+---
+# =============================================================================
+# Konflux TSSC Lab — E2E Test: Module 2 (Onboard Your Application)
+# =============================================================================
+#
+# Simulates student workflow for Module 2:
+# 1. Create Konflux Application
+# 2. Create GitLab Personal Access Token
+# 3. Create pipelines-as-code-secret in tenant namespace
+# 4. Create Konflux Component linked to GitLab repo
+# 5. Verify MR opened by Konflux (but DO NOT merge)
+# 6. Wait for first PipelineRun on MR branch
+# 7. Verify image pushed to Quay
+#
+# Usage:
+#   ansible-playbook qa-automation/e2e-module-02.yml \
+#     -e "ocp_api_url=https://api.cluster-xxx:6443" \
+#     -e "ocp_admin_password=xxx" \
+#     -e "tenant_user=user-abc12"
+# =============================================================================
+
+- name: "E2E Module 2: Onboard Your Application"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # --- Inputs ---
+    _api_url: "{{ ocp_api_url | default(openshift_api_url) }}"
+    _tenant_user: "{{ tenant_user | default(user) }}"
+    _use_sa_token: "{{ ocp_admin_password is not defined }}"
+
+    # --- Constants ---
+    application_name: my-sample-app
+    component_name: sample-component-golang
+    gitlab_repo_name: sample-component-golang
+    pipeline_bundle: docker-build-oci-ta-min
+
+    # --- Failure tracking ---
+    e2e_failures: []
+
+  tasks:
+    # =========================================================================
+    # Auth setup
+    # =========================================================================
+
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ocp_api_url is defined or openshift_api_url is defined
+          - ocp_admin_password is defined or _use_sa_token | bool
+          - tenant_user is defined or user is defined
+        fail_msg: >-
+          Missing required variables.
+          CLI: pass ocp_api_url, ocp_admin_password, tenant_user via -e.
+          Showroom runner: openshift_api_url and user from user_data.yml.
+
+    - name: Get runtime-automation SA token
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        namespace: "{{ _tenant_user }}-showroom"
+        name: runtime-automation-token
+      register: _ra_secret
+      when: _use_sa_token | bool
+
+    - name: Set k8s auth for runtime-automation SA
+      ansible.builtin.set_fact:
+        _k8s_host: "{{ _api_url }}"
+        _k8s_api_key: "{{ _ra_secret.resources[0].data.token | b64decode }}"
+        _k8s_validate_certs: false
+      when: _use_sa_token | bool
+      no_log: true
+
+    - name: Login to OpenShift with password (CLI mode)
+      ansible.builtin.command:
+        cmd: >-
+          oc login {{ _api_url }}
+          --username admin
+          --password {{ ocp_admin_password }}
+          --insecure-skip-tls-verify
+      changed_when: false
+      no_log: true
+      when: not (_use_sa_token | bool)
+
+    - name: Set k8s auth for CLI mode
+      ansible.builtin.set_fact:
+        _k8s_host: ""
+        _k8s_api_key: ""
+        _k8s_validate_certs: true
+      when: not (_use_sa_token | bool)
+
+    # =========================================================================
+    # Pre-conditions: Verify tenant namespace and GitLab repo exist
+    # =========================================================================
+
+    - name: Check tenant namespace exists
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: v1
+        kind: Namespace
+        name: "{{ _tenant_user }}-tenant"
+      register: r_tenant_ns
+
+    - name: Fail if tenant namespace missing
+      ansible.builtin.fail:
+        msg: "Tenant namespace {{ _tenant_user }}-tenant not found — environment not provisioned"
+      when: r_tenant_ns.resources | length == 0
+
+    - name: Get GitLab route
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: route.openshift.io/v1
+        kind: Route
+        namespace: gitlab
+        name: gitlab
+      register: r_gitlab_route
+
+    - name: Set GitLab URL
+      ansible.builtin.set_fact:
+        _gitlab_url: "https://{{ r_gitlab_route.resources[0].spec.host }}"
+        _gitlab_host: "{{ r_gitlab_route.resources[0].spec.host }}"
+      when: r_gitlab_route.resources | length > 0
+
+    - name: Get GitLab root user personal access token
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: v1
+        kind: Secret
+        namespace: gitlab
+        name: root-user-personal-token
+      register: r_gitlab_token_secret
+
+    - name: Set GitLab root token
+      ansible.builtin.set_fact:
+        _gitlab_root_token: "{{ r_gitlab_token_secret.resources[0].data.token | b64decode }}"
+      when: r_gitlab_token_secret.resources | default([]) | length > 0
+      no_log: true
+
+    - name: Check GitLab repository exists
+      ansible.builtin.uri:
+        url: "{{ _gitlab_url }}/api/v4/projects/{{ _tenant_user }}%2F{{ gitlab_repo_name }}"
+        method: GET
+        headers:
+          PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
+        validate_certs: false
+        status_code: [200, 404]
+      register: r_gitlab_repo_check
+      ignore_errors: true
+
+    - name: Fail if GitLab repo missing
+      ansible.builtin.fail:
+        msg: "GitLab repository {{ _tenant_user }}/{{ gitlab_repo_name }} not found"
+      when: r_gitlab_repo_check.status | default(0) != 200
+
+    # =========================================================================
+    # Step 1: Create Konflux Application
+    # =========================================================================
+
+    - name: Create Konflux Application
+      kubernetes.core.k8s:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        state: present
+        definition:
+          apiVersion: appstudio.redhat.com/v1alpha1
+          kind: Application
+          metadata:
+            name: "{{ application_name }}"
+            namespace: "{{ _tenant_user }}-tenant"
+          spec:
+            displayName: "{{ application_name }}"
+      register: r_create_app
+      ignore_errors: true
+
+    - name: Record Application creation failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Failed to create Application ' + application_name] }}
+      when: r_create_app is failed
+
+    - name: Verify Application was created
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: appstudio.redhat.com/v1alpha1
+        kind: Application
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ application_name }}"
+      register: r_verify_app
+
+    - name: Record Application verification failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Application ' + application_name + ' not found after creation'] }}
+      when: r_verify_app.resources | length == 0
+
+    # =========================================================================
+    # Step 2: Create GitLab Personal Access Token for tenant user
+    # =========================================================================
+
+    - name: Get tenant user ID from GitLab
+      ansible.builtin.uri:
+        url: "{{ _gitlab_url }}/api/v4/users?username={{ _tenant_user }}"
+        method: GET
+        headers:
+          PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
+        validate_certs: false
+      register: r_gitlab_user
+      ignore_errors: true
+
+    - name: Set tenant user ID
+      ansible.builtin.set_fact:
+        _tenant_user_id: "{{ r_gitlab_user.json[0].id }}"
+      when:
+        - r_gitlab_user is not failed
+        - r_gitlab_user.json | length > 0
+
+    - name: Create GitLab PAT for tenant user
+      ansible.builtin.uri:
+        url: "{{ _gitlab_url }}/api/v4/users/{{ _tenant_user_id }}/personal_access_tokens"
+        method: POST
+        headers:
+          PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
+        body_format: json
+        body:
+          name: konflux-pac-e2e
+          scopes:
+            - api
+          expires_at: "{{ (ansible_date_time.date | to_datetime('%Y-%m-%d')) + timedelta(days=30) }}"
+        validate_certs: false
+        status_code: [201, 400, 409]
+      register: r_create_pat
+      ignore_errors: true
+      when: _tenant_user_id is defined
+
+    - name: Set tenant PAT
+      ansible.builtin.set_fact:
+        _tenant_gitlab_pat: "{{ r_create_pat.json.token }}"
+      when:
+        - r_create_pat is not skipped
+        - r_create_pat.status == 201
+      no_log: true
+
+    - name: Record PAT creation failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Failed to create GitLab PAT for ' + _tenant_user] }}
+      when:
+        - r_create_pat is not skipped
+        - r_create_pat.status != 201
+
+    # =========================================================================
+    # Step 3: Create pipelines-as-code-secret
+    # =========================================================================
+
+    - name: Create pipelines-as-code-secret
+      kubernetes.core.k8s:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: pipelines-as-code-secret
+            namespace: "{{ _tenant_user }}-tenant"
+            labels:
+              appstudio.redhat.com/credentials: scm
+              appstudio.redhat.com/scm.host: "{{ _gitlab_host }}"
+          type: kubernetes.io/basic-auth
+          stringData:
+            password: "{{ _tenant_gitlab_pat }}"
+      register: r_create_pac_secret
+      ignore_errors: true
+      when: _tenant_gitlab_pat is defined
+
+    - name: Record PAC secret creation failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Failed to create pipelines-as-code-secret'] }}
+      when:
+        - r_create_pac_secret is not skipped
+        - r_create_pac_secret is failed
+
+    # =========================================================================
+    # Step 4: Create Konflux Component
+    # =========================================================================
+
+    - name: Create Konflux Component
+      kubernetes.core.k8s:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        state: present
+        definition:
+          apiVersion: appstudio.redhat.com/v1alpha1
+          kind: Component
+          metadata:
+            name: "{{ component_name }}"
+            namespace: "{{ _tenant_user }}-tenant"
+            annotations:
+              build.appstudio.openshift.io/pipeline: "{{ pipeline_bundle }}"
+              git-provider: gitlab
+              git-url: "{{ _gitlab_url }}"
+          spec:
+            application: "{{ application_name }}"
+            componentName: "{{ component_name }}"
+            source:
+              git:
+                url: "{{ _gitlab_url }}/{{ _tenant_user }}/{{ gitlab_repo_name }}.git"
+      register: r_create_component
+      ignore_errors: true
+
+    - name: Record Component creation failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Failed to create Component ' + component_name] }}
+      when: r_create_component is failed
+
+    - name: Wait for Component to be created
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: appstudio.redhat.com/v1alpha1
+        kind: Component
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ component_name }}"
+      register: r_verify_component
+      until: r_verify_component.resources | length > 0
+      retries: 6
+      delay: 5
+      ignore_errors: true
+
+    - name: Record Component verification failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Component ' + component_name + ' not found after creation'] }}
+      when: r_verify_component.resources | length == 0
+
+    # =========================================================================
+    # Step 5: Wait for Konflux to open MR (adds .tekton/ directory)
+    # =========================================================================
+
+    - name: Wait 30 seconds for Konflux to open MR
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: Get project ID for tenant repository
+      ansible.builtin.uri:
+        url: "{{ _gitlab_url }}/api/v4/projects/{{ _tenant_user }}%2F{{ gitlab_repo_name }}"
+        method: GET
+        headers:
+          PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
+        validate_certs: false
+      register: r_gitlab_project
+      ignore_errors: true
+
+    - name: Set GitLab project ID
+      ansible.builtin.set_fact:
+        _gitlab_project_id: "{{ r_gitlab_project.json.id }}"
+      when:
+        - r_gitlab_project is not failed
+        - r_gitlab_project.json.id is defined
+
+    - name: Check for open MR from Konflux
+      ansible.builtin.uri:
+        url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/merge_requests?state=opened"
+        method: GET
+        headers:
+          PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
+        validate_certs: false
+      register: r_gitlab_mrs
+      ignore_errors: true
+      when: _gitlab_project_id is defined
+      retries: 10
+      delay: 5
+      until:
+        - r_gitlab_mrs is not failed
+        - r_gitlab_mrs.json | length > 0
+
+    - name: Record MR verification failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['No MR found from Konflux after Component creation'] }}
+      when:
+        - r_gitlab_mrs is not skipped
+        - (r_gitlab_mrs.json | default([]) | length == 0 or r_gitlab_mrs is failed)
+
+    # =========================================================================
+    # Step 6: Wait for first PipelineRun (on-pull-request)
+    # =========================================================================
+
+    - name: Wait for first PipelineRun to appear
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        label_selectors:
+          - "appstudio.openshift.io/component={{ component_name }}"
+      register: r_first_pipelinerun
+      until: r_first_pipelinerun.resources | length > 0
+      retries: 30
+      delay: 10
+      ignore_errors: true
+
+    - name: Record PipelineRun creation failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['No PipelineRun created after Component onboarding'] }}
+      when: r_first_pipelinerun.resources | length == 0
+
+    - name: Set first PipelineRun name
+      ansible.builtin.set_fact:
+        _first_pipelinerun_name: "{{ r_first_pipelinerun.resources[0].metadata.name }}"
+      when: r_first_pipelinerun.resources | length > 0
+
+    - name: Wait for first PipelineRun to complete
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ _first_pipelinerun_name }}"
+      register: r_pipelinerun_status
+      until:
+        - r_pipelinerun_status.resources[0].status.conditions is defined
+        - r_pipelinerun_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
+        - r_pipelinerun_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
+      retries: 90
+      delay: 20
+      ignore_errors: true
+      when: _first_pipelinerun_name is defined
+
+    - name: Record PipelineRun completion failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['PipelineRun ' + _first_pipelinerun_name + ' did not succeed'] }}
+      when:
+        - r_pipelinerun_status is not skipped
+        - (r_pipelinerun_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length == 0 or r_pipelinerun_status is failed)
+
+    # =========================================================================
+    # Step 7: Verify image in Quay
+    # =========================================================================
+
+    - name: Get Component containerImage reference
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: appstudio.redhat.com/v1alpha1
+        kind: Component
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ component_name }}"
+      register: r_component_image
+
+    - name: Set component image reference
+      ansible.builtin.set_fact:
+        _component_image: "{{ r_component_image.resources[0].spec.containerImage }}"
+      when:
+        - r_component_image.resources | length > 0
+        - r_component_image.resources[0].spec.containerImage is defined
+
+    - name: Verify image exists in Quay via skopeo
+      ansible.builtin.command:
+        cmd: skopeo inspect docker://{{ _component_image }} --tls-verify=false
+      register: r_skopeo_inspect
+      ignore_errors: true
+      when: _component_image is defined
+      changed_when: false
+
+    - name: Record Quay image verification failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Image not found in Quay: ' + _component_image] }}
+      when:
+        - r_skopeo_inspect is not skipped
+        - r_skopeo_inspect is failed
+
+    # =========================================================================
+    # Summary
+    # =========================================================================
+
+    - name: "E2E Module 2 — Summary"
+      ansible.builtin.debug:
+        msg: |
+          Module 2 E2E Test Results:
+          - Application created: {{ 'Yes' if r_verify_app.resources | length > 0 else 'No' }}
+          - GitLab PAT created: {{ 'Yes' if _tenant_gitlab_pat is defined else 'No' }}
+          - PAC secret created: {{ 'Yes' if r_create_pac_secret is not skipped and not (r_create_pac_secret is failed) else 'No' }}
+          - Component created: {{ 'Yes' if r_verify_component.resources | length > 0 else 'No' }}
+          - MR opened by Konflux: {{ 'Yes' if r_gitlab_mrs.json | default([]) | length > 0 else 'No' }}
+          - First PipelineRun created: {{ 'Yes' if r_first_pipelinerun.resources | length > 0 else 'No' }}
+          - PipelineRun succeeded: {{ 'Yes' if r_pipelinerun_status is not skipped and (r_pipelinerun_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0) else 'No' }}
+          - Image in Quay: {{ 'Yes' if r_skopeo_inspect is not skipped and not (r_skopeo_inspect is failed) else 'No' }}
+          - Failures: {{ e2e_failures | length }}
+
+    - name: Fail if any e2e checks failed
+      ansible.builtin.fail:
+        msg: |
+          Module 2 E2E test failed with {{ e2e_failures | length }} issue(s):
+          {% for f in e2e_failures %}
+            - {{ f }}
+          {% endfor %}
+      when: e2e_failures | length > 0

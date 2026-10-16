@@ -1,0 +1,469 @@
+---
+# =============================================================================
+# Konflux TSSC Lab — E2E Test: Module 4 (Signing and Provenance)
+# =============================================================================
+#
+# Simulates student workflow for Module 4:
+# 1. Initialize cosign with TAS TUF root
+# 2. Verify image signature using cosign
+# 3. Download and inspect SLSA provenance attestation
+# 4. Verify attestation contains correct repo/commit/builder
+# 5. Verify Rekor transparency log entry
+#
+# Depends on: Module 3 completed successfully (merged MR build exists)
+#
+# Usage:
+#   ansible-playbook qa-automation/e2e-module-04.yml \
+#     -e "ocp_api_url=https://api.cluster-xxx:6443" \
+#     -e "ocp_admin_password=xxx" \
+#     -e "tenant_user=user-abc12"
+# =============================================================================
+
+- name: "E2E Module 4: Signing and Provenance"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # --- Inputs ---
+    _api_url: "{{ ocp_api_url | default(openshift_api_url) }}"
+    _tenant_user: "{{ tenant_user | default(user) }}"
+    _use_sa_token: "{{ ocp_admin_password is not defined }}"
+
+    # --- Constants ---
+    component_name: sample-component-golang
+    gitlab_repo_name: sample-component-golang
+
+    # --- Failure tracking ---
+    e2e_failures: []
+
+  tasks:
+    # =========================================================================
+    # Auth setup
+    # =========================================================================
+
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ocp_api_url is defined or openshift_api_url is defined
+          - ocp_admin_password is defined or _use_sa_token | bool
+          - tenant_user is defined or user is defined
+        fail_msg: Missing required variables.
+
+    - name: Get runtime-automation SA token
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        namespace: "{{ _tenant_user }}-showroom"
+        name: runtime-automation-token
+      register: _ra_secret
+      when: _use_sa_token | bool
+
+    - name: Set k8s auth for runtime-automation SA
+      ansible.builtin.set_fact:
+        _k8s_host: "{{ _api_url }}"
+        _k8s_api_key: "{{ _ra_secret.resources[0].data.token | b64decode }}"
+        _k8s_validate_certs: false
+      when: _use_sa_token | bool
+      no_log: true
+
+    - name: Login to OpenShift with password (CLI mode)
+      ansible.builtin.command:
+        cmd: >-
+          oc login {{ _api_url }}
+          --username admin
+          --password {{ ocp_admin_password }}
+          --insecure-skip-tls-verify
+      changed_when: false
+      no_log: true
+      when: not (_use_sa_token | bool)
+
+    - name: Set k8s auth for CLI mode
+      ansible.builtin.set_fact:
+        _k8s_host: ""
+        _k8s_api_key: ""
+        _k8s_validate_certs: true
+      when: not (_use_sa_token | bool)
+
+    # =========================================================================
+    # Pre-conditions
+    # =========================================================================
+
+    - name: Get Component
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: appstudio.redhat.com/v1alpha1
+        kind: Component
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ component_name }}"
+      register: r_component
+
+    - name: Fail if Component missing
+      ansible.builtin.fail:
+        msg: "Component {{ component_name }} not found"
+      when: r_component.resources | length == 0
+
+    - name: Get latest on-push PipelineRun from Module 3
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        label_selectors:
+          - "appstudio.openshift.io/component={{ component_name }}"
+          - "pipelinesascode.tekton.dev/event-type=push"
+      register: r_pipelineruns
+
+    - name: Fail if no on-push PipelineRun found
+      ansible.builtin.fail:
+        msg: "No on-push PipelineRun found — Module 3 may not have completed"
+      when: r_pipelineruns.resources | length == 0
+
+    - name: Get latest PipelineRun
+      ansible.builtin.set_fact:
+        _latest_pipelinerun: "{{ r_pipelineruns.resources | sort(attribute='metadata.creationTimestamp') | last }}"
+
+    - name: Extract IMAGE_DIGEST
+      ansible.builtin.set_fact:
+        _image_digest: "{{ _latest_pipelinerun.status.pipelineResults | selectattr('name', 'equalto', 'IMAGE_DIGEST') | map(attribute='value') | first }}"
+      when: _latest_pipelinerun.status.pipelineResults is defined
+
+    - name: Fail if IMAGE_DIGEST not found
+      ansible.builtin.fail:
+        msg: "IMAGE_DIGEST not found in PipelineRun results"
+      when: _image_digest is not defined
+
+    - name: Get image base
+      ansible.builtin.set_fact:
+        _image_base: "{{ r_component.resources[0].spec.containerImage | regex_replace(':.*$', '') }}"
+
+    - name: Construct full image reference
+      ansible.builtin.set_fact:
+        _image_ref: "{{ _image_base }}@{{ _image_digest }}"
+
+    # =========================================================================
+    # Step 1: Get TAS configuration
+    # =========================================================================
+
+    - name: Get TAS TUF route
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: route.openshift.io/v1
+        kind: Route
+        namespace: tsf-tas
+        label_selectors:
+          - app.kubernetes.io/component=tuf
+      register: r_tuf_route
+
+    - name: Set TAS TUF URL
+      ansible.builtin.set_fact:
+        _tas_tuf_url: "https://{{ r_tuf_route.resources[0].spec.host }}"
+      when: r_tuf_route.resources | length > 0
+
+    - name: Get TAS OIDC issuer from configmap
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: v1
+        kind: ConfigMap
+        namespace: tsf-keycloak
+        name: public-info
+      register: r_tas_config
+      ignore_errors: true
+
+    - name: Set TAS OIDC issuer
+      ansible.builtin.set_fact:
+        _tas_oidc_issuer: "{{ r_tas_config.resources[0].data.OIDC_ISSUER_URL }}"
+      when:
+        - r_tas_config is not failed
+        - r_tas_config.resources | length > 0
+        - r_tas_config.resources[0].data.OIDC_ISSUER_URL is defined
+
+    # Fallback if configmap method fails
+    - name: Set TAS OIDC issuer (fallback)
+      ansible.builtin.set_fact:
+        _tas_oidc_issuer: "https://kubernetes.default.svc"
+      when: _tas_oidc_issuer is not defined
+
+    # =========================================================================
+    # Step 2: Initialize cosign with TAS TUF root
+    # =========================================================================
+
+    - name: Download TUF root.json
+      ansible.builtin.uri:
+        url: "{{ _tas_tuf_url }}/root.json"
+        method: GET
+        validate_certs: false
+        dest: /tmp/tuf-root-{{ _tenant_user }}.json
+      register: r_tuf_root
+      ignore_errors: true
+
+    - name: Record TUF root download failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Failed to download TAS TUF root.json'] }}
+      when: r_tuf_root is failed
+
+    - name: Initialize cosign with TAS TUF
+      ansible.builtin.command:
+        cmd: >-
+          cosign initialize
+          --mirror {{ _tas_tuf_url }}
+          --root /tmp/tuf-root-{{ _tenant_user }}.json
+      environment:
+        COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
+      register: r_cosign_init
+      ignore_errors: true
+      when: r_tuf_root is not failed
+      changed_when: false
+
+    - name: Record cosign init failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Failed to initialize cosign with TAS TUF'] }}
+      when:
+        - r_cosign_init is not skipped
+        - r_cosign_init is failed
+
+    # =========================================================================
+    # Step 3: Verify image signature
+    # =========================================================================
+
+    - name: Get component image-pull secret
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: v1
+        kind: Secret
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ component_name }}-image-pull"
+      register: r_image_pull_secret
+      ignore_errors: true
+
+    - name: Write Docker config for cosign
+      ansible.builtin.copy:
+        content: "{{ r_image_pull_secret.resources[0].data['.dockerconfigjson'] | b64decode }}"
+        dest: /tmp/.docker-config-{{ _tenant_user }}.json
+        mode: '0600'
+      when:
+        - r_image_pull_secret is not failed
+        - r_image_pull_secret.resources | length > 0
+      no_log: true
+
+    - name: Verify image signature with cosign
+      ansible.builtin.command:
+        cmd: >-
+          cosign verify
+          --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*'
+          --certificate-oidc-issuer {{ _tas_oidc_issuer }}
+          {{ _image_ref }}
+      environment:
+        DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
+        COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
+      register: r_cosign_verify
+      ignore_errors: true
+      changed_when: false
+
+    - name: Record signature verification failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Image signature verification failed'] }}
+      when: r_cosign_verify is failed
+
+    # =========================================================================
+    # Step 4: Download and inspect SLSA provenance attestation
+    # =========================================================================
+
+    - name: Download attestations
+      ansible.builtin.command:
+        cmd: cosign download attestation {{ _image_ref }}
+      environment:
+        DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
+        COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
+      register: r_attestations
+      ignore_errors: true
+      changed_when: false
+
+    - name: Record attestation download failure
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Failed to download attestations'] }}
+      when: r_attestations is failed
+
+    - name: Parse attestations
+      ansible.builtin.set_fact:
+        _attestations: "{{ r_attestations.stdout_lines | map('from_json') | list }}"
+      when:
+        - r_attestations is not failed
+        - r_attestations.stdout_lines | length > 0
+      ignore_errors: true
+
+    - name: Count attestations
+      ansible.builtin.set_fact:
+        _attestation_count: "{{ _attestations | length }}"
+      when: _attestations is defined
+
+    - name: Record if no attestations found
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['No attestations found for image'] }}
+      when: _attestation_count is not defined or _attestation_count | int == 0
+
+    - name: Extract SLSA provenance (try both v0.2 and v1)
+      ansible.builtin.set_fact:
+        _slsa_attestations: "{{ _attestations | selectattr('payload', 'defined') | list }}"
+      when: _attestations is defined
+      ignore_errors: true
+
+    - name: Decode and check first SLSA attestation
+      ansible.builtin.set_fact:
+        _slsa_payload: "{{ (_slsa_attestations[0].payload | b64decode | from_json) }}"
+      when:
+        - _slsa_attestations is defined
+        - _slsa_attestations | length > 0
+      ignore_errors: true
+
+    - name: Verify SLSA predicate type
+      ansible.builtin.set_fact:
+        _slsa_predicate_type: "{{ _slsa_payload.predicateType }}"
+      when: _slsa_payload is defined
+      ignore_errors: true
+
+    - name: Record if SLSA attestation missing or invalid
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['SLSA attestation not found or invalid'] }}
+      when: _slsa_predicate_type is not defined
+
+    # =========================================================================
+    # Step 5: Verify attestation contains correct metadata
+    # =========================================================================
+
+    - name: Get GitLab route for repo URL comparison
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: route.openshift.io/v1
+        kind: Route
+        namespace: gitlab
+        name: gitlab
+      register: r_gitlab_route
+
+    - name: Set expected GitLab repo URL
+      ansible.builtin.set_fact:
+        _expected_repo_url: "https://{{ r_gitlab_route.resources[0].spec.host }}/{{ _tenant_user }}/{{ gitlab_repo_name }}"
+      when: r_gitlab_route.resources | length > 0
+
+    - name: Extract repo from SLSA attestation (v0.2 path)
+      ansible.builtin.set_fact:
+        _attestation_repo: "{{ _slsa_payload.predicate.invocation.environment.annotations['pipelinesascode.tekton.dev/repo-url'] }}"
+      when:
+        - _slsa_payload is defined
+        - _slsa_predicate_type is defined
+        - "'v0.2' in _slsa_predicate_type"
+      ignore_errors: true
+
+    - name: Extract repo from SLSA attestation (v1 path)
+      ansible.builtin.set_fact:
+        _attestation_repo: "{{ _slsa_payload.predicate.buildDefinition.resolvedDependencies[0].uri }}"
+      when:
+        - _slsa_payload is defined
+        - _slsa_predicate_type is defined
+        - "'v1' in _slsa_predicate_type"
+      ignore_errors: true
+
+    - name: Verify repo URL matches
+      ansible.builtin.set_fact:
+        _repo_match: "{{ _expected_repo_url in _attestation_repo }}"
+      when:
+        - _attestation_repo is defined
+        - _expected_repo_url is defined
+      ignore_errors: true
+
+    - name: Record repo URL mismatch
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['SLSA attestation repo URL does not match expected GitLab repo'] }}
+      when:
+        - _repo_match is not defined or not (_repo_match | bool)
+
+    # =========================================================================
+    # Step 6: Verify Rekor transparency log entry
+    # =========================================================================
+
+    - name: Get Rekor log entry from verification output
+      ansible.builtin.command:
+        cmd: >-
+          cosign verify
+          --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*'
+          --certificate-oidc-issuer {{ _tas_oidc_issuer }}
+          {{ _image_ref }}
+          --output json
+      environment:
+        DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
+        COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
+      register: r_cosign_verify_json
+      ignore_errors: true
+      changed_when: false
+
+    - name: Parse Rekor log index
+      ansible.builtin.set_fact:
+        _rekor_log_index: "{{ (r_cosign_verify_json.stdout | from_json)[0].optional.Bundle.Payload.logIndex }}"
+      when:
+        - r_cosign_verify_json is not failed
+        - r_cosign_verify_json.stdout | length > 0
+      ignore_errors: true
+
+    - name: Record Rekor log entry missing
+      ansible.builtin.set_fact:
+        e2e_failures: >-
+          {{ e2e_failures + ['Rekor transparency log entry not found'] }}
+      when: _rekor_log_index is not defined
+
+    # =========================================================================
+    # Cleanup
+    # =========================================================================
+
+    - name: Remove temporary files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/.docker-config-{{ _tenant_user }}.json
+        - /tmp/tuf-root-{{ _tenant_user }}.json
+
+    # =========================================================================
+    # Summary
+    # =========================================================================
+
+    - name: "E2E Module 4 — Summary"
+      ansible.builtin.debug:
+        msg: |
+          Module 4 E2E Test Results:
+          - Image reference: {{ _image_ref }}
+          - TAS TUF initialized: {{ 'Yes' if r_cosign_init is not skipped and not (r_cosign_init is failed) else 'No' }}
+          - Signature verified: {{ 'Yes' if r_cosign_verify is not failed else 'No' }}
+          - Attestations downloaded: {{ 'Yes' if _attestation_count is defined else 'No' }}
+          - Attestation count: {{ _attestation_count | default('N/A') }}
+          - SLSA predicate type: {{ _slsa_predicate_type | default('N/A') }}
+          - Repo URL in attestation matches: {{ 'Yes' if _repo_match is defined and (_repo_match | bool) else 'No' }}
+          - Rekor log index: {{ _rekor_log_index | default('N/A') }}
+          - Failures: {{ e2e_failures | length }}
+
+    - name: Fail if any e2e checks failed
+      ansible.builtin.fail:
+        msg: |
+          Module 4 E2E test failed with {{ e2e_failures | length }} issue(s):
+          {% for f in e2e_failures %}
+            - {{ f }}
+          {% endfor %}
+      when: e2e_failures | length > 0
