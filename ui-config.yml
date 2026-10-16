@@ -20,3 +20,5 @@ tabs:
     url: 'https://gitlab-gitlab.${DOMAIN}'
   - name: Quay
     url: 'https://quay.${DOMAIN}'
+  - name: Rekor
+    url: 'https://rekor-search-ui-tsf-tas.${DOMAIN}'
