@@ -13,7 +13,7 @@ By the end of this module, you will be able to:
 
 * Analyze the Conforma policy rules applied to your Konflux Application and understand what each rule enforces.
 * Observe how the Integration pipeline evaluates policy checks against the signed artifact produced in earlier modules.
-* Troubleshoot a policy check failure by reading the policy evaluation output and identifying which rule was violated and why.
+* Observe a policy check failure and confirm that a Snapshot carrying no supply chain evidence is blocked from promotion.
 * Verify that a policy-passing artifact is marked as eligible for promotion while a failing artifact is blocked.
 
 == 1. Examine the Conforma Policy
@@ -22,11 +22,10 @@ Conforma evaluates artifacts against a policy bundle — a versioned set of Rego
 That evidence includes the cryptographic signature, the SBOM, and the SLSA provenance attestation you examined in Module 4.
 Before running any policy checks, retrieve the policy object from your namespace and understand its structure.
 
-. In the Konflux UI, navigate to your `my-sample-app` Application and click the *Integrations* tab in the left-hand menu.
+. In the Konflux UI, navigate to your `my-sample-app` Application and click the *Integration tests* tab.
 +
-// TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/6
-.Konflux Integrations tab showing the configured IntegrationTestScenario
-image::screenshot-placeholder.svg[Konflux Integrations tab for my-sample-app listing the enterprise contract integration test scenario,800]
+.Konflux Integration tests tab showing the configured IntegrationTestScenario
+image::module-05-integration-tests-tab.png[Konflux Integration tests tab for my-sample-app listing the enterprise contract integration test scenario,800]
 
 . Locate the `IntegrationTestScenario` listed for your Application.
 Note that it references an enterprise contract check as the integration pipeline that runs against every new Snapshot.
@@ -38,10 +37,25 @@ Note that it references an enterprise contract check as the integration pipeline
 oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service -o yaml
 ----
 
-. In the output, find `spec.sources`.
-This field lists the policy bundle — an OCI image reference or Git URL that contains the Rego rules Conforma applies to your artifact.
+. In the YAML output, locate `spec.sources[0]`.
+Each source entry has three sub-fields that together define what Conforma evaluates:
++
+[cols="25h,~", options="header"]
+|===
+|Field |What it contains
 
-. Extract the policy bundle reference and store it in a shell variable:
+|`policy[]`
+|An OCI image reference (`oci::quay.io/conforma/release-policy:latest@sha256:...`) containing the Rego rules Conforma applies to your artifact.
+
+|`data[]`
+|A Git URL (`github.com/rhpds/konflux-tssc-lab.git//tekton/data?ref=main`) with lab-specific trusted task definitions — the list of pipeline tasks Conforma considers authoritative builders.
+
+|`config`
+|`include` and `exclude` lists that control which rule categories are active.
+The lab policy includes the `@redhat` rule set and excludes several rules (such as `hermetic_task` and `source_image`) that are not applicable in this environment.
+|===
+
+. Extract the policy bundle OCI reference and store it in a shell variable:
 +
 [source,bash,role="execute"]
 ----
@@ -51,54 +65,13 @@ export EC_POLICY=$(oc get enterprisecontractpolicy lab-policy \
 echo "Policy bundle: ${EC_POLICY}"
 ----
 
-. In the YAML output, identify the four categories of active rules:
-+
-[cols="25h,~", options="header"]
-|===
-|Category |What it checks
-
-|Attestation rules
-|The SLSA provenance attestation must be present and signed by a trusted builder.
-
-|Image rules
-|The image signature must be verifiable with the expected OIDC issuer.
-
-|SBOM rules
-|A CycloneDX SBOM attestation must be attached to the image.
-
-|Pipeline rules
-|The image must have been built by a trusted Konflux task set, not an arbitrary build system.
-|===
-
-. Recover the image reference from your Component if you no longer have `$IMAGE` set in your terminal:
-+
-[source,bash,role="execute",subs="attributes+"]
-----
-export IMAGE=$(oc get component -n {openshift_username}-tenant \
-  -o jsonpath='{.items[0].spec.containerImage}')
-echo "Image: ${IMAGE}"
-----
-
-. Run the `ec` CLI to evaluate your image against the policy:
-+
-[source,bash,role="execute"]
-----
-ec validate image --image "${IMAGE}" --policy "${EC_POLICY}" \
-  --output json | jq '.components[].violations'
-----
-+
-Expected output: an empty array (`[]`) for each component, confirming no violations were found against the artifact from Module 3.
-+
-NOTE: The `ec` CLI works best with a full digest reference.
-If `$IMAGE` does not include `@sha256:...`, run `oc get component -n {openshift_username}-tenant -o jsonpath='{.items[0].spec.containerImage}'` — after the first successful build, Konflux stores the digest-pinned reference there automatically.
-
 === Verify
 
 [%interactive]
 * [ ] `oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service` returns the lab policy object.
-* [ ] `spec.sources` in the policy YAML lists at least one bundle reference.
+* [ ] `spec.sources[0].policy[]` contains an `oci::` image reference to the Conforma release policy bundle.
+* [ ] `spec.sources[0].data[]` contains a Git URL pointing to the lab's trusted task definitions.
 * [ ] `$EC_POLICY` is set and non-empty in your terminal session.
-* [ ] `ec validate image` against your Module 3 image returns an empty violations array.
 
 == 2. Review Integration Pipeline Results
 
@@ -171,53 +144,68 @@ echo "Snapshot: ${SNAPSHOT}"
 
 The Integration pipeline passes your artifact because it carries a valid signature, SBOM, and SLSA provenance attestation.
 Now see what happens when an artifact lacks that evidence.
-The lab provides a pre-built unsigned image for this exercise.
+You will create a test Snapshot pointing to a publicly available unsigned image — Konflux detects it automatically and runs the Integration pipeline, which the Conforma check will fail.
 
-. Set the unsigned image reference in your terminal:
+. Create a test Snapshot referencing a publicly available unsigned image:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
-export BAD_IMAGE={quay_url}/lab-examples/unsigned-sample:latest
-echo "Testing against: ${BAD_IMAGE}"
+oc apply -n {openshift_username}-tenant -f - <<'EOF'
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: Snapshot
+metadata:
+  name: test-policy-failure
+  labels:
+    appstudio.openshift.io/application: my-sample-app
+spec:
+  application: my-sample-app
+  components:
+  - name: sample-component-golang
+    containerImage: registry.access.redhat.com/ubi9/ubi:latest
+EOF
 ----
++
+Konflux's Integration controller watches for new Snapshots and automatically triggers the IntegrationTestScenario pipeline against each one.
 
-. Run the `ec` CLI against the unsigned image:
+. Watch for the integration PipelineRun to appear.
+Press `Ctrl+C` once you see a PipelineRun in the list:
 +
-[source,bash,role="execute"]
+[source,bash,role="execute",subs="attributes+"]
 ----
-ec validate image --image "${BAD_IMAGE}" --policy "${EC_POLICY}" \
-  --output json | jq .
+oc get pipelineruns -n {openshift_username}-tenant -w
 ----
++
+You should see a new PipelineRun appear within a few seconds.
+Its name will include `test-policy-failure`.
 
-. In the JSON output, locate the `components[].violations` array.
-Each entry represents one failed rule.
-Read the `msg` field of each violation to understand what it reports.
+. Wait for the PipelineRun to complete (status column will show `False`), then check the test Snapshot's conditions:
 +
-Look for violations in these categories:
-+
-** *Missing signature* — no valid Sigstore signature found on the image.
-** *Missing SLSA attestation* — no provenance attestation is attached.
-** *Untrusted builder identity* — the image was not built by a recognized Konflux pipeline.
-
-. Confirm the top-level `success` field is `false`:
-+
-[source,bash,role="execute"]
+[source,bash,role="execute",subs="attributes+"]
 ----
-ec validate image --image "${BAD_IMAGE}" --policy "${EC_POLICY}" \
-  --output json | jq '.success'
+oc get snapshot test-policy-failure -n {openshift_username}-tenant \
+  -o jsonpath='{.status.conditions}' | jq '
+  map(select(.type == "AppStudioIntegrationStatus")) |
+  .[0] | {type, status, reason, message}'
 ----
 +
-Expected output: `false`
-+
-This `false` value is the signal Conforma sends to the Integration pipeline to block promotion.
-An artifact with any violation is never eligible for release — not partially, not conditionally.
-The check is fail-closed.
+Expected output: `"status": "False"` — the Conforma check found violations on the unsigned image.
+The `reason` field will indicate the integration test failed and the `message` field will identify which test scenario failed.
 
-. Compare the two artifacts side by side:
+. Inspect all conditions on the failing Snapshot to confirm it is not eligible for release:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+oc get snapshot test-policy-failure -n {openshift_username}-tenant \
+  -o jsonpath='{.status.conditions}' | jq '.[] | {type, status, reason}'
+----
++
+A Snapshot blocked by a policy failure is not eligible for release — the ReleasePlan in Module 6 checks this status before accepting any release request.
+
+. Compare the two Snapshots side by side:
 +
 [cols="25h,~,~", options="header"]
 |===
-|Evidence |Your artifact (Module 3/4) |Unsigned sample
+|Evidence |Your artifact (Module 3/4) |Unsigned image
 
 |Signature
 |Present — signed by Trusted Artifact Signer
@@ -231,21 +219,27 @@ The check is fail-closed.
 |Present — CycloneDX format
 |Absent
 
-|Conforma result
-|`success: true`
-|`success: false`
+|Integration status
+|`AppStudioIntegrationStatus: True`
+|`AppStudioIntegrationStatus: False`
 |===
 +
-NOTE: In a real release pipeline, the `false` result stops the image push entirely.
-The artifact never reaches the production registry, and the violation details are recorded in the audit trail.
+NOTE: A failed integration test blocks the entire Snapshot.
+The image is never eligible for release regardless of how many other rules pass — the check is fail-closed.
+
+. Clean up the test Snapshot:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+oc delete snapshot test-policy-failure -n {openshift_username}-tenant
+----
 
 === Verify
 
 [%interactive]
-* [ ] `$BAD_IMAGE` is set in your terminal session.
-* [ ] `ec validate image` against `$BAD_IMAGE` returns a non-empty `violations` array.
-* [ ] At least one of the following violation types appears: missing signature, missing SLSA attestation, or untrusted builder identity.
-* [ ] The top-level `success` field in the output is `false`.
+* [ ] The test Snapshot `test-policy-failure` triggered an integration PipelineRun automatically.
+* [ ] `oc get snapshot test-policy-failure` shows `AppStudioIntegrationStatus` with `status: "False"`.
+* [ ] The test Snapshot was deleted after the exercise.
 
 == 4. Confirm the Passing Artifact Status
 
