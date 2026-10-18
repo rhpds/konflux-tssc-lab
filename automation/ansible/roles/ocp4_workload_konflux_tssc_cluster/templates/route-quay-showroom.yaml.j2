@@ -5,7 +5,7 @@ metadata:
   name: quay-showroom
   namespace: quay-enterprise
 spec:
-  host: quay.{{ ocp_apps_domain }}
+  host: quay.{{ sandbox_openshift_apps_domain }}
   to:
     kind: Service
     name: quay-quay-app
