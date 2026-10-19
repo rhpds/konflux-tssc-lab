@@ -289,7 +289,7 @@ Then you walk the full supply chain to confirm every link is traceable from sour
 
 . Switch to the *Quay* tab and navigate to the `tsf` organization.
 +
-The production image is in the same `tsf` organization as your development images, in the same repository (`{openshift_username}-tenant/sample-component-golang-XXXXX`), but with the `production` tag instead of `on-push-<commit>`.
+The production image is in the same `tsf` organization as your development images, in the same repository (`{openshift_username}-tenant/sample-component-golang-XXXXX`), but with the `production` tag instead of the `*-on-push-*` development tag.
 
 . Locate your component repository (`{openshift_username}-tenant/sample-component-golang-XXXXX`) and find the newly released `production` tag.
 Confirm the push timestamp matches the time the release pipeline ran.
@@ -337,7 +337,7 @@ cosign verify \
 Expected output: `Verification for <image> -- Verified OK`
 +
 The certificate identity regexp and OIDC issuer are the same values used in Module 4 — the image was signed by the same Konflux builder.
-The same image digest is now tagged `production` instead of `on-push-<commit>` — the bytes are identical, only the tag changed.
+The same image digest is now tagged `production` instead of the `*-on-push-*` development tag — the bytes are identical, only the tag changed.
 +
 NOTE: If `cosign verify` returns a certificate error, confirm that `$PROD_IMAGE` contains the full digest reference (`@sha256:...`) and that the `{tas_oidc_issuer}` value matches the OIDC issuer shown in your lab instructions.
 

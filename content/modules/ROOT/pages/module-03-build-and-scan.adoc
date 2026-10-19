@@ -276,11 +276,13 @@ NOTE: Some entries show `UNKNOWN` or `NOASSERTION` for version or license — th
 +
 NOTE: Konflux tags images based on the triggering event:
 
-* `on-pr-<commit-hash>` — merge request builds (before merge)
-* `on-push-<commit-hash>` — main branch builds (after merge)
+* `*-on-pr-*-build-container` — merge request builds (before merge)
+* `*-on-push-*-build-container` — main branch builds (after merge)
 * `production` — release builds created in Module 6
 +
-For Modules 4-6, you will use the image tagged `on-push-<commit-hash>` (from the build triggered after merging to `main`).
+The tag format is: `{component-name}-{id}-{trigger}-{pipelinerun-id}-build-container`.
++
+For Modules 4-6, you will use the image with the `on-push` tag (from the build triggered after merging to `main`).
 
 === Verify
 
@@ -301,11 +303,11 @@ Locate your component repository: `sample-component-golang-XXXXX` (where `XXXXX`
 +
 TIP: Print the exact path from your terminal: `echo "${IMAGE_BASE}"`.
 
-. In the *Tags* view, locate the tag named `on-push-<commit-hash>`.
+. In the *Tags* view, locate the tag containing `on-push` (for example, `sample-component-golang-xxxxx-on-push-yyyyy-build-container`).
 +
-You will see multiple tags again (similar to Module 2), but the `on-push-*` tag is the one that identifies this main branch build.
+You will see multiple tags again (similar to Module 2), but the tag containing `on-push` identifies the main branch build.
 +
-Click the `on-push-<commit-hash>` tag to open the image detail page.
+Click the tag containing `on-push` to open the image detail page.
 +
 .Quay image repository showing the pipeline build tag and the associated attestation artifact
 image::module-03-quay-tags.png[Quay image repository tags view showing the container image tag with its digest and a separate dot-git attestation artifact tag,800]
