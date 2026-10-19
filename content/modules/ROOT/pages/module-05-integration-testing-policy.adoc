@@ -81,8 +81,7 @@ echo "Image: ${IMAGE}"
 The image reference must include a digest (`@sha256:...`) for `ec` to verify attestations correctly.
 
 . Run the `ec` CLI to evaluate your image against the policy.
-For keyless verification, provide the certificate identity, OIDC issuer, and Rekor URL.
-Use `--strict=false` to make violations non-blocking (warnings only):
+For keyless verification, provide the certificate identity, OIDC issuer, and Rekor URL:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
@@ -92,15 +91,12 @@ ec validate image \
   --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
   --rekor-url https://rekor-server-tsf-tas.{openshift_apps_domain} \
-  --strict=false \
-  --output text
+  --output yaml
 ----
 +
-Expected output: `Success: true` and `Result: SUCCESS` with 0 violations.
+Expected output: Policy validation results showing `success: true` with no violations.
 The policy validates the secure artifacts built in Modules 3 and 4:
 attestation signatures, image signatures, SBOM (CycloneDX), and SLSA provenance.
-+
-The `--strict=false` flag allows the command to exit successfully even if there were violations, though with this lab policy there should be none.
 
 === Verify
 
