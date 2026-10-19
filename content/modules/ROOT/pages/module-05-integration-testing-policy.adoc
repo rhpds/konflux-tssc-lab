@@ -203,11 +203,13 @@ ec validate image \
 Each entry represents one failed rule.
 Read the `msg` field of each violation to understand what it reports.
 +
-Look for violations in these categories:
+You will see two builtin signature check violations:
 +
-** *Missing signature* — no valid Sigstore signature found on the image.
-** *Missing SLSA attestation* — no provenance attestation is attached.
-** *Missing SBOM* — no SBOM attestation is attached to the image.
+** `builtin.image.signature_check` — No Sigstore signatures found on the image.
+** `builtin.attestation.signature_check` — No signed attestations found (no SLSA provenance, no SBOM).
++
+These builtin checks run before policy rules.
+Without valid signatures, the image fails validation immediately — the policy rules for SBOM format or provenance content never run because there are no signed attestations to inspect.
 
 . Confirm the top-level `success` field is `false`:
 +
@@ -234,22 +236,25 @@ The check is fail-closed.
 |===
 |Evidence |Your artifact (Module 3/4) |Unsigned sample
 
-|Signature
+|Image signature
 |Present — signed by Trusted Artifact Signer
-|Absent
+|Absent — no Sigstore signatures
 
-|SLSA attestation
-|Present — SLSA Level 3 provenance
-|Absent
+|Attestation signatures
+|Present — SLSA and SBOM attestations are signed
+|Absent — no signed attestations
 
-|SBOM
-|Present — CycloneDX format
-|Absent
+|Policy rules checked
+|18 rules pass (SBOM format, SLSA provenance content, etc.)
+|0 rules checked — builtin signature checks fail first
 
 |Conforma result
-|`success: true`
-|`success: false`
+|`success: true`, 0 violations
+|`success: false`, 2 violations
 |===
++
+The key difference: your artifact has **cryptographic signatures** that prove the image and its attestations are authentic.
+The unsigned image has no signatures, so the policy fails before it even checks the SBOM or SLSA content — without signatures, there's nothing to trust.
 +
 NOTE: In a real release pipeline, the `false` result stops the image push entirely.
 The artifact never reaches the production registry, and the violation details are recorded in the audit trail.
@@ -259,7 +264,7 @@ The artifact never reaches the production registry, and the violation details ar
 [%interactive]
 * [ ] `$BAD_IMAGE` is set in your terminal session.
 * [ ] `ec validate image` against `$BAD_IMAGE` shows `success: false` with violations.
-* [ ] Violations appear for missing signature, missing SLSA attestation, and missing SBOM.
+* [ ] Two violations appear: `builtin.image.signature_check` and `builtin.attestation.signature_check`.
 * [ ] The top-level `success` field in the output is `false`.
 
 == 4. Confirm the Passing Artifact Status
