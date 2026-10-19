@@ -34,8 +34,8 @@ By default cosign uses the public sigstore.dev infrastructure — this step poin
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
-curl -sSLk {tas_tuf_url}/root.json -o /tmp/tuf-root.json
-cosign initialize --mirror {tas_tuf_url} --root /tmp/tuf-root.json
+curl -sSLk https://tuf-tsf-tas.{openshift_apps_domain}/root.json -o /tmp/tuf-root.json
+cosign initialize --mirror https://tuf-tsf-tas.{openshift_apps_domain} --root /tmp/tuf-root.json
 ----
 +
 Expected output: `Root status:` followed by a JSON block listing the trusted Rekor and Fulcio endpoints for this cluster.
