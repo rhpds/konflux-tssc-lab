@@ -23,10 +23,5 @@ spec:
       - rpm_signature.rule_data_provided
       - base_image_registries.allowed_registries_provided
       - sbom_spdx.hermeto_attribution_required  # Exclude CPE label requirement for lab
-      - attestation_type.pipelinerun_attestation_found  # Lab uses SLSA provenance only
-      - cve.cve_results_found  # CVE scanning not fully configured in lab
-      - slsa_build_scripted_build.image_built_by_trusted_task  # Custom bundle not recognized
-      - slsa_source_correlated.attested_source_code_reference  # Source ref format mismatch
-      - slsa_source_correlated.source_code_reference_provided  # Source ref format mismatch
       include:
       - '@redhat'
