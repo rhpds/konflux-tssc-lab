@@ -41,27 +41,15 @@ oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service -o yam
 . In the output, find `spec.sources`.
 This field lists the policy bundle — an OCI image reference or Git URL that contains the Rego rules Conforma applies to your artifact.
 
-. Extract the policy spec and fetch policy data for use with the `ec` CLI.
-Since the policy references data from GitHub, we need to make it accessible locally:
+. Set the policy reference to use the lab-policy directly from Kubernetes:
 +
-[source,bash,role="execute",subs="attributes+"]
+[source,bash,role="execute"]
 ----
-# Clone the policy data locally
-git clone --depth 1 --branch main \
-  https://github.com/rhpds/konflux-tssc-lab.git /tmp/ec-policy-data
-
-# Extract policy spec, remove publicKey, and update data path to local files
-oc get enterprisecontractpolicy lab-policy \
-  -n enterprise-contract-service \
-  -o jsonpath='{.spec}' | \
-  jq 'del(.publicKey) | .sources[0].data[0] = "file:///tmp/ec-policy-data/tekton/data"' > /tmp/ec-policy.json
-
-export EC_POLICY="/tmp/ec-policy.json"
-echo "Policy saved to: ${EC_POLICY}"
-cat /tmp/ec-policy.json | jq '.sources[0].data'
+export EC_POLICY="//enterprise-contract-service/lab-policy"
+echo "Policy reference: ${EC_POLICY}"
 ----
 +
-This clones the policy data repository and updates the policy to reference local files instead of the GitHub URL.
+The `ec` CLI can reference EnterpriseContractPolicy resources using the format `//namespace/name`.
 
 . In the YAML output, identify the four categories of active rules:
 +
