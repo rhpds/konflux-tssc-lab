@@ -41,15 +41,20 @@ oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service -o yam
 . In the output, find `spec.sources`.
 This field lists the policy bundle — an OCI image reference or Git URL that contains the Rego rules Conforma applies to your artifact.
 
-. Set the policy reference to use the lab-policy directly from Kubernetes:
+. Extract the policy spec to a file, removing the publicKey field since this lab uses keyless signing:
 +
 [source,bash,role="execute"]
 ----
-export EC_POLICY="lab-policy"
-echo "Policy reference: ${EC_POLICY}"
+oc get enterprisecontractpolicy lab-policy \
+  -n enterprise-contract-service \
+  -o jsonpath='{.spec}' | \
+  jq 'del(.publicKey)' > /tmp/ec-policy.json
+
+export EC_POLICY="/tmp/ec-policy.json"
+echo "Policy saved to: ${EC_POLICY}"
 ----
 +
-The `ec` CLI will look up the EnterpriseContractPolicy resource named `lab-policy` in the cluster.
+The policy references the bundle and data sources that define the Rego rules for artifact validation.
 
 . In the YAML output, identify the four categories of active rules:
 +
@@ -105,7 +110,7 @@ ec validate image \
 +
 Expected output: an empty array (`[]`) for each component, confirming no violations were found against the artifact from Module 3.
 +
-NOTE: The policy data is loaded from local files cloned from the repository, enabling the `ec` CLI to access the trusted task rules and other policy configuration that Konflux uses during integration testing.
+NOTE: The keyless verification flags match those used with `cosign verify` in Module 4. The policy file provides the bundle and data sources for the Rego rules.
 
 === Verify
 
