@@ -4,25 +4,18 @@ metadata:
   name: lab-policy
   namespace: enterprise-contract-service
 spec:
-  description: Lab policy with custom trusted tasks from quay.io/rhpds/pipeline-docker-build-lab
+  description: Lab policy - validates signatures, SLSA provenance, and SBOM
   name: Lab
   sources:
   - name: Lab
     policy:
     - oci::quay.io/conforma/release-policy:latest@sha256:10de4ff888f9d054baeaa15c528ff74118bfd3c99ed0e5fc0ac24e72e83e01dc
     config:
-      exclude:
-      - hermetic_task
-      - source_image
-      - rpm_repos
-      - labels.required
-      - rpm_signature.rule_data_provided
-      - base_image_registries.allowed_registries_provided
-      - sbom_spdx.hermeto_attribution_required  # Exclude CPE label requirement for lab
-      - attestation_type.pipelinerun_attestation_found  # Lab uses SLSA provenance only
-      - cve  # CVE scanning rules
-      - slsa_build_scripted_build  # Trusted task rules
-      - slsa_source_correlated  # Source correlation rules
-      - trusted_task  # Trusted task validation
       include:
-      - '@redhat'
+      # Only include rules for what we've actually built in the lab
+      - slsa_provenance_available  # SLSA provenance exists
+      - sbom_cyclonedx  # CycloneDX SBOM
+      - sbom_spdx  # SPDX SBOM
+      - attestation_signature_check  # Signature verification
+      - step_image_registries  # Step images from allowed registries
+      - base_image_registries  # Base images from allowed registries
