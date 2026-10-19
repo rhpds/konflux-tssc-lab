@@ -24,7 +24,4 @@ rule_data:
   # Trusted task rules
   trusted_task_rules:
     allow:
-      - quay.io/rhpds/pipeline-docker-build-lab
-      - quay.io/rhpds/pipeline-docker-build-lab:tasks
-      - oci://quay.io/konflux-ci/build-trusted-artifacts
-      - quay.io/konflux-ci/
+      - ref: quay.io/rhpds/pipeline-docker-build-lab
