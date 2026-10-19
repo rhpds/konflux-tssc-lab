@@ -22,6 +22,6 @@ rule_data:
   - quay.*
 
   # Trusted task rules
-  trusted_task_rules:
-    allow:
-      - ref: quay.io/rhpds/pipeline-docker-build-lab
+  trusted_tasks:
+    - ref: quay.io/rhpds/pipeline-docker-build-lab:tasks@sha256:2540c40bcf4851535ed5dd44f84dedc850656b62bb8ce7e756a0823db3a815d0
+      effective_on: "2024-01-01T00:00:00Z"
