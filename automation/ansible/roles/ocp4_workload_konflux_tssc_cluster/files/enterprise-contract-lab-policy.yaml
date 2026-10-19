@@ -6,7 +6,6 @@ metadata:
 spec:
   description: Lab policy with custom trusted tasks from quay.io/rhpds/pipeline-docker-build-lab
   name: Lab
-  publicKey: k8s://openshift-pipelines/public-key
   sources:
   - name: Lab
     policy:

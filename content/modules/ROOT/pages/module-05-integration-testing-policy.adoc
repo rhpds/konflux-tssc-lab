@@ -41,14 +41,13 @@ oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service -o yam
 . In the output, find `spec.sources`.
 This field lists the policy bundle — an OCI image reference or Git URL that contains the Rego rules Conforma applies to your artifact.
 
-. Extract the policy spec to a file, removing the publicKey field since this lab uses keyless signing:
+. Extract the policy spec to a file for use with the `ec` CLI:
 +
 [source,bash,role="execute"]
 ----
 oc get enterprisecontractpolicy lab-policy \
   -n enterprise-contract-service \
-  -o jsonpath='{.spec}' | \
-  jq 'del(.publicKey)' > /tmp/ec-policy.json
+  -o jsonpath='{.spec}' > /tmp/ec-policy.json
 
 export EC_POLICY="/tmp/ec-policy.json"
 echo "Policy saved to: ${EC_POLICY}"
