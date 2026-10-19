@@ -10,6 +10,3 @@
 
 - name: Create predictable Quay route alias for Showroom tab
   ansible.builtin.include_tasks: create-quay-route-alias.yml
-
-- name: Push unsigned sample image for policy testing
-  ansible.builtin.include_tasks: push-unsigned-sample-image.yml
