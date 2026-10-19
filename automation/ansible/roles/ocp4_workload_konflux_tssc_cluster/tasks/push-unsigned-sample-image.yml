@@ -62,18 +62,40 @@
     dest: "{{ r_temp_dir.path }}/auth.json"
     mode: '0600'
 
+- name: Pull UBI minimal image
+  ansible.builtin.command:
+    cmd: podman pull registry.access.redhat.com/ubi9/ubi-minimal:latest
+  register: r_pull
+  retries: 3
+  delay: 10
+  until: r_pull.rc == 0
+
+- name: Tag image for Quay
+  ansible.builtin.command:
+    cmd: >
+      podman tag
+      registry.access.redhat.com/ubi9/ubi-minimal:latest
+      {{ quay_registry }}/tsf/unsigned-image:latest
+
 - name: Push unsigned image to Quay tsf org
   ansible.builtin.command:
     cmd: >
-      skopeo copy
-      --dest-tls-verify=false
-      --dest-authfile {{ r_temp_dir.path }}/auth.json
-      docker://registry.access.redhat.com/ubi9/ubi-minimal:latest
-      docker://{{ quay_registry }}/tsf/unsigned-image:latest
-  register: r_skopeo_copy
+      podman push
+      --tls-verify=false
+      --authfile {{ r_temp_dir.path }}/auth.json
+      {{ quay_registry }}/tsf/unsigned-image:latest
+  register: r_push
   retries: 3
   delay: 10
-  until: r_skopeo_copy.rc == 0
+  until: r_push.rc == 0
+
+- name: Clean up local images
+  ansible.builtin.command:
+    cmd: podman rmi {{ item }}
+  loop:
+  - registry.access.redhat.com/ubi9/ubi-minimal:latest
+  - "{{ quay_registry }}/tsf/unsigned-image:latest"
+  ignore_errors: true
 
 - name: Make unsigned-image repository public
   ansible.builtin.uri:
