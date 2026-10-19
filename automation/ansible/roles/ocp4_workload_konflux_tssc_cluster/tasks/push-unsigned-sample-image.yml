@@ -2,31 +2,6 @@
 # Push an unsigned sample image to Quay for policy violation testing
 # This image is intentionally unsigned to demonstrate EC policy failures
 
-- name: Create tsf organization in Quay if it doesn't exist
-  kubernetes.core.k8s:
-    state: present
-    definition:
-      apiVersion: quay.redhat.com/v1
-      kind: QuayOrganization
-      metadata:
-        name: tsf
-        namespace: quay-enterprise
-      spec:
-        name: tsf
-
-- name: Wait for tsf organization to be ready
-  kubernetes.core.k8s_info:
-    api_version: quay.redhat.com/v1
-    kind: QuayOrganization
-    name: tsf
-    namespace: quay-enterprise
-  register: r_org
-  retries: 10
-  delay: 5
-  until:
-  - r_org.resources is defined
-  - r_org.resources | length > 0
-
 - name: Get Quay registry URL from route
   kubernetes.core.k8s_info:
     api_version: route.openshift.io/v1
