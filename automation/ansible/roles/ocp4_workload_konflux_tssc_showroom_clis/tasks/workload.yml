@@ -4,7 +4,7 @@
     api_version: apps/v1
     kind: Deployment
     name: showroom
-    namespace: "{{ showroom_namespace }}"
+    namespace: "{{ ocp4_workload_konflux_tssc_showroom_clis_showroom_namespace }}"
   register: r_showroom_deployment
   retries: 30
   delay: 10
@@ -18,7 +18,7 @@
     api_version: apps/v1
     kind: Deployment
     name: showroom
-    namespace: "{{ showroom_namespace }}"
+    namespace: "{{ ocp4_workload_konflux_tssc_showroom_clis_showroom_namespace }}"
     definition:
       spec:
         template:
@@ -66,7 +66,7 @@
     api_version: apps/v1
     kind: Deployment
     name: showroom
-    namespace: "{{ showroom_namespace }}"
+    namespace: "{{ ocp4_workload_konflux_tssc_showroom_clis_showroom_namespace }}"
   register: r_showroom_patched
   retries: 60
   delay: 5

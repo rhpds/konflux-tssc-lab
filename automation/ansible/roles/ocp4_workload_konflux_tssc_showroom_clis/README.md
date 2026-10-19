@@ -29,7 +29,7 @@ Source: `http://cli-server.trusted-artifact-signer.svc.cluster.local:8080/client
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `showroom_namespace` | `user-{{ guid }}-showroom` | Namespace containing the Showroom deployment |
+| `ocp4_workload_konflux_tssc_showroom_clis_showroom_namespace` | `user-{{ guid }}-showroom` | Namespace containing the Showroom deployment |
 
 ## Usage in AgnosticV Catalog
 
