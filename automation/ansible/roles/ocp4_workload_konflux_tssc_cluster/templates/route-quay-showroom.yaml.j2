@@ -5,7 +5,7 @@ metadata:
   name: quay-showroom
   namespace: quay-enterprise
 spec:
-  host: quay.{{ sandbox_openshift_apps_domain }}
+  host: quay.{{ openshift_api_url | regex_replace('^https?://', '') | regex_replace(':[0-9]+$', '') | regex_replace('^api\\.', 'apps.') }}
   to:
     kind: Service
     name: quay-quay-app
