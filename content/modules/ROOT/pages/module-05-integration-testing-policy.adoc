@@ -41,17 +41,27 @@ oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service -o yam
 . In the output, find `spec.sources`.
 This field lists the policy bundle — an OCI image reference or Git URL that contains the Rego rules Conforma applies to your artifact.
 
-. Extract the policy spec and save it to a file for use with the `ec` CLI.
-The `ec` tool expects a YAML file containing the policy spec:
+. Extract the policy spec and public key for use with the `ec` CLI.
+The `ec` tool expects a policy file and needs the public key extracted from the cluster:
 +
 [source,bash,role="execute"]
 ----
+# Extract the public key from the cluster
+oc get secret public-key -n openshift-pipelines \
+  -o jsonpath='{.data.cosign\.pub}' | base64 -d > /tmp/cosign.pub
+
+# Extract policy spec and update publicKey reference to use the local file
 oc get enterprisecontractpolicy lab-policy \
   -n enterprise-contract-service \
-  -o jsonpath='{.spec}' | jq '.' > /tmp/ec-policy.json
+  -o jsonpath='{.spec}' | \
+  jq '.publicKey = "/tmp/cosign.pub"' > /tmp/ec-policy.json
+
 export EC_POLICY="/tmp/ec-policy.json"
 echo "Policy saved to: ${EC_POLICY}"
+cat /tmp/ec-policy.json | jq '.publicKey'
 ----
++
+This extracts the cosign public key from the cluster and updates the policy to reference the local file instead of the Kubernetes secret.
 
 . In the YAML output, identify the four categories of active rules:
 +
