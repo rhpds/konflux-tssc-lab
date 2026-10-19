@@ -41,18 +41,26 @@ oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service -o yam
 . In the output, find `spec.sources`.
 This field lists the policy bundle — an OCI image reference or Git URL that contains the Rego rules Conforma applies to your artifact.
 
-. Clone the policy data repository to make it available locally for the `ec` CLI:
+. Extract the policy spec and update it to use local data files.
+The policy references data from GitHub which the `ec` CLI cannot fetch from the terminal, so clone the repository and update the policy to use local file paths:
 +
 [source,bash,role="execute"]
 ----
+# Clone the policy data repository
 git clone --depth 1 --branch main \
   https://github.com/rhpds/konflux-tssc-lab.git /tmp/konflux-tssc-lab
 
-export EC_DATA_PATH="file:///tmp/konflux-tssc-lab/tekton/data"
-echo "Policy data path: ${EC_DATA_PATH}"
+# Extract policy and update data source to local path
+oc get enterprisecontractpolicy lab-policy \
+  -n enterprise-contract-service \
+  -o jsonpath='{.spec}' | \
+  jq '.sources[0].data[0] = "file:///tmp/konflux-tssc-lab/tekton/data"' > /tmp/ec-policy.json
+
+export EC_POLICY="/tmp/ec-policy.json"
+echo "Policy saved to: ${EC_POLICY}"
 ----
 +
-The policy references data from this repository that defines trusted tasks and other validation rules.
+This allows `ec` to load the trusted task rules and other policy configuration from local files.
 
 . In the YAML output, identify the four categories of active rules:
 +
@@ -92,15 +100,14 @@ echo "Image: ${IMAGE}"
 +
 The image reference must include a digest (`@sha256:...`) for `ec` to verify attestations correctly.
 
-. Run the `ec` CLI to evaluate your image against the lab-policy.
-For keyless verification, provide the certificate identity, OIDC issuer, Rekor URL, and the local data path:
+. Run the `ec` CLI to evaluate your image against the policy.
+For keyless verification, provide the certificate identity, OIDC issuer, and Rekor URL:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
 ec validate image \
   --image "${IMAGE}" \
-  --policy lab-policy \
-  --policy-data "${EC_DATA_PATH}" \
+  --policy "${EC_POLICY}" \
   --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
   --rekor-url https://rekor-server-tsf-tas.{openshift_apps_domain} \
@@ -109,13 +116,14 @@ ec validate image \
 +
 Expected output: an empty array (`[]`) for each component, confirming no violations were found against the artifact from Module 3.
 +
-NOTE: The `--policy-data` flag provides a local path to the policy data that defines trusted tasks and validation rules. Without this, the `ec` CLI cannot fetch the data from GitHub when running in the terminal.
+NOTE: The policy file references local data files via `file://` paths, allowing `ec` to load trusted task rules without fetching from GitHub.
 
 === Verify
 
 [%interactive]
 * [ ] `oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service` returns the lab policy object.
 * [ ] `spec.sources` in the policy YAML lists at least one bundle reference.
+* [ ] `$EC_POLICY` is set and points to `/tmp/ec-policy.json`.
 * [ ] `ec validate image` against your Module 3 image returns an empty violations array.
 
 == 2. Review Integration Pipeline Results
