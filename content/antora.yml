@@ -14,6 +14,5 @@ asciidoc:
     openshift_apps_domain: 'apps.cluster-%GUID%.example.com'
     openshift_console_url: 'https://console-openshift-console.apps.cluster-%GUID%.example.com'
     openshift_cluster_ingress_domain: 'apps.cluster-%GUID%.example.com'
-    quay_url: 'quay.{openshift_apps_domain}'
     tas_oidc_issuer: 'https://kubernetes.default.svc'
     tas_tuf_url: 'https://tuf-tsf-tas.{openshift_apps_domain}'
