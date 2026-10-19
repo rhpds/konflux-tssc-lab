@@ -41,13 +41,16 @@ oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service -o yam
 . In the output, find `spec.sources`.
 This field lists the policy bundle — an OCI image reference or Git URL that contains the Rego rules Conforma applies to your artifact.
 
-. Set the policy reference for use with the `ec` CLI.
-The `ec` tool can reference policies directly from Kubernetes using the `k8s://namespace/name` format:
+. Extract the policy spec and save it to a file for use with the `ec` CLI.
+The `ec` tool expects a YAML file containing the policy spec:
 +
 [source,bash,role="execute"]
 ----
-export EC_POLICY="k8s://enterprise-contract-service/lab-policy"
-echo "Policy reference: ${EC_POLICY}"
+oc get enterprisecontractpolicy lab-policy \
+  -n enterprise-contract-service \
+  -o jsonpath='{.spec}' | jq '.' > /tmp/ec-policy.json
+export EC_POLICY="/tmp/ec-policy.json"
+echo "Policy saved to: ${EC_POLICY}"
 ----
 
 . In the YAML output, identify the four categories of active rules:
