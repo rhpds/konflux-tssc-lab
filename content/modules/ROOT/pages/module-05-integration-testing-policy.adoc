@@ -97,7 +97,7 @@ echo "Image: ${IMAGE}"
 The image reference must include a digest (`@sha256:...`) for `ec` to verify attestations correctly.
 
 . Run the `ec` CLI to evaluate your image against the policy.
-For keyless verification, provide the certificate identity pattern and OIDC issuer:
+For keyless verification, provide the certificate identity, OIDC issuer, and Rekor URL:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
@@ -106,12 +106,13 @@ ec validate image \
   --policy "${EC_POLICY}" \
   --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
+  --rekor-url {tas_rekor_url} \
   --output json | jq '.components[].violations'
 ----
 +
 Expected output: an empty array (`[]`) for each component, confirming no violations were found against the artifact from Module 3.
 +
-NOTE: These are the same identity and issuer flags used with `cosign verify` in Module 4 — `ec` uses cosign internally for signature verification.
+NOTE: These flags match those used with `cosign verify` in Module 4. The `--rekor-url` provides the transparency log for signature verification.
 
 === Verify
 
@@ -211,6 +212,7 @@ ec validate image \
   --policy "${EC_POLICY}" \
   --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
+  --rekor-url {tas_rekor_url} \
   --output json | jq .
 ----
 
@@ -233,6 +235,7 @@ ec validate image \
   --policy "${EC_POLICY}" \
   --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
+  --rekor-url {tas_rekor_url} \
   --output json | jq '.success'
 ----
 +
