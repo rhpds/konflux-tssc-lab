@@ -8,8 +8,8 @@ pipeline-required-tasks:
     - init
     - [git-clone, git-clone-oci-ta, git-clone-oci-ta-min]
     - [prefetch-dependencies, prefetch-dependencies-oci-ta, prefetch-dependencies-oci-ta-min]
-    - [buildah, buildah-remote, buildah-oci-ta, buildah-remote-oci-ta, buildah-oci-ta-min]
-    - deprecated-image-check
+    - [buildah, buildah-remote, buildah-oci-ta, buildah-remote-oci-ta, buildah-oci-ta-min, build-container]
+    - [deprecated-image-check, deprecated-base-image-check]
     - [clamav-scan, clamav-scan-min]
     - [sast-shell-check, sast-shell-check-oci-ta, sast-shell-check-oci-ta-min]
     - [sast-unicode-check, sast-unicode-check-oci-ta, sast-unicode-check-oci-ta-min]
