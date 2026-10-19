@@ -182,7 +182,7 @@ The lab provides a pre-built unsigned image for this exercise.
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
-export BAD_IMAGE={quay_url}/tsf/unsigned-image:latest
+export BAD_IMAGE={quay_hostname}/tsf/unsigned-image:latest
 echo "Testing against: ${BAD_IMAGE}"
 ----
 
