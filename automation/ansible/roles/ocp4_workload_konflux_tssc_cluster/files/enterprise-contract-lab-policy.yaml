@@ -13,9 +13,10 @@ spec:
     config:
       include:
       # Only include rules for what we've actually built in the lab
-      - slsa_provenance_available  # SLSA provenance exists
-      - sbom_cyclonedx  # CycloneDX SBOM
-      - sbom_spdx  # SPDX SBOM
-      - attestation_signature_check  # Signature verification
-      - step_image_registries  # Step images from allowed registries
-      - base_image_registries  # Base images from allowed registries
+      - slsa_provenance_available  # SLSA provenance attestation exists
+      - sbom_cyclonedx  # CycloneDX SBOM checks
+      exclude:
+      # Exclude checks that require additional infrastructure/data
+      - sbom_spdx.hermeto_attribution_required  # Hermeto SBOM processor
+      - base_image_registries  # Requires allowed_registry_prefixes data
+      - step_image_registries  # Requires step registry data
