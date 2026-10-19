@@ -31,90 +31,37 @@
   ansible.builtin.set_fact:
     quay_registry: "quay.{{ openshift_api_url | regex_replace('^https?://', '') | regex_replace(':[0-9]+$', '') | regex_replace('^api\\.', 'apps.') }}"
 
-- name: Get Quay admin credentials
+- name: Create Job to push unsigned image
+  kubernetes.core.k8s:
+    state: present
+    template: job-push-unsigned-image.yaml.j2
+
+- name: Wait for push-unsigned-image Job to complete
   kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Secret
-    name: quay-super-user
-    namespace: quay-system
-  register: r_quay_admin_secret
-
-- name: Set Quay admin password
-  ansible.builtin.set_fact:
-    quay_admin_password: "{{ r_quay_admin_secret.resources[0].data.password | b64decode }}"
-
-- name: Create temporary directory for image work
-  ansible.builtin.tempfile:
-    state: directory
-    prefix: unsigned-image-
-  register: r_temp_dir
-
-- name: Create podman auth file
-  ansible.builtin.copy:
-    content: |
-      {
-        "auths": {
-          "{{ quay_registry }}": {
-            "auth": "{{ ('quay:' + quay_admin_password) | b64encode }}"
-          }
-        }
-      }
-    dest: "{{ r_temp_dir.path }}/auth.json"
-    mode: '0600'
-
-- name: Pull UBI minimal image
-  ansible.builtin.command:
-    cmd: podman pull registry.access.redhat.com/ubi9/ubi-minimal:latest
-  register: r_pull
-  retries: 3
+    api_version: batch/v1
+    kind: Job
+    name: push-unsigned-image
+    namespace: quay-enterprise
+  register: r_job
+  retries: 30
   delay: 10
-  until: r_pull.rc == 0
+  until:
+  - r_job.resources is defined
+  - r_job.resources | length > 0
+  - r_job.resources[0].status.conditions is defined
+  - r_job.resources[0].status.conditions | selectattr('type', 'equalto', 'Complete') | list | length > 0
 
-- name: Tag image for Quay
-  ansible.builtin.command:
-    cmd: >
-      podman tag
-      registry.access.redhat.com/ubi9/ubi-minimal:latest
-      {{ quay_registry }}/tsf/unsigned-image:latest
+- name: Get Job logs
+  kubernetes.core.k8s_log:
+    api_version: batch/v1
+    kind: Job
+    name: push-unsigned-image
+    namespace: quay-enterprise
+  register: r_job_logs
 
-- name: Push unsigned image to Quay tsf org
-  ansible.builtin.command:
-    cmd: >
-      podman push
-      --tls-verify=false
-      --authfile {{ r_temp_dir.path }}/auth.json
-      {{ quay_registry }}/tsf/unsigned-image:latest
-  register: r_push
-  retries: 3
-  delay: 10
-  until: r_push.rc == 0
-
-- name: Clean up local images
-  ansible.builtin.command:
-    cmd: podman rmi {{ item }}
-  loop:
-  - registry.access.redhat.com/ubi9/ubi-minimal:latest
-  - "{{ quay_registry }}/tsf/unsigned-image:latest"
-  ignore_errors: true
-
-- name: Make unsigned-image repository public
-  ansible.builtin.uri:
-    url: "https://{{ quay_registry }}/api/v1/repository/tsf/unsigned-image/changevisibility"
-    method: POST
-    body_format: json
-    body:
-      visibility: public
-    headers:
-      Authorization: "Bearer {{ quay_admin_password }}"
-      Content-Type: "application/json"
-    validate_certs: false
-    status_code: [200, 201]
-  ignore_errors: true
-
-- name: Clean up temporary directory
-  ansible.builtin.file:
-    path: "{{ r_temp_dir.path }}"
-    state: absent
+- name: Print Job output
+  ansible.builtin.debug:
+    msg: "{{ r_job_logs.log_lines }}"
 
 - name: Print unsigned image location
   ansible.builtin.debug:

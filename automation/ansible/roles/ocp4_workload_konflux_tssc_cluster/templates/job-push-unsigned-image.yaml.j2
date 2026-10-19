@@ -1,0 +1,64 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: push-unsigned-image
+  namespace: quay-enterprise
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        job: push-unsigned-image
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: default
+      containers:
+      - name: skopeo
+        image: quay.io/skopeo/stable:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+
+          echo "=== Pushing unsigned image to Quay ==="
+
+          # Create auth file for Quay
+          mkdir -p /tmp/auth
+          cat > /tmp/auth/config.json <<EOF
+          {
+            "auths": {
+              "{{ quay_registry }}": {
+                "auth": "$(echo -n "quay:${QUAY_PASSWORD}" | base64)"
+              }
+            }
+          }
+          EOF
+
+          echo "Copying UBI minimal to Quay tsf org..."
+          skopeo copy \
+            --dest-tls-verify=false \
+            --dest-authfile /tmp/auth/config.json \
+            docker://registry.access.redhat.com/ubi9/ubi-minimal:latest \
+            docker://{{ quay_registry }}/tsf/unsigned-image:latest
+
+          echo "Image pushed successfully"
+
+          echo "Making repository public via API..."
+          curl -X POST \
+            -k \
+            -H "Authorization: Bearer ${QUAY_PASSWORD}" \
+            -H "Content-Type: application/json" \
+            -d '{"visibility": "public"}' \
+            "https://{{ quay_registry }}/api/v1/repository/tsf/unsigned-image/changevisibility" || true
+
+          echo "=== Complete ==="
+          echo "Unsigned image available at: {{ quay_registry }}/tsf/unsigned-image:latest"
+        env:
+        - name: QUAY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: quay-super-user
+              key: password
