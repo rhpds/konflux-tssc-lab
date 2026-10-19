@@ -116,19 +116,8 @@ ec validate image \
   --output yaml
 ----
 +
-Expected output: The command exits successfully (exit code 0) with output showing validation results.
-You will see some violations reported - these are production-level policy checks that highlight differences between the lab environment and a full production deployment:
-
-* **Missing pipelinerun attestation**: Production Konflux creates additional PipelineRun-specific attestations beyond SLSA provenance
-* **CVE scan results**: Production environments integrate with vulnerability scanning systems in specific formats
-* **Trusted task validation**: Production policies verify tasks against centrally-maintained trust roots
-* **Source correlation**: Production deployments enforce strict source code reference formats
-
-The `--strict=false` flag treats these violations as non-blocking warnings rather than failures.
-This mirrors how the managed release pipeline handles policy validation - the violations are logged for review but don't block the workflow.
-
-*Key Learning Point*: In production, these violations would either need to be fixed (by configuring the missing integrations) or explicitly accepted as policy exceptions.
-The lab demonstrates the validation workflow without requiring full production infrastructure.
+Expected output: Policy validation results showing success status and any warnings.
+The `--strict=false` flag treats violations as warnings rather than failures, which is appropriate for a lab environment where some production-level checks may not apply.
 +
 NOTE: The policy file references local data files via `file://` paths, allowing `ec` to load trusted task rules without fetching from GitHub.
 
