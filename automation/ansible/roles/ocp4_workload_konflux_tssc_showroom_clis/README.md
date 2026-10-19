@@ -29,9 +29,7 @@ Source: `http://cli-server.trusted-artifact-signer.svc.cluster.local:8080/client
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ocp4_workload_konflux_tssc_showroom_clis_user` | `user-{{ guid }}` | Lab user identifier constructed from guid |
-| `ocp4_workload_konflux_tssc_showroom_clis_showroom_namespace` | `{{ ocp4_workload_konflux_tssc_showroom_clis_user }}-showroom` | Namespace containing the Showroom deployment |
-| `showroom_namespace` | (alias) | Backward-compatible alias for the showroom namespace |
+| `showroom_namespace` | `user-{{ guid }}-showroom` | Namespace containing the Showroom deployment |
 
 ## Usage in AgnosticV Catalog
 
