@@ -196,21 +196,15 @@ oc project {openshift_username}-tenant
 +
 Expected output: `Now using project "{openshift_username}-tenant" on server ...`
 
-. Install the `cosign` CLI, which you will use in Modules 3 and 4 to inspect SBOMs and verify image signatures:
+. Verify that the supply chain CLIs are available in your terminal.
+The lab environment pre-installs `cosign`, `ec` (Enterprise Contract), and `rekor-cli` in the terminal:
 +
 [source,bash,role="execute"]
 ----
-COSIGN_VERSION="v2.4.1"
-mkdir -p ~/bin
-curl -sSL "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64" \
-  -o ~/bin/cosign
-chmod +x ~/bin/cosign
-echo 'export PATH=$HOME/bin:$PATH' >> ~/.bashrc
-export PATH=$HOME/bin:$PATH
 cosign version
 ----
 +
-Expected output: a version line beginning with `GitVersion: v2.4.1`.
+Expected output: a version line beginning with `GitVersion:`.
 
 === Verify
 
@@ -219,7 +213,7 @@ Before moving to Module 2, confirm all of the following:
 [%interactive]
 * [ ] `oc whoami` returns your assigned user ID.
 * [ ] `oc project {openshift_username}-tenant` switches to your tenant namespace.
-* [ ] `cosign version` returns a version string.
+* [ ] `cosign version` displays the installed version.
 
 If any check fails, do not proceed.
 Unresolved environment issues will block all subsequent modules.
