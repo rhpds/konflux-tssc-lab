@@ -12,7 +12,7 @@ asciidoc:
     ssh_user: lab-user
     ssh_password: changeme
     openshift_apps_domain: 'apps.cluster-%GUID%.example.com'
-    openshift_console_url: 'https://console-openshift-console.{openshift_apps_domain}'
-    openshift_cluster_ingress_domain: '{openshift_apps_domain}'
+    openshift_console_url: 'https://console-openshift-console.apps.cluster-%GUID%.example.com'
+    openshift_cluster_ingress_domain: 'apps.cluster-%GUID%.example.com'
     tas_oidc_issuer: 'https://kubernetes.default.svc'
     tas_tuf_url: 'https://tuf-tsf-tas.{openshift_apps_domain}'
