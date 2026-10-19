@@ -41,14 +41,13 @@ oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service -o yam
 . In the output, find `spec.sources`.
 This field lists the policy bundle — an OCI image reference or Git URL that contains the Rego rules Conforma applies to your artifact.
 
-. Extract the policy bundle reference and store it in a shell variable:
+. Set the policy reference for use with the `ec` CLI.
+The `ec` tool can reference policies directly from Kubernetes using the `k8s://namespace/name` format:
 +
 [source,bash,role="execute"]
 ----
-export EC_POLICY=$(oc get enterprisecontractpolicy lab-policy \
-  -n enterprise-contract-service \
-  -o jsonpath='{.spec.sources[0].policy[0]}')
-echo "Policy bundle: ${EC_POLICY}"
+export EC_POLICY="k8s://enterprise-contract-service/lab-policy"
+echo "Policy reference: ${EC_POLICY}"
 ----
 
 . In the YAML output, identify the four categories of active rules:
@@ -70,14 +69,18 @@ echo "Policy bundle: ${EC_POLICY}"
 |The image must have been built by a trusted Konflux task set, not an arbitrary build system.
 |===
 
-. Recover the image reference from your Component if you no longer have `$IMAGE` set in your terminal:
+. Get the digest-pinned image reference from the most recent Snapshot.
+The Snapshot contains the exact image digest that was built and tested:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
-export IMAGE=$(oc get component -n {openshift_username}-tenant \
-  -o jsonpath='{.items[0].spec.containerImage}')
+export IMAGE=$(oc get snapshot -n {openshift_username}-tenant \
+  --sort-by=.metadata.creationTimestamp \
+  -o jsonpath='{.items[-1].spec.components[0].containerImage}')
 echo "Image: ${IMAGE}"
 ----
++
+The image reference must include a digest (`@sha256:...`) for `ec` to verify attestations correctly.
 
 . Run the `ec` CLI to evaluate your image against the policy:
 +
@@ -88,9 +91,6 @@ ec validate image --image "${IMAGE}" --policy "${EC_POLICY}" \
 ----
 +
 Expected output: an empty array (`[]`) for each component, confirming no violations were found against the artifact from Module 3.
-+
-NOTE: The `ec` CLI works best with a full digest reference.
-If `$IMAGE` does not include `@sha256:...`, run `oc get component -n {openshift_username}-tenant -o jsonpath='{.items[0].spec.containerImage}'` — after the first successful build, Konflux stores the digest-pinned reference there automatically.
 
 === Verify
 
