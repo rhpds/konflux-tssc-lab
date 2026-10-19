@@ -1,0 +1,77 @@
+---
+- name: Wait for Showroom deployment to exist
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: showroom
+    namespace: "{{ showroom_namespace }}"
+  register: r_showroom_deployment
+  retries: 30
+  delay: 10
+  until:
+  - r_showroom_deployment.resources is defined
+  - r_showroom_deployment.resources | length > 0
+
+- name: Patch Showroom deployment to install TAS CLIs
+  kubernetes.core.k8s:
+    state: patched
+    api_version: apps/v1
+    kind: Deployment
+    name: showroom
+    namespace: "{{ showroom_namespace }}"
+    definition:
+      spec:
+        template:
+          spec:
+            volumes:
+            - name: cli-tools
+              emptyDir: {}
+            initContainers:
+            - name: install-tas-clis
+              image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+              command: ["/bin/bash", "-c"]
+              args:
+              - |
+                set -e
+                cd /tmp
+
+                # Download and extract cosign
+                curl -sL http://cli-server.trusted-artifact-signer.svc.cluster.local:8080/clients/linux/cosign-amd64.gz | gunzip > /opt/bin/cosign
+                chmod +x /opt/bin/cosign
+
+                # Download and extract ec
+                curl -sL http://cli-server.trusted-artifact-signer.svc.cluster.local:8080/clients/linux/ec-amd64.gz | gunzip > /opt/bin/ec
+                chmod +x /opt/bin/ec
+
+                # Download and extract rekor-cli
+                curl -sL http://cli-server.trusted-artifact-signer.svc.cluster.local:8080/clients/linux/rekor-cli-amd64.gz | gunzip > /opt/bin/rekor-cli
+                chmod +x /opt/bin/rekor-cli
+
+                echo "TAS CLIs installed successfully"
+                ls -lh /opt/bin/
+              volumeMounts:
+              - name: cli-tools
+                mountPath: /opt/bin
+            containers:
+            - name: terminal
+              volumeMounts:
+              - name: cli-tools
+                mountPath: /opt/bin
+              env:
+              - name: PATH
+                value: /opt/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+- name: Wait for Showroom deployment to be ready after patching
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: showroom
+    namespace: "{{ showroom_namespace }}"
+  register: r_showroom_patched
+  retries: 60
+  delay: 5
+  until:
+  - r_showroom_patched.resources is defined
+  - r_showroom_patched.resources | length > 0
+  - r_showroom_patched.resources[0].status.conditions is defined
+  - r_showroom_patched.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | map(attribute='status') | first | default('False') == 'True'

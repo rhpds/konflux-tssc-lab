@@ -1,0 +1,3 @@
+---
+# Showroom namespace - typically {user}-showroom
+showroom_namespace: "{{ user }}-showroom"
