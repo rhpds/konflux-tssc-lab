@@ -2,7 +2,7 @@
 # Maps our custom task names to EC requirements
 ---
 pipeline-required-tasks:
-  docker:
+  build:
   - effective_on: "2026-01-01T00:00:00Z"
     tasks:
     - init
