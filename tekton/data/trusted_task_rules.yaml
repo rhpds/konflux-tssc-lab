@@ -24,4 +24,5 @@ rule_data:
   # Trusted task rules
   trusted_task_rules:
     allow:
-      - ref: quay.io/rhpds/pipeline-docker-build-lab
+      lab-custom-bundle:
+        - ref: quay.io/rhpds/pipeline-docker-build-lab
