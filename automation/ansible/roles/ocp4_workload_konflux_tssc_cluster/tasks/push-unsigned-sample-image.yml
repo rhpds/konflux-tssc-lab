@@ -2,23 +2,23 @@
 # Push an unsigned sample image to Quay for policy violation testing
 # This image is intentionally unsigned to demonstrate EC policy failures
 
-- name: Create lab-examples organization in Quay if it doesn't exist
+- name: Create tsf organization in Quay if it doesn't exist
   kubernetes.core.k8s:
     state: present
     definition:
       apiVersion: quay.redhat.com/v1
       kind: QuayOrganization
       metadata:
-        name: lab-examples
+        name: tsf
         namespace: quay-enterprise
       spec:
-        name: lab-examples
+        name: tsf
 
-- name: Wait for lab-examples organization to be ready
+- name: Wait for tsf organization to be ready
   kubernetes.core.k8s_info:
     api_version: quay.redhat.com/v1
     kind: QuayOrganization
-    name: lab-examples
+    name: tsf
     namespace: quay-enterprise
   register: r_org
   retries: 10
@@ -62,22 +62,22 @@
     dest: "{{ r_temp_dir.path }}/auth.json"
     mode: '0600'
 
-- name: Push unsigned sample image to Quay
+- name: Push unsigned image to Quay tsf org
   ansible.builtin.command:
     cmd: >
       skopeo copy
       --dest-tls-verify=false
       --dest-authfile {{ r_temp_dir.path }}/auth.json
       docker://registry.access.redhat.com/ubi9/ubi-minimal:latest
-      docker://{{ quay_registry }}/lab-examples/unsigned-sample:latest
+      docker://{{ quay_registry }}/tsf/unsigned-image:latest
   register: r_skopeo_copy
   retries: 3
   delay: 10
   until: r_skopeo_copy.rc == 0
 
-- name: Make unsigned-sample repository public
+- name: Make unsigned-image repository public
   ansible.builtin.uri:
-    url: "https://{{ quay_registry }}/api/v1/repository/lab-examples/unsigned-sample/changevisibility"
+    url: "https://{{ quay_registry }}/api/v1/repository/tsf/unsigned-image/changevisibility"
     method: POST
     body_format: json
     body:
@@ -94,6 +94,6 @@
     path: "{{ r_temp_dir.path }}"
     state: absent
 
-- name: Print unsigned sample image location
+- name: Print unsigned image location
   ansible.builtin.debug:
-    msg: "Unsigned sample image available at: {{ quay_registry }}/lab-examples/unsigned-sample:latest"
+    msg: "Unsigned image available at: {{ quay_registry }}/tsf/unsigned-image:latest"
