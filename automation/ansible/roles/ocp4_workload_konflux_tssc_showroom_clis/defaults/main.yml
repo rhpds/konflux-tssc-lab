@@ -1,3 +1,13 @@
 ---
+# Lab user identifier (constructed from guid)
+ocp4_workload_konflux_tssc_showroom_clis_user: "user-{{ guid }}"
+
 # Showroom namespace - typically {user}-showroom
-showroom_namespace: "{{ user }}-showroom"
+ocp4_workload_konflux_tssc_showroom_clis_showroom_namespace: "{{ ocp4_workload_konflux_tssc_showroom_clis_user }}-showroom"
+
+# Alias for backward compatibility
+showroom_namespace: "{{ ocp4_workload_konflux_tssc_showroom_clis_showroom_namespace }}"
+
+# Workload control
+ocp4_workload_konflux_tssc_showroom_clis_become_override: false
+ocp4_workload_konflux_tssc_showroom_clis_silent: false
