@@ -41,20 +41,6 @@ oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service -o yam
 . In the output, find `spec.sources`.
 This field lists the policy bundle — an OCI image reference or Git URL that contains the Rego rules Conforma applies to your artifact.
 
-. Extract the policy spec to a file for use with the `ec` CLI:
-+
-[source,bash,role="execute"]
-----
-oc get enterprisecontractpolicy lab-policy \
-  -n enterprise-contract-service \
-  -o jsonpath='{.spec}' > /tmp/ec-policy.json
-
-export EC_POLICY="/tmp/ec-policy.json"
-echo "Policy saved to: ${EC_POLICY}"
-----
-+
-The policy references the bundle and data sources that define the Rego rules for artifact validation.
-
 . In the YAML output, identify the four categories of active rules:
 +
 [cols="25h,~", options="header"]
@@ -93,14 +79,14 @@ echo "Image: ${IMAGE}"
 +
 The image reference must include a digest (`@sha256:...`) for `ec` to verify attestations correctly.
 
-. Run the `ec` CLI to evaluate your image against the policy.
+. Run the `ec` CLI to evaluate your image against the lab-policy.
 For keyless verification, provide the certificate identity, OIDC issuer, and Rekor URL:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
 ec validate image \
   --image "${IMAGE}" \
-  --policy "${EC_POLICY}" \
+  --policy lab-policy \
   --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
   --rekor-url https://rekor-server-tsf-tas.{openshift_apps_domain} \
@@ -116,7 +102,6 @@ NOTE: The keyless verification flags match those used with `cosign verify` in Mo
 [%interactive]
 * [ ] `oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service` returns the lab policy object.
 * [ ] `spec.sources` in the policy YAML lists at least one bundle reference.
-* [ ] `$EC_POLICY` is set and non-empty in your terminal session.
 * [ ] `ec validate image` against your Module 3 image returns an empty violations array.
 
 == 2. Review Integration Pipeline Results
