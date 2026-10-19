@@ -276,11 +276,11 @@ NOTE: Some entries show `UNKNOWN` or `NOASSERTION` for version or license — th
 +
 NOTE: Konflux tags images based on the triggering event:
 
-* `*-on-pr-*-build-container` — merge request builds (before merge)
+* `on-pr-<commit-hash>` — merge request builds (before merge)
 * `*-on-push-*-build-container` — main branch builds (after merge)
 * `production` — release builds created in Module 6
 +
-The tag format is: `{component-name}-{id}-{trigger}-{pipelinerun-id}-build-container`.
+The main branch build tag format is: `{component-name}-{id}-on-push-{pipelinerun-id}-build-container`.
 +
 For Modules 4-6, you will use the image with the `on-push` tag (from the build triggered after merging to `main`).
 
