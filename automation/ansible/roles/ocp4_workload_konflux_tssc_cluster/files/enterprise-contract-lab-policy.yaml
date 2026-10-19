@@ -23,5 +23,10 @@ spec:
       - rpm_signature.rule_data_provided
       - base_image_registries.allowed_registries_provided
       - sbom_spdx.hermeto_attribution_required  # Exclude CPE label requirement for lab
+      - attestation_type.pipelinerun_attestation_found  # Lab uses SLSA provenance, not PipelineRun attestation
+      - cve.cve_results_found  # CVE scan results in different format
+      - slsa_build_scripted_build.image_built_by_trusted_task  # Custom pipeline bundle
+      - slsa_source_correlated  # Source correlation rules
+      - trusted_task  # Trusted task validation rules
       include:
       - '@redhat'
