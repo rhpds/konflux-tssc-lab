@@ -106,7 +106,7 @@ ec validate image \
   --policy "${EC_POLICY}" \
   --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
-  --rekor-url {tas_rekor_url} \
+  --rekor-url https://rekor-server-tsf-tas.{openshift_apps_domain} \
   --output json | jq '.components[].violations'
 ----
 +
@@ -212,7 +212,7 @@ ec validate image \
   --policy "${EC_POLICY}" \
   --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
-  --rekor-url {tas_rekor_url} \
+  --rekor-url https://rekor-server-tsf-tas.{openshift_apps_domain} \
   --output json | jq .
 ----
 
@@ -235,7 +235,7 @@ ec validate image \
   --policy "${EC_POLICY}" \
   --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
-  --rekor-url {tas_rekor_url} \
+  --rekor-url https://rekor-server-tsf-tas.{openshift_apps_domain} \
   --output json | jq '.success'
 ----
 +
