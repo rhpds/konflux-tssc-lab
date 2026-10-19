@@ -47,10 +47,19 @@
     namespace: quay-enterprise
   register: r_quay_admin_secret
 
-- name: Set Quay admin username and password
+- name: Get Quay admin token for API access
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: quay-admin-token
+    namespace: quay-enterprise
+  register: r_quay_admin_token_secret
+
+- name: Set Quay admin username, password, and token
   ansible.builtin.set_fact:
     quay_admin_username: "{{ r_quay_admin_secret.resources[0].data.username | b64decode }}"
     quay_admin_password: "{{ r_quay_admin_secret.resources[0].data.password | b64decode }}"
+    quay_admin_token: "{{ r_quay_admin_token_secret.resources[0].data.token | b64decode }}"
 
 - name: Download and use static skopeo in tsf-cli pod to push unsigned image
   kubernetes.core.k8s_exec:
@@ -96,13 +105,13 @@
         docker://registry.access.redhat.com/ubi9/ubi-minimal:latest \
         docker://{{ quay_registry }}/tsf/unsigned-image:latest
 
-      echo "=== Making repository public (may fail due to CSRF - image is still usable) ==="
+      echo "=== Making repository public ==="
       curl -X POST \
         -k \
-        -H "Authorization: Bearer {{ quay_admin_password }}" \
+        -H "Authorization: Bearer {{ quay_admin_token }}" \
         -H "Content-Type: application/json" \
         -d "{\"visibility\": \"public\"}" \
-        "https://{{ quay_registry }}/api/v1/repository/tsf/unsigned-image/changevisibility" || echo "Note: API call failed but image was pushed successfully"
+        "https://{{ quay_registry }}/api/v1/repository/tsf/unsigned-image/changevisibility"
 
       echo ""
       echo "=== Complete ==="
