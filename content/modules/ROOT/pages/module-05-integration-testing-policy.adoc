@@ -45,11 +45,11 @@ This field lists the policy bundle — an OCI image reference or Git URL that co
 +
 [source,bash,role="execute"]
 ----
-export EC_POLICY="//enterprise-contract-service/lab-policy"
+export EC_POLICY="lab-policy"
 echo "Policy reference: ${EC_POLICY}"
 ----
 +
-The `ec` CLI can reference EnterpriseContractPolicy resources using the format `//namespace/name`.
+The `ec` CLI will look up the EnterpriseContractPolicy resource named `lab-policy` in the cluster.
 
 . In the YAML output, identify the four categories of active rules:
 +
