@@ -28,7 +28,7 @@
               emptyDir: {}
             initContainers:
             - name: install-tas-clis
-              image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+              image: registry.access.redhat.com/ubi9/ubi:latest
               command: ["/bin/bash", "-c"]
               args:
               - |
@@ -47,7 +47,7 @@
                 curl -sL http://cli-server.trusted-artifact-signer.svc.cluster.local:8080/clients/linux/rekor-cli-amd64.gz | gunzip > /opt/bin/rekor-cli
                 chmod +x /opt/bin/rekor-cli
 
-                echo "TAS CLIs installed successfully"
+                echo "TAS CLIs installed successfully:"
                 ls -lh /opt/bin/
               volumeMounts:
               - name: cli-tools

@@ -46,10 +46,11 @@ workloads:
 
 1. Waits for Showroom deployment to exist
 2. Patches the deployment with:
-   - `initContainer` to download and extract .gz CLIs
+   - `initContainer` using `ubi9/ubi` image (has gunzip pre-installed)
+   - Downloads and extracts .gz CLIs from TAS CLI server
    - `emptyDir` volume for CLI storage
    - Volume mounts for the terminal container
-   - PATH update to include `/opt/bin`
+   - PATH environment variable update to include `/opt/bin`
 3. Waits for deployment to become ready after patching
 
 ## Persistence Behavior
