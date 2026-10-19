@@ -249,6 +249,9 @@ If the run fails, read the task logs displayed in the UI and report the error to
 Do not proceed to Module 3 with a failed PipelineRun — later modules depend on artifacts produced by this run.
 
 . Return to the *Applications* view and confirm the `sample-component-golang` Component card shows the linked GitLab repository URL.
++
+.Component card showing the linked GitLab repository URL
+image::module-02-confirm-gitlab.png[Konflux Applications view showing the sample-component-golang Component card with the linked GitLab repository URL visible,800]
 
 . In Quay, navigate to the *tsf* organization and search for `{openshift_username}-tenant`.
 +
