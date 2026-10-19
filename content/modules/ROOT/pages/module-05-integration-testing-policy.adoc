@@ -192,14 +192,14 @@ echo "Testing against: ${BAD_IMAGE}"
 ----
 ec validate image \
   --image "${BAD_IMAGE}" \
-  --policy "${EC_POLICY}" \
+  --policy enterprise-contract-service/lab-policy \
   --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
   --rekor-url https://rekor-server-tsf-tas.{openshift_apps_domain} \
-  --output json | jq .
+  --output yaml
 ----
 
-. In the JSON output, locate the `components[].violations` array.
+. In the YAML output, locate the `components[].violations` array.
 Each entry represents one failed rule.
 Read the `msg` field of each violation to understand what it reports.
 +
@@ -215,11 +215,11 @@ Look for violations in these categories:
 ----
 ec validate image \
   --image "${BAD_IMAGE}" \
-  --policy "${EC_POLICY}" \
+  --policy enterprise-contract-service/lab-policy \
   --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
   --rekor-url https://rekor-server-tsf-tas.{openshift_apps_domain} \
-  --output json | jq '.success'
+  --output yaml | grep '^success:'
 ----
 +
 Expected output: `false`
@@ -258,7 +258,7 @@ The artifact never reaches the production registry, and the violation details ar
 
 [%interactive]
 * [ ] `$BAD_IMAGE` is set in your terminal session.
-* [ ] `ec validate image` against `$BAD_IMAGE` returns a non-empty `violations` array.
+* [ ] `ec validate image` against `$BAD_IMAGE` shows `success: false` with violations.
 * [ ] At least one of the following violation types appears: missing signature, missing SLSA attestation, or untrusted builder identity.
 * [ ] The top-level `success` field in the output is `false`.
 
