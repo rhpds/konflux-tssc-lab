@@ -27,9 +27,17 @@
   - r_org.resources is defined
   - r_org.resources | length > 0
 
-- name: Set Quay registry URL from predictable route
+- name: Get Quay registry URL from route
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: quay-showroom
+    namespace: quay-enterprise
+  register: r_quay_route
+
+- name: Set Quay registry URL
   ansible.builtin.set_fact:
-    quay_registry: "quay.{{ openshift_api_url | regex_replace('^https?://', '') | regex_replace(':[0-9]+$', '') | regex_replace('^api\\.', 'apps.') }}"
+    quay_registry: "{{ r_quay_route.resources[0].spec.host }}"
 
 - name: Get Quay admin credentials
   kubernetes.core.k8s_info:
