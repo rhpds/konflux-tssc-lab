@@ -207,7 +207,7 @@ Look for violations in these categories:
 +
 ** *Missing signature* — no valid Sigstore signature found on the image.
 ** *Missing SLSA attestation* — no provenance attestation is attached.
-** *Untrusted builder identity* — the image was not built by a recognized Konflux pipeline.
+** *Missing SBOM* — no SBOM attestation is attached to the image.
 
 . Confirm the top-level `success` field is `false`:
 +
@@ -259,7 +259,7 @@ The artifact never reaches the production registry, and the violation details ar
 [%interactive]
 * [ ] `$BAD_IMAGE` is set in your terminal session.
 * [ ] `ec validate image` against `$BAD_IMAGE` shows `success: false` with violations.
-* [ ] At least one of the following violation types appears: missing signature, missing SLSA attestation, or untrusted builder identity.
+* [ ] Violations appear for missing signature, missing SLSA attestation, and missing SBOM.
 * [ ] The top-level `success` field in the output is `false`.
 
 == 4. Confirm the Passing Artifact Status
