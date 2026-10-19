@@ -192,13 +192,20 @@
         - r_image_pull_secret.resources | length > 0
       no_log: true
 
+    - name: Get apps domain for rekor URL
+      ansible.builtin.set_fact:
+        _apps_domain: "{{ _api_url | regex_replace('^https?://', '') | regex_replace(':[0-9]+$', '') | regex_replace('^api\\.', 'apps.') }}"
+
     - name: Run ec validate image
       ansible.builtin.command:
         cmd: >-
           ec validate image
           --image {{ _component_image }}
-          --policy {{ _ec_policy_bundle }}
-          --output json
+          --policy enterprise-contract-service/lab-policy
+          --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*'
+          --certificate-oidc-issuer {{ _tas_oidc_issuer }}
+          --rekor-url https://rekor-server-tsf-tas.{{ _apps_domain }}
+          --output yaml
       environment:
         DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
         COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
@@ -208,24 +215,24 @@
 
     - name: Parse ec validation result
       ansible.builtin.set_fact:
-        _ec_result: "{{ r_ec_validate.stdout | from_json }}"
+        _ec_result: "{{ r_ec_validate.stdout | from_yaml }}"
       when:
         - r_ec_validate is not failed
         - r_ec_validate.stdout | length > 0
       ignore_errors: true
 
-    - name: Check for violations
+    - name: Check success status
       ansible.builtin.set_fact:
-        _ec_violations: "{{ _ec_result.components[0].violations | default([]) }}"
+        _ec_success: "{{ _ec_result.success | default(false) }}"
       when: _ec_result is defined
       ignore_errors: true
 
     - name: Record EC validation failure
       ansible.builtin.set_fact:
         e2e_failures: >-
-          {{ e2e_failures + ['EC validation failed or returned violations'] }}
+          {{ e2e_failures + ['EC validation failed - success: ' + (_ec_success | string)] }}
       when:
-        - r_ec_validate is failed or (_ec_violations is defined and _ec_violations | length > 0)
+        - r_ec_validate is failed or (_ec_success is defined and not (_ec_success | bool))
 
     # =========================================================================
     # Step 3: Verify Snapshot exists
@@ -315,12 +322,12 @@
         api_version: route.openshift.io/v1
         kind: Route
         namespace: quay-enterprise
-        name: quay-quay
+        name: quay-showroom
       register: r_quay_route
 
     - name: Set unsigned image reference
       ansible.builtin.set_fact:
-        _unsigned_image: "{{ r_quay_route.resources[0].spec.host }}/lab-examples/unsigned-sample:latest"
+        _unsigned_image: "{{ r_quay_route.resources[0].spec.host }}/tsf/unsigned-image:latest"
       when: r_quay_route.resources | length > 0
 
     - name: Validate unsigned image (expect failure)
@@ -328,8 +335,11 @@
         cmd: >-
           ec validate image
           --image {{ _unsigned_image }}
-          --policy {{ _ec_policy_bundle }}
-          --output json
+          --policy enterprise-contract-service/lab-policy
+          --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*'
+          --certificate-oidc-issuer {{ _tas_oidc_issuer }}
+          --rekor-url https://rekor-server-tsf-tas.{{ _apps_domain }}
+          --output yaml
       environment:
         COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
       register: r_ec_unsigned
@@ -339,7 +349,7 @@
 
     - name: Parse unsigned image validation result
       ansible.builtin.set_fact:
-        _ec_unsigned_result: "{{ r_ec_unsigned.stdout | from_json }}"
+        _ec_unsigned_result: "{{ r_ec_unsigned.stdout | from_yaml }}"
       when:
         - r_ec_unsigned is not skipped
         - r_ec_unsigned.stdout | length > 0
@@ -378,8 +388,8 @@
           Module 5 E2E Test Results:
           - EC Policy retrieved: {{ 'Yes' if _ec_policy_bundle is defined else 'No' }}
           - Policy bundle: {{ _ec_policy_bundle | default('N/A') }}
-          - EC validation passed: {{ 'Yes' if r_ec_validate is not failed and (_ec_violations | default([]) | length == 0) else 'No' }}
-          - Violations count: {{ _ec_violations | default([]) | length }}
+          - EC validation passed: {{ 'Yes' if _ec_success is defined and (_ec_success | bool) else 'No' }}
+          - EC validation success: {{ _ec_success | default('N/A') }}
           - Snapshots found: {{ r_snapshots.resources | length if r_snapshots.resources is defined else 0 }}
           - IntegrationTestScenarios found: {{ r_its.resources | length if r_its.resources is defined else 0 }}
           - Snapshot integration passed: {{ 'Yes' if _integration_passed is defined and (_integration_passed | bool) else 'No' }}
