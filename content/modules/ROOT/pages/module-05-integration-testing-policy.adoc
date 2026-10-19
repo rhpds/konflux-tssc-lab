@@ -41,22 +41,27 @@ oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service -o yam
 . In the output, find `spec.sources`.
 This field lists the policy bundle — an OCI image reference or Git URL that contains the Rego rules Conforma applies to your artifact.
 
-. Extract the policy spec for use with the `ec` CLI.
-Since this lab uses keyless signing (OIDC-based certificates), remove the publicKey reference from the policy:
+. Extract the policy spec and fetch policy data for use with the `ec` CLI.
+Since the policy references data from GitHub, we need to make it accessible locally:
 +
-[source,bash,role="execute"]
+[source,bash,role="execute",subs="attributes+"]
 ----
-# Extract policy spec and remove publicKey (not needed for keyless signing)
+# Clone the policy data locally
+git clone --depth 1 --branch main \
+  https://github.com/rhpds/konflux-tssc-lab.git /tmp/ec-policy-data
+
+# Extract policy spec, remove publicKey, and update data path to local files
 oc get enterprisecontractpolicy lab-policy \
   -n enterprise-contract-service \
   -o jsonpath='{.spec}' | \
-  jq 'del(.publicKey)' > /tmp/ec-policy.json
+  jq 'del(.publicKey) | .sources[0].data[0] = "file:///tmp/ec-policy-data/tekton/data"' > /tmp/ec-policy.json
 
 export EC_POLICY="/tmp/ec-policy.json"
 echo "Policy saved to: ${EC_POLICY}"
+cat /tmp/ec-policy.json | jq '.sources[0].data'
 ----
 +
-NOTE: This lab uses keyless signing with Trusted Artifact Signer, so images are signed with short-lived certificates from Fulcio (verified via OIDC issuer) rather than long-lived signing keys.
+This clones the policy data repository and updates the policy to reference local files instead of the GitHub URL.
 
 . In the YAML output, identify the four categories of active rules:
 +
@@ -112,7 +117,7 @@ ec validate image \
 +
 Expected output: an empty array (`[]`) for each component, confirming no violations were found against the artifact from Module 3.
 +
-NOTE: These flags match those used with `cosign verify` in Module 4. The `--rekor-url` provides the transparency log for signature verification.
+NOTE: The policy data is loaded from local files cloned from the repository, enabling the `ec` CLI to access the trusted task rules and other policy configuration that Konflux uses during integration testing.
 
 === Verify
 
