@@ -1,3 +1,3 @@
 ---
 # Showroom namespace (constructed from guid)
-showroom_namespace: "user-{{ guid }}-showroom"
+ocp4_workload_konflux_tssc_showroom_clis_showroom_namespace: "user-{{ guid }}-showroom"
