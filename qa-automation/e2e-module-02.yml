@@ -306,6 +306,32 @@
       retries: 6
       delay: 5
 
+    - name: Create ImageRepository for Component
+      kubernetes.core.k8s:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        state: present
+        definition:
+          apiVersion: appstudio.redhat.com/v1alpha1
+          kind: ImageRepository
+          metadata:
+            name: "{{ component_name }}"
+            namespace: "{{ _tenant_user }}-tenant"
+            labels:
+              appstudio.redhat.com/application: "{{ application_name }}"
+              appstudio.redhat.com/component: "{{ component_name }}"
+            ownerReferences:
+              - apiVersion: appstudio.redhat.com/v1alpha1
+                kind: Component
+                name: "{{ component_name }}"
+                uid: "{{ r_verify_component.resources[0].metadata.uid }}"
+          spec:
+            image:
+              name: "{{ _tenant_user }}-tenant/{{ component_name }}"
+              visibility: private
+      register: r_create_imagerepository
+
     # =========================================================================
     # Step 5: Wait for Konflux to open MR (adds .tekton/ directory)
     # =========================================================================
