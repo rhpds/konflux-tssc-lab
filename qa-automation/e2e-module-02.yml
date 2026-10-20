@@ -5,12 +5,14 @@
 #
 # Simulates student workflow for Module 2:
 # 1. Create Konflux Application
-# 2. Create GitLab Personal Access Token
-# 3. Create pipelines-as-code-secret in tenant namespace
-# 4. Create Konflux Component linked to GitLab repo
-# 5. Verify MR opened by Konflux (but DO NOT merge)
-# 6. Wait for first PipelineRun on MR branch
-# 7. Verify image pushed to Quay
+# 2. Create IntegrationTestScenario (auto-created by UI)
+# 3. Create GitLab Personal Access Token
+# 4. Create pipelines-as-code-secret in tenant namespace
+# 5. Create Konflux Component linked to GitLab repo
+# 6. Create ImageRepository with update-component-image annotation
+# 7. Verify MR opened by Konflux (but DO NOT merge)
+# 8. Wait for first PipelineRun on MR branch (handle cancellations)
+# 9. Verify image pushed to Quay
 #
 # Usage:
 #   ansible-playbook qa-automation/e2e-module-02.yml \
@@ -187,6 +189,41 @@
         name: "{{ application_name }}"
       register: r_verify_app
       failed_when: r_verify_app.resources | length == 0
+
+    - name: Create IntegrationTestScenario
+      kubernetes.core.k8s:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        state: present
+        definition:
+          apiVersion: appstudio.redhat.com/v1beta2
+          kind: IntegrationTestScenario
+          metadata:
+            name: "{{ application_name }}-enterprise-contract"
+            namespace: "{{ _tenant_user }}-tenant"
+            annotations:
+              test.appstudio.openshift.io/kind: enterprise-contract
+            ownerReferences:
+              - apiVersion: appstudio.redhat.com/v1alpha1
+                blockOwnerDeletion: false
+                controller: false
+                kind: Application
+                name: "{{ application_name }}"
+                uid: "{{ r_verify_app.resources[0].metadata.uid }}"
+          spec:
+            application: "{{ application_name }}"
+            resolverRef:
+              resolver: git
+              resourceKind: pipeline
+              params:
+                - name: url
+                  value: https://github.com/rhpds/konflux-tssc-lab.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: tekton/pipelines/enterprise-contract-low-resources.yaml
+      register: r_create_its
 
     # =========================================================================
     # Step 2: Create GitLab Personal Access Token for tenant user
@@ -393,6 +430,68 @@
         _first_pipelinerun_name: "{{ r_first_pipelinerun.resources[0].metadata.name }}"
       when: r_first_pipelinerun.resources | length > 0
 
+    - name: Check if first PipelineRun was cancelled
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ _first_pipelinerun_name }}"
+      register: r_check_cancelled
+
+    - name: Set cancellation status
+      ansible.builtin.set_fact:
+        _pipeline_cancelled: "{{ r_check_cancelled.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('reason', 'equalto', 'Cancelled') | list | length > 0 }}"
+      when: r_check_cancelled.resources[0].status.conditions is defined
+
+    - name: Handle cancelled pipeline by closing and reopening MR
+      when: _pipeline_cancelled | default(false) | bool
+      block:
+        - name: Get MR IID
+          ansible.builtin.set_fact:
+            _mr_iid: "{{ r_gitlab_mrs.json[0].iid }}"
+
+        - name: Close MR to cancel pipeline
+          ansible.builtin.uri:
+            url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/merge_requests/{{ _mr_iid }}?state_event=close"
+            method: PUT
+            headers:
+              PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
+            validate_certs: false
+            status_code: [200]
+          register: r_close_mr
+
+        - name: Reopen MR to trigger new pipeline
+          ansible.builtin.uri:
+            url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/merge_requests/{{ _mr_iid }}?state_event=reopen"
+            method: PUT
+            headers:
+              PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
+            validate_certs: false
+            status_code: [200]
+          register: r_reopen_mr
+
+        - name: Wait for new PipelineRun after MR reopen
+          kubernetes.core.k8s_info:
+            host: "{{ _k8s_host | default(omit, true) }}"
+            api_key: "{{ _k8s_api_key | default(omit, true) }}"
+            validate_certs: "{{ _k8s_validate_certs }}"
+            api_version: tekton.dev/v1
+            kind: PipelineRun
+            namespace: "{{ _tenant_user }}-tenant"
+            label_selectors:
+              - "appstudio.openshift.io/component={{ component_name }}"
+          register: r_new_pipelinerun
+          until: r_new_pipelinerun.resources | length > 2
+          retries: 20
+          delay: 5
+
+        - name: Set new PipelineRun name
+          ansible.builtin.set_fact:
+            _first_pipelinerun_name: "{{ (r_new_pipelinerun.resources | sort(attribute='metadata.creationTimestamp') | last).metadata.name }}"
+
     - name: Wait for first PipelineRun to complete
       kubernetes.core.k8s_info:
         host: "{{ _k8s_host | default(omit, true) }}"
@@ -444,10 +543,14 @@
         msg: |
           ✅ Module 2 E2E Test PASSED
           - Application created: {{ application_name }}
+          - IntegrationTestScenario created: {{ application_name }}-enterprise-contract
           - GitLab PAT created for: {{ _tenant_user }}
           - PAC secret created
           - Component created: {{ component_name }}
+          - ImageRepository created with update annotation
+          - Component containerImage set by image-controller
           - MR opened by Konflux
           - PipelineRun: {{ _first_pipelinerun_name }}
+          - Pipeline cancellation handled: {{ _pipeline_cancelled | default(false) }}
           - PipelineRun status: Succeeded
           - Image verified in Quay: {{ _component_image }}
