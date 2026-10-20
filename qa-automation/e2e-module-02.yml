@@ -36,9 +36,6 @@
     gitlab_repo_name: sample-component-golang
     pipeline_bundle: docker-build-oci-ta-min
 
-    # --- Failure tracking ---
-    e2e_failures: []
-
   tasks:
     # =========================================================================
     # Auth setup
@@ -178,13 +175,6 @@
           spec:
             displayName: "{{ application_name }}"
       register: r_create_app
-      ignore_errors: true
-
-    - name: Record Application creation failure
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['Failed to create Application ' + application_name] }}
-      when: r_create_app is failed
 
     - name: Verify Application was created
       kubernetes.core.k8s_info:
@@ -196,12 +186,7 @@
         namespace: "{{ _tenant_user }}-tenant"
         name: "{{ application_name }}"
       register: r_verify_app
-
-    - name: Record Application verification failure
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['Application ' + application_name + ' not found after creation'] }}
-      when: r_verify_app.resources | length == 0
+      failed_when: r_verify_app.resources | length == 0
 
     # =========================================================================
     # Step 2: Create GitLab Personal Access Token for tenant user
@@ -215,14 +200,12 @@
           PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
         validate_certs: false
       register: r_gitlab_user
-      ignore_errors: true
+      failed_when:
+        - r_gitlab_user.json is not defined or r_gitlab_user.json | length == 0
 
     - name: Set tenant user ID
       ansible.builtin.set_fact:
         _tenant_user_id: "{{ r_gitlab_user.json[0].id }}"
-      when:
-        - r_gitlab_user is not failed
-        - r_gitlab_user.json | length > 0
 
     - name: Calculate PAT expiration date (30 days from now)
       ansible.builtin.set_fact:
@@ -241,28 +224,13 @@
             - api
           expires_at: "{{ _pat_expires_at }}"
         validate_certs: false
-        status_code: [201, 400, 409]
+        status_code: [201]
       register: r_create_pat
-      ignore_errors: true
-      when: _tenant_user_id is defined
 
     - name: Set tenant PAT
       ansible.builtin.set_fact:
         _tenant_gitlab_pat: "{{ r_create_pat.json.token }}"
-      when:
-        - r_create_pat is not skipped
-        - r_create_pat is not failed
-        - r_create_pat.json is defined
-        - r_create_pat.json.token is defined
       no_log: true
-
-    - name: Record PAT creation failure
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['Failed to create GitLab PAT for ' + _tenant_user] }}
-      when:
-        - r_create_pat is not skipped
-        - (_tenant_gitlab_pat is not defined or r_create_pat is failed)
 
     # =========================================================================
     # Step 3: Create pipelines-as-code-secret
@@ -287,16 +255,6 @@
           stringData:
             password: "{{ _tenant_gitlab_pat }}"
       register: r_create_pac_secret
-      ignore_errors: true
-      when: _tenant_gitlab_pat is defined
-
-    - name: Record PAC secret creation failure
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['Failed to create pipelines-as-code-secret'] }}
-      when:
-        - r_create_pac_secret is not skipped
-        - r_create_pac_secret is failed
 
     # =========================================================================
     # Step 4: Create Konflux Component
@@ -325,13 +283,6 @@
               git:
                 url: "{{ _gitlab_url }}/{{ _tenant_user }}/{{ gitlab_repo_name }}.git"
       register: r_create_component
-      ignore_errors: true
-
-    - name: Record Component creation failure
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['Failed to create Component ' + component_name] }}
-      when: r_create_component is failed
 
     - name: Wait for Component to be created
       kubernetes.core.k8s_info:
@@ -346,13 +297,6 @@
       until: r_verify_component.resources | length > 0
       retries: 6
       delay: 5
-      ignore_errors: true
-
-    - name: Record Component verification failure
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['Component ' + component_name + ' not found after creation'] }}
-      when: r_verify_component.resources | length == 0
 
     # =========================================================================
     # Step 5: Wait for Konflux to open MR (adds .tekton/ directory)
@@ -370,14 +314,10 @@
           PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
         validate_certs: false
       register: r_gitlab_project
-      ignore_errors: true
 
     - name: Set GitLab project ID
       ansible.builtin.set_fact:
         _gitlab_project_id: "{{ r_gitlab_project.json.id }}"
-      when:
-        - r_gitlab_project is not failed
-        - r_gitlab_project.json.id is defined
 
     - name: Check for open MR from Konflux
       ansible.builtin.uri:
@@ -387,21 +327,11 @@
           PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
         validate_certs: false
       register: r_gitlab_mrs
-      ignore_errors: true
-      when: _gitlab_project_id is defined
       retries: 10
       delay: 5
       until:
-        - r_gitlab_mrs is not failed
+        - r_gitlab_mrs.json is defined
         - r_gitlab_mrs.json | length > 0
-
-    - name: Record MR verification failure
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['No MR found from Konflux after Component creation'] }}
-      when:
-        - r_gitlab_mrs is not skipped
-        - (r_gitlab_mrs.json | default([]) | length == 0 or r_gitlab_mrs is failed)
 
     # =========================================================================
     # Step 6: Wait for first PipelineRun (on-pull-request)
@@ -421,13 +351,6 @@
       until: r_first_pipelinerun.resources | length > 0
       retries: 30
       delay: 10
-      ignore_errors: true
-
-    - name: Record PipelineRun creation failure
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['No PipelineRun created after Component onboarding'] }}
-      when: r_first_pipelinerun.resources | length == 0
 
     - name: Set first PipelineRun name
       ansible.builtin.set_fact:
@@ -450,16 +373,6 @@
         - r_pipelinerun_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
       retries: 90
       delay: 20
-      ignore_errors: true
-      when: _first_pipelinerun_name is defined
-
-    - name: Record PipelineRun completion failure
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['PipelineRun ' + _first_pipelinerun_name + ' did not succeed'] }}
-      when:
-        - r_pipelinerun_status is not skipped
-        - (r_pipelinerun_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length == 0 or r_pipelinerun_status is failed)
 
     # =========================================================================
     # Step 7: Verify image in Quay
@@ -479,49 +392,26 @@
     - name: Set component image reference
       ansible.builtin.set_fact:
         _component_image: "{{ r_component_image.resources[0].spec.containerImage }}"
-      when:
-        - r_component_image.resources | length > 0
-        - r_component_image.resources[0].spec.containerImage is defined
 
     - name: Verify image exists in Quay via skopeo
       ansible.builtin.command:
         cmd: skopeo inspect docker://{{ _component_image }} --tls-verify=false
       register: r_skopeo_inspect
-      ignore_errors: true
-      when: _component_image is defined
       changed_when: false
-
-    - name: Record Quay image verification failure
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['Image not found in Quay: ' + _component_image] }}
-      when:
-        - r_skopeo_inspect is not skipped
-        - r_skopeo_inspect is failed
 
     # =========================================================================
     # Summary
     # =========================================================================
 
-    - name: "E2E Module 2 — Summary"
+    - name: "E2E Module 2 — Test Passed"
       ansible.builtin.debug:
         msg: |
-          Module 2 E2E Test Results:
-          - Application created: {{ 'Yes' if r_verify_app.resources | length > 0 else 'No' }}
-          - GitLab PAT created: {{ 'Yes' if _tenant_gitlab_pat is defined else 'No' }}
-          - PAC secret created: {{ 'Yes' if r_create_pac_secret is not skipped and not (r_create_pac_secret is failed) else 'No' }}
-          - Component created: {{ 'Yes' if r_verify_component.resources | length > 0 else 'No' }}
-          - MR opened by Konflux: {{ 'Yes' if r_gitlab_mrs.json | default([]) | length > 0 else 'No' }}
-          - First PipelineRun created: {{ 'Yes' if r_first_pipelinerun.resources | length > 0 else 'No' }}
-          - PipelineRun succeeded: {{ 'Yes' if r_pipelinerun_status is not skipped and (r_pipelinerun_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0) else 'No' }}
-          - Image in Quay: {{ 'Yes' if r_skopeo_inspect is not skipped and not (r_skopeo_inspect is failed) else 'No' }}
-          - Failures: {{ e2e_failures | length }}
-
-    - name: Fail if any e2e checks failed
-      ansible.builtin.fail:
-        msg: |
-          Module 2 E2E test failed with {{ e2e_failures | length }} issue(s):
-          {% for f in e2e_failures %}
-            - {{ f }}
-          {% endfor %}
-      when: e2e_failures | length > 0
+          ✅ Module 2 E2E Test PASSED
+          - Application created: {{ application_name }}
+          - GitLab PAT created for: {{ _tenant_user }}
+          - PAC secret created
+          - Component created: {{ component_name }}
+          - MR opened by Konflux
+          - PipelineRun: {{ _first_pipelinerun_name }}
+          - PipelineRun status: Succeeded
+          - Image verified in Quay: {{ _component_image }}
