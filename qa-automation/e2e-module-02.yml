@@ -235,7 +235,7 @@
           name: konflux-pac-e2e
           scopes:
             - api
-          expires_at: "{{ (ansible_date_time.date | to_datetime('%Y-%m-%d')) + timedelta(days=30) }}"
+          expires_at: "{{ (now() + timedelta(days=30)).strftime('%Y-%m-%d') }}"
         validate_certs: false
         status_code: [201, 400, 409]
       register: r_create_pat
@@ -247,7 +247,9 @@
         _tenant_gitlab_pat: "{{ r_create_pat.json.token }}"
       when:
         - r_create_pat is not skipped
-        - r_create_pat.status == 201
+        - r_create_pat is not failed
+        - r_create_pat.json is defined
+        - r_create_pat.json.token is defined
       no_log: true
 
     - name: Record PAT creation failure
@@ -256,7 +258,7 @@
           {{ e2e_failures + ['Failed to create GitLab PAT for ' + _tenant_user] }}
       when:
         - r_create_pat is not skipped
-        - r_create_pat.status != 201
+        - (_tenant_gitlab_pat is not defined or r_create_pat is failed)
 
     # =========================================================================
     # Step 3: Create pipelines-as-code-secret
