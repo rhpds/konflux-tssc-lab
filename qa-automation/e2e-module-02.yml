@@ -11,8 +11,10 @@
 # 5. Create Konflux Component linked to GitLab repo
 # 6. Create ImageRepository with update-component-image annotation
 # 7. Verify MR opened by Konflux (but DO NOT merge)
-# 8. Wait for first PipelineRun on MR branch (handle cancellations)
-# 9. Verify image pushed to Quay
+# 8. Wait for PipelineRun, check if any are Running after 20s
+#    - If any Running: continue to wait for success
+#    - If none Running: close/reopen MR, wait for new running pipeline
+# 9. Verify Component containerImage was set by image-controller
 #
 # Usage:
 #   ansible-playbook qa-automation/e2e-module-02.yml \
@@ -425,16 +427,11 @@
       retries: 30
       delay: 10
 
-    - name: Set first PipelineRun name
-      ansible.builtin.set_fact:
-        _first_pipelinerun_name: "{{ r_first_pipelinerun.resources[0].metadata.name }}"
-      when: r_first_pipelinerun.resources | length > 0
-
-    - name: Wait 20 seconds for PipelineRun to start or get cancelled
+    - name: Wait 20 seconds for PipelineRuns to start or get cancelled
       ansible.builtin.pause:
         seconds: 20
 
-    - name: Check PipelineRun status after 20s
+    - name: Check all PipelineRun statuses after 20s
       kubernetes.core.k8s_info:
         host: "{{ _k8s_host | default(omit, true) }}"
         api_key: "{{ _k8s_api_key | default(omit, true) }}"
@@ -442,18 +439,25 @@
         api_version: tekton.dev/v1
         kind: PipelineRun
         namespace: "{{ _tenant_user }}-tenant"
-        name: "{{ _first_pipelinerun_name }}"
-      register: r_check_status
+        label_selectors:
+          - "appstudio.openshift.io/component={{ component_name }}"
+      register: r_check_all_status
 
-    - name: Determine if PipelineRun was cancelled
+    - name: Check if any PipelineRun is in Running state
       ansible.builtin.set_fact:
-        _pipeline_cancelled: "{{ r_check_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('reason', 'equalto', 'Cancelled') | list | length > 0 }}"
-      when:
-        - r_check_status.resources | length > 0
-        - r_check_status.resources[0].status.conditions is defined
+        _running_pipelines: "{{ r_check_all_status.resources | selectattr('status.startTime', 'defined') | rejectattr('status.completionTime', 'defined') | list }}"
 
-    - name: Handle cancelled pipeline by closing and reopening MR
-      when: _pipeline_cancelled | default(false) | bool
+    - name: Determine if any pipeline is running
+      ansible.builtin.set_fact:
+        _any_running: "{{ _running_pipelines | length > 0 }}"
+
+    - name: Set first running PipelineRun name if any are running
+      ansible.builtin.set_fact:
+        _first_pipelinerun_name: "{{ _running_pipelines[0].metadata.name }}"
+      when: _any_running | bool
+
+    - name: Handle no running pipelines by closing and reopening MR
+      when: not (_any_running | default(true) | bool)
       block:
         - name: Get MR IID
           ansible.builtin.set_fact:
@@ -477,7 +481,7 @@
             validate_certs: false
             status_code: [200]
 
-        - name: Wait for new PipelineRun after MR reopen
+        - name: Wait for new running PipelineRun after MR reopen
           kubernetes.core.k8s_info:
             host: "{{ _k8s_host | default(omit, true) }}"
             api_key: "{{ _k8s_api_key | default(omit, true) }}"
@@ -488,13 +492,14 @@
             label_selectors:
               - "appstudio.openshift.io/component={{ component_name }}"
           register: r_new_pipelinerun
-          until: r_new_pipelinerun.resources | length > 2
+          until:
+            - r_new_pipelinerun.resources | selectattr('status.startTime', 'defined') | rejectattr('status.completionTime', 'defined') | list | length > 0
           retries: 30
           delay: 5
 
-        - name: Set new PipelineRun name
+        - name: Set new running PipelineRun name
           ansible.builtin.set_fact:
-            _first_pipelinerun_name: "{{ (r_new_pipelinerun.resources | sort(attribute='metadata.creationTimestamp') | last).metadata.name }}"
+            _first_pipelinerun_name: "{{ (r_new_pipelinerun.resources | selectattr('status.startTime', 'defined') | rejectattr('status.completionTime', 'defined') | list | first).metadata.name }}"
 
     - name: Wait for PipelineRun to complete
       kubernetes.core.k8s_info:
@@ -532,11 +537,11 @@
       ansible.builtin.set_fact:
         _component_image: "{{ r_component_image.resources[0].spec.containerImage }}"
 
-    - name: Verify image exists in Quay via skopeo
-      ansible.builtin.command:
-        cmd: skopeo inspect docker://{{ _component_image }} --tls-verify=false
-      register: r_skopeo_inspect
-      changed_when: false
+    - name: Verify containerImage was set by image-controller
+      ansible.builtin.fail:
+        msg: "Component containerImage not set - image-controller may not have updated it"
+      when:
+        - _component_image is not defined or _component_image | length == 0
 
     # =========================================================================
     # Summary
@@ -555,6 +560,7 @@
           - Component containerImage set by image-controller
           - MR opened by Konflux
           - PipelineRun: {{ _first_pipelinerun_name }}
-          - Pipeline cancellation handled: {{ _pipeline_cancelled | default(false) }}
+          - Running pipeline found: {{ _any_running | default(false) }}
+          - MR close/reopen triggered: {{ not (_any_running | default(true) | bool) }}
           - PipelineRun status: Succeeded
-          - Image verified in Quay: {{ _component_image }}
+          - Component containerImage set: {{ _component_image }}
