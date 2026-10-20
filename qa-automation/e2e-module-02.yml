@@ -463,21 +463,21 @@
           ansible.builtin.set_fact:
             _mr_iid: "{{ r_gitlab_mrs.json[0].iid }}"
 
-        - name: Close MR
+        - name: Close MR (using tenant PAT)
           ansible.builtin.uri:
             url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/merge_requests/{{ _mr_iid }}?state_event=close"
             method: PUT
             headers:
-              PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
+              PRIVATE-TOKEN: "{{ _tenant_gitlab_pat }}"
             validate_certs: false
             status_code: [200]
 
-        - name: Reopen MR to trigger new pipeline
+        - name: Reopen MR to trigger new pipeline (using tenant PAT)
           ansible.builtin.uri:
             url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/merge_requests/{{ _mr_iid }}?state_event=reopen"
             method: PUT
             headers:
-              PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
+              PRIVATE-TOKEN: "{{ _tenant_gitlab_pat }}"
             validate_certs: false
             status_code: [200]
 
