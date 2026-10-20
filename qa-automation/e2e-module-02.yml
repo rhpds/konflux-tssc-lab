@@ -318,6 +318,8 @@
           metadata:
             name: "{{ component_name }}"
             namespace: "{{ _tenant_user }}-tenant"
+            annotations:
+              image-controller.appstudio.redhat.com/update-component-image: "true"
             labels:
               appstudio.redhat.com/application: "{{ application_name }}"
               appstudio.redhat.com/component: "{{ component_name }}"
