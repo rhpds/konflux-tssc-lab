@@ -481,6 +481,10 @@
             validate_certs: false
             status_code: [200]
 
+        - name: Wait for GitLab and PAC to process MR reopen
+          ansible.builtin.pause:
+            seconds: 30
+
         - name: Wait for new running PipelineRun after MR reopen
           kubernetes.core.k8s_info:
             host: "{{ _k8s_host | default(omit, true) }}"
