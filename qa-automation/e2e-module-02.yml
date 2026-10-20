@@ -430,7 +430,11 @@
         _first_pipelinerun_name: "{{ r_first_pipelinerun.resources[0].metadata.name }}"
       when: r_first_pipelinerun.resources | length > 0
 
-    - name: Check if first PipelineRun was cancelled
+    - name: Wait 20 seconds for PipelineRun to start or get cancelled
+      ansible.builtin.pause:
+        seconds: 20
+
+    - name: Check PipelineRun status after 20s
       kubernetes.core.k8s_info:
         host: "{{ _k8s_host | default(omit, true) }}"
         api_key: "{{ _k8s_api_key | default(omit, true) }}"
@@ -439,12 +443,14 @@
         kind: PipelineRun
         namespace: "{{ _tenant_user }}-tenant"
         name: "{{ _first_pipelinerun_name }}"
-      register: r_check_cancelled
+      register: r_check_status
 
-    - name: Set cancellation status
+    - name: Determine if PipelineRun was cancelled
       ansible.builtin.set_fact:
-        _pipeline_cancelled: "{{ r_check_cancelled.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('reason', 'equalto', 'Cancelled') | list | length > 0 }}"
-      when: r_check_cancelled.resources[0].status.conditions is defined
+        _pipeline_cancelled: "{{ r_check_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('reason', 'equalto', 'Cancelled') | list | length > 0 }}"
+      when:
+        - r_check_status.resources | length > 0
+        - r_check_status.resources[0].status.conditions is defined
 
     - name: Handle cancelled pipeline by closing and reopening MR
       when: _pipeline_cancelled | default(false) | bool
@@ -453,7 +459,7 @@
           ansible.builtin.set_fact:
             _mr_iid: "{{ r_gitlab_mrs.json[0].iid }}"
 
-        - name: Close MR to cancel pipeline
+        - name: Close MR
           ansible.builtin.uri:
             url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/merge_requests/{{ _mr_iid }}?state_event=close"
             method: PUT
@@ -461,7 +467,6 @@
               PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
             validate_certs: false
             status_code: [200]
-          register: r_close_mr
 
         - name: Reopen MR to trigger new pipeline
           ansible.builtin.uri:
@@ -471,7 +476,6 @@
               PRIVATE-TOKEN: "{{ _gitlab_root_token }}"
             validate_certs: false
             status_code: [200]
-          register: r_reopen_mr
 
         - name: Wait for new PipelineRun after MR reopen
           kubernetes.core.k8s_info:
@@ -485,14 +489,14 @@
               - "appstudio.openshift.io/component={{ component_name }}"
           register: r_new_pipelinerun
           until: r_new_pipelinerun.resources | length > 2
-          retries: 20
+          retries: 30
           delay: 5
 
         - name: Set new PipelineRun name
           ansible.builtin.set_fact:
             _first_pipelinerun_name: "{{ (r_new_pipelinerun.resources | sort(attribute='metadata.creationTimestamp') | last).metadata.name }}"
 
-    - name: Wait for first PipelineRun to complete
+    - name: Wait for PipelineRun to complete
       kubernetes.core.k8s_info:
         host: "{{ _k8s_host | default(omit, true) }}"
         api_key: "{{ _k8s_api_key | default(omit, true) }}"
