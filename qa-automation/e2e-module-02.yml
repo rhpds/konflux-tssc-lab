@@ -515,8 +515,8 @@
         - r_pipelinerun_status.resources[0].status.conditions is defined
         - r_pipelinerun_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
         - r_pipelinerun_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
-      retries: 90
-      delay: 20
+      retries: 120
+      delay: 10
 
     # =========================================================================
     # Step 7: Verify image in Quay
