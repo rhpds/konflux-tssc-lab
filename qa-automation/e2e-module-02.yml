@@ -208,8 +208,14 @@
         _tenant_user_id: "{{ r_gitlab_user.json[0].id }}"
 
     - name: Calculate PAT expiration date (30 days from now)
+      ansible.builtin.command:
+        cmd: python3 -c "from datetime import datetime, timedelta; print((datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'))"
+      register: r_pat_date
+      changed_when: false
+
+    - name: Set PAT expiration date
       ansible.builtin.set_fact:
-        _pat_expires_at: "{{ lookup('pipe', 'python3 -c \"from datetime import datetime, timedelta; print((datetime.now() + timedelta(days=30)).strftime(\\'%Y-%m-%d\\'))\"') }}"
+        _pat_expires_at: "{{ r_pat_date.stdout }}"
 
     - name: Create GitLab PAT for tenant user
       ansible.builtin.uri:
