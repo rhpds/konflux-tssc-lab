@@ -224,6 +224,10 @@
         - r_gitlab_user is not failed
         - r_gitlab_user.json | length > 0
 
+    - name: Calculate PAT expiration date (30 days from now)
+      ansible.builtin.set_fact:
+        _pat_expires_at: "{{ lookup('pipe', 'python3 -c \"from datetime import datetime, timedelta; print((datetime.now() + timedelta(days=30)).strftime(\\'%Y-%m-%d\\'))\"') }}"
+
     - name: Create GitLab PAT for tenant user
       ansible.builtin.uri:
         url: "{{ _gitlab_url }}/api/v4/users/{{ _tenant_user_id }}/personal_access_tokens"
@@ -235,7 +239,7 @@
           name: konflux-pac-e2e
           scopes:
             - api
-          expires_at: "{{ (now() + timedelta(days=30)).strftime('%Y-%m-%d') }}"
+          expires_at: "{{ _pat_expires_at }}"
         validate_certs: false
         status_code: [201, 400, 409]
       register: r_create_pat
