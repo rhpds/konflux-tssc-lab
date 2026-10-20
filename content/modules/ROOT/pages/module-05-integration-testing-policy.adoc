@@ -69,7 +69,7 @@ If not, retrieve them:
 ----
 if [ -z "${IMAGE_BASE}" ] || [ -z "${IMAGE_DIGEST}" ]; then
   export IMAGE_BASE=$(oc get component -n {openshift_username}-tenant \
-    -o jsonpath='{.items[0].spec.containerImage}' | cut -d@ -f1)
+    -o jsonpath='{.items[0].spec.containerImage}' | cut -d: -f1)
   export IMAGE_DIGEST=$(oc get snapshot -n {openshift_username}-tenant \
     --sort-by=.metadata.creationTimestamp \
     -o jsonpath='{.items[-1].spec.components[0].containerImage}' | cut -d@ -f2)
