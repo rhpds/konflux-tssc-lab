@@ -279,10 +279,12 @@
             name: "{{ component_name }}"
             namespace: "{{ _tenant_user }}-tenant"
             annotations:
-              build.appstudio.openshift.io/pipeline: "{{ pipeline_bundle }}"
+              build.appstudio.openshift.io/pipeline: '{"name":"{{ pipeline_bundle }}","bundle":"latest"}'
               git-provider: gitlab
-              git-url: "{{ _gitlab_url }}"
+              git-provider-url: "{{ _gitlab_url }}"
           spec:
+            actions:
+              create-pipeline-configuration-pr: {}
             application: "{{ application_name }}"
             componentName: "{{ component_name }}"
             source:

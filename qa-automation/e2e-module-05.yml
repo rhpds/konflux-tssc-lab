@@ -35,9 +35,6 @@
     application_name: my-sample-app
     component_name: sample-component-golang
 
-    # --- Failure tracking ---
-    e2e_failures: []
-
   tasks:
     # =========================================================================
     # Auth setup
@@ -133,13 +130,6 @@
     - name: Extract policy bundle reference
       ansible.builtin.set_fact:
         _ec_policy_bundle: "{{ r_ec_policy.resources[0].spec.sources[0].policy[0] }}"
-      when: r_ec_policy.resources[0].spec.sources is defined
-
-    - name: Record EC policy extraction failure
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['Failed to extract policy bundle from EnterpriseContractPolicy'] }}
-      when: _ec_policy_bundle is not defined
 
     # =========================================================================
     # Step 2: Validate image with ec CLI
@@ -155,7 +145,6 @@
         namespace: tsf-keycloak
         name: public-info
       register: r_tas_config
-      ignore_errors: true
 
     - name: Set TAS OIDC issuer
       ansible.builtin.set_fact:
@@ -180,7 +169,6 @@
         namespace: "{{ _tenant_user }}-tenant"
         name: "{{ component_name }}-image-pull"
       register: r_image_pull_secret
-      ignore_errors: true
 
     - name: Write Docker config for ec
       ansible.builtin.copy:
@@ -210,29 +198,20 @@
         DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
         COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
       register: r_ec_validate
-      ignore_errors: true
       changed_when: false
 
     - name: Parse ec validation result
       ansible.builtin.set_fact:
         _ec_result: "{{ r_ec_validate.stdout | from_yaml }}"
-      when:
-        - r_ec_validate is not failed
-        - r_ec_validate.stdout | length > 0
-      ignore_errors: true
 
     - name: Check success status
       ansible.builtin.set_fact:
-        _ec_success: "{{ _ec_result.success | default(false) }}"
-      when: _ec_result is defined
-      ignore_errors: true
+        _ec_success: "{{ _ec_result.success }}"
 
-    - name: Record EC validation failure
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['EC validation failed - success: ' + (_ec_success | string)] }}
-      when:
-        - r_ec_validate is failed or (_ec_success is defined and not (_ec_success | bool))
+    - name: Fail if EC validation did not succeed
+      ansible.builtin.fail:
+        msg: "EC validation failed - success: {{ _ec_success }}"
+      when: not (_ec_success | bool)
 
     # =========================================================================
     # Step 3: Verify Snapshot exists
@@ -250,16 +229,14 @@
           - "appstudio.openshift.io/application={{ application_name }}"
       register: r_snapshots
 
-    - name: Record if no Snapshots found
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['No Snapshots found for application ' + application_name] }}
+    - name: Fail if no Snapshots found
+      ansible.builtin.fail:
+        msg: "No Snapshots found for application {{ application_name }}"
       when: r_snapshots.resources | length == 0
 
     - name: Get latest Snapshot
       ansible.builtin.set_fact:
         _latest_snapshot: "{{ r_snapshots.resources | sort(attribute='metadata.creationTimestamp') | last }}"
-      when: r_snapshots.resources | length > 0
 
     # =========================================================================
     # Step 4: Verify IntegrationTestScenario exists
@@ -275,10 +252,9 @@
         namespace: "{{ _tenant_user }}-tenant"
       register: r_its
 
-    - name: Record if no IntegrationTestScenario found
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['No IntegrationTestScenario found in tenant namespace'] }}
+    - name: Fail if no IntegrationTestScenario found
+      ansible.builtin.fail:
+        msg: "No IntegrationTestScenario found in tenant namespace"
       when: r_its.resources | length == 0
 
     # =========================================================================
@@ -287,28 +263,16 @@
 
     - name: Check Snapshot conditions
       ansible.builtin.set_fact:
-        _snapshot_conditions: "{{ _latest_snapshot.status.conditions | default([]) }}"
-      when: _latest_snapshot is defined
+        _snapshot_conditions: "{{ _latest_snapshot.status.conditions }}"
 
     - name: Find AppStudioIntegrationStatus condition
       ansible.builtin.set_fact:
         _integration_condition: "{{ _snapshot_conditions | selectattr('type', 'equalto', 'AppStudioIntegrationStatus') | first }}"
-      when:
-        - _snapshot_conditions is defined
-        - _snapshot_conditions | selectattr('type', 'equalto', 'AppStudioIntegrationStatus') | list | length > 0
-      ignore_errors: true
 
-    - name: Check if integration passed
-      ansible.builtin.set_fact:
-        _integration_passed: "{{ _integration_condition.status == 'True' }}"
-      when: _integration_condition is defined
-
-    - name: Record Snapshot integration failure
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['Snapshot does not have passing AppStudioIntegrationStatus'] }}
-      when:
-        - _integration_passed is not defined or not (_integration_passed | bool)
+    - name: Fail if integration did not pass
+      ansible.builtin.fail:
+        msg: "Snapshot does not have passing AppStudioIntegrationStatus"
+      when: _integration_condition.status != 'True'
 
     # =========================================================================
     # Step 6: Test policy failure with unsigned image
@@ -343,31 +307,21 @@
       environment:
         COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
       register: r_ec_unsigned
-      ignore_errors: true
+      failed_when: r_ec_unsigned.rc == 0
       changed_when: false
       when: _unsigned_image is defined
 
     - name: Parse unsigned image validation result
       ansible.builtin.set_fact:
         _ec_unsigned_result: "{{ r_ec_unsigned.stdout | from_yaml }}"
+      when: r_ec_unsigned is not skipped
+
+    - name: Verify unsigned image failed validation
+      ansible.builtin.fail:
+        msg: "Unsigned image validation incorrectly returned success=true"
       when:
         - r_ec_unsigned is not skipped
-        - r_ec_unsigned.stdout | length > 0
-      ignore_errors: true
-
-    - name: Check unsigned image success field
-      ansible.builtin.set_fact:
-        _unsigned_success: "{{ _ec_unsigned_result.success }}"
-      when: _ec_unsigned_result is defined
-      ignore_errors: true
-
-    - name: Record if unsigned image incorrectly passed
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['Unsigned image validation incorrectly returned success=true'] }}
-      when:
-        - _unsigned_success is defined
-        - _unsigned_success | bool
+        - _ec_unsigned_result.success | bool
 
     # =========================================================================
     # Cleanup
@@ -382,25 +336,14 @@
     # Summary
     # =========================================================================
 
-    - name: "E2E Module 5 — Summary"
+    - name: "E2E Module 5 — Test Passed"
       ansible.builtin.debug:
         msg: |
-          Module 5 E2E Test Results:
-          - EC Policy retrieved: {{ 'Yes' if _ec_policy_bundle is defined else 'No' }}
-          - Policy bundle: {{ _ec_policy_bundle | default('N/A') }}
-          - EC validation passed: {{ 'Yes' if _ec_success is defined and (_ec_success | bool) else 'No' }}
-          - EC validation success: {{ _ec_success | default('N/A') }}
-          - Snapshots found: {{ r_snapshots.resources | length if r_snapshots.resources is defined else 0 }}
-          - IntegrationTestScenarios found: {{ r_its.resources | length if r_its.resources is defined else 0 }}
-          - Snapshot integration passed: {{ 'Yes' if _integration_passed is defined and (_integration_passed | bool) else 'No' }}
-          - Unsigned image validation failed (expected): {{ 'Yes' if _unsigned_success is not defined or not (_unsigned_success | bool) else 'No' }}
-          - Failures: {{ e2e_failures | length }}
-
-    - name: Fail if any e2e checks failed
-      ansible.builtin.fail:
-        msg: |
-          Module 5 E2E test failed with {{ e2e_failures | length }} issue(s):
-          {% for f in e2e_failures %}
-            - {{ f }}
-          {% endfor %}
-      when: e2e_failures | length > 0
+          ✅ Module 5 E2E Test PASSED
+          - EC Policy retrieved: Yes
+          - Policy bundle: {{ _ec_policy_bundle }}
+          - EC validation success: {{ _ec_success }}
+          - Snapshots found: {{ r_snapshots.resources | length }}
+          - IntegrationTestScenarios found: {{ r_its.resources | length }}
+          - Snapshot integration status: True
+          - Unsigned image validation failed (expected): Yes

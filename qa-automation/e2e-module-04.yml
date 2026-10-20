@@ -34,9 +34,6 @@
     component_name: sample-component-golang
     gitlab_repo_name: sample-component-golang
 
-    # --- Failure tracking ---
-    e2e_failures: []
-
   tasks:
     # =========================================================================
     # Auth setup
@@ -176,7 +173,6 @@
         namespace: tsf-keycloak
         name: public-info
       register: r_tas_config
-      ignore_errors: true
 
     - name: Set TAS OIDC issuer
       ansible.builtin.set_fact:
@@ -203,13 +199,6 @@
         validate_certs: false
         dest: /tmp/tuf-root-{{ _tenant_user }}.json
       register: r_tuf_root
-      ignore_errors: true
-
-    - name: Record TUF root download failure
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['Failed to download TAS TUF root.json'] }}
-      when: r_tuf_root is failed
 
     - name: Initialize cosign with TAS TUF
       ansible.builtin.command:
@@ -220,17 +209,7 @@
       environment:
         COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
       register: r_cosign_init
-      ignore_errors: true
-      when: r_tuf_root is not failed
       changed_when: false
-
-    - name: Record cosign init failure
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['Failed to initialize cosign with TAS TUF'] }}
-      when:
-        - r_cosign_init is not skipped
-        - r_cosign_init is failed
 
     # =========================================================================
     # Step 3: Verify image signature
@@ -246,7 +225,6 @@
         namespace: "{{ _tenant_user }}-tenant"
         name: "{{ component_name }}-image-pull"
       register: r_image_pull_secret
-      ignore_errors: true
 
     - name: Write Docker config for cosign
       ansible.builtin.copy:
@@ -269,14 +247,7 @@
         DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
         COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
       register: r_cosign_verify
-      ignore_errors: true
       changed_when: false
-
-    - name: Record signature verification failure
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['Image signature verification failed'] }}
-      when: r_cosign_verify is failed
 
     # =========================================================================
     # Step 4: Download and inspect SLSA provenance attestation
@@ -289,59 +260,32 @@
         DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
         COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
       register: r_attestations
-      ignore_errors: true
       changed_when: false
-
-    - name: Record attestation download failure
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['Failed to download attestations'] }}
-      when: r_attestations is failed
 
     - name: Parse attestations
       ansible.builtin.set_fact:
         _attestations: "{{ r_attestations.stdout_lines | map('from_json') | list }}"
-      when:
-        - r_attestations is not failed
-        - r_attestations.stdout_lines | length > 0
-      ignore_errors: true
 
     - name: Count attestations
       ansible.builtin.set_fact:
         _attestation_count: "{{ _attestations | length }}"
-      when: _attestations is defined
 
-    - name: Record if no attestations found
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['No attestations found for image'] }}
-      when: _attestation_count is not defined or _attestation_count | int == 0
+    - name: Fail if no attestations found
+      ansible.builtin.fail:
+        msg: "No attestations found for image"
+      when: _attestation_count | int == 0
 
     - name: Extract SLSA provenance (try both v0.2 and v1)
       ansible.builtin.set_fact:
         _slsa_attestations: "{{ _attestations | selectattr('payload', 'defined') | list }}"
-      when: _attestations is defined
-      ignore_errors: true
 
     - name: Decode and check first SLSA attestation
       ansible.builtin.set_fact:
         _slsa_payload: "{{ (_slsa_attestations[0].payload | b64decode | from_json) }}"
-      when:
-        - _slsa_attestations is defined
-        - _slsa_attestations | length > 0
-      ignore_errors: true
 
     - name: Verify SLSA predicate type
       ansible.builtin.set_fact:
         _slsa_predicate_type: "{{ _slsa_payload.predicateType }}"
-      when: _slsa_payload is defined
-      ignore_errors: true
-
-    - name: Record if SLSA attestation missing or invalid
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['SLSA attestation not found or invalid'] }}
-      when: _slsa_predicate_type is not defined
 
     # =========================================================================
     # Step 5: Verify attestation contains correct metadata
@@ -367,34 +311,18 @@
       ansible.builtin.set_fact:
         _attestation_repo: "{{ _slsa_payload.predicate.invocation.environment.annotations['pipelinesascode.tekton.dev/repo-url'] }}"
       when:
-        - _slsa_payload is defined
-        - _slsa_predicate_type is defined
         - "'v0.2' in _slsa_predicate_type"
-      ignore_errors: true
 
     - name: Extract repo from SLSA attestation (v1 path)
       ansible.builtin.set_fact:
         _attestation_repo: "{{ _slsa_payload.predicate.buildDefinition.resolvedDependencies[0].uri }}"
       when:
-        - _slsa_payload is defined
-        - _slsa_predicate_type is defined
         - "'v1' in _slsa_predicate_type"
-      ignore_errors: true
 
     - name: Verify repo URL matches
-      ansible.builtin.set_fact:
-        _repo_match: "{{ _expected_repo_url in _attestation_repo }}"
-      when:
-        - _attestation_repo is defined
-        - _expected_repo_url is defined
-      ignore_errors: true
-
-    - name: Record repo URL mismatch
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['SLSA attestation repo URL does not match expected GitLab repo'] }}
-      when:
-        - _repo_match is not defined or not (_repo_match | bool)
+      ansible.builtin.fail:
+        msg: "SLSA attestation repo URL does not match expected GitLab repo"
+      when: _expected_repo_url not in _attestation_repo
 
     # =========================================================================
     # Step 6: Verify Rekor transparency log entry
@@ -412,22 +340,11 @@
         DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
         COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
       register: r_cosign_verify_json
-      ignore_errors: true
       changed_when: false
 
     - name: Parse Rekor log index
       ansible.builtin.set_fact:
         _rekor_log_index: "{{ (r_cosign_verify_json.stdout | from_json)[0].optional.Bundle.Payload.logIndex }}"
-      when:
-        - r_cosign_verify_json is not failed
-        - r_cosign_verify_json.stdout | length > 0
-      ignore_errors: true
-
-    - name: Record Rekor log entry missing
-      ansible.builtin.set_fact:
-        e2e_failures: >-
-          {{ e2e_failures + ['Rekor transparency log entry not found'] }}
-      when: _rekor_log_index is not defined
 
     # =========================================================================
     # Cleanup
@@ -445,25 +362,14 @@
     # Summary
     # =========================================================================
 
-    - name: "E2E Module 4 — Summary"
+    - name: "E2E Module 4 — Test Passed"
       ansible.builtin.debug:
         msg: |
-          Module 4 E2E Test Results:
+          ✅ Module 4 E2E Test PASSED
           - Image reference: {{ _image_ref }}
-          - TAS TUF initialized: {{ 'Yes' if r_cosign_init is not skipped and not (r_cosign_init is failed) else 'No' }}
-          - Signature verified: {{ 'Yes' if r_cosign_verify is not failed else 'No' }}
-          - Attestations downloaded: {{ 'Yes' if _attestation_count is defined else 'No' }}
-          - Attestation count: {{ _attestation_count | default('N/A') }}
-          - SLSA predicate type: {{ _slsa_predicate_type | default('N/A') }}
-          - Repo URL in attestation matches: {{ 'Yes' if _repo_match is defined and (_repo_match | bool) else 'No' }}
-          - Rekor log index: {{ _rekor_log_index | default('N/A') }}
-          - Failures: {{ e2e_failures | length }}
-
-    - name: Fail if any e2e checks failed
-      ansible.builtin.fail:
-        msg: |
-          Module 4 E2E test failed with {{ e2e_failures | length }} issue(s):
-          {% for f in e2e_failures %}
-            - {{ f }}
-          {% endfor %}
-      when: e2e_failures | length > 0
+          - TAS TUF initialized: Yes
+          - Signature verified: Yes
+          - Attestation count: {{ _attestation_count }}
+          - SLSA predicate type: {{ _slsa_predicate_type }}
+          - Repo URL in attestation matches: Yes
+          - Rekor log index: {{ _rekor_log_index }}
