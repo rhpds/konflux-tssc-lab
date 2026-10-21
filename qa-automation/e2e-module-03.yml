@@ -448,6 +448,13 @@
         name: "{{ _push_pipelinerun.metadata.name }}"
       register: r_push_complete
 
+    - name: Debug what we got back
+      ansible.builtin.debug:
+        msg:
+          - "Pipeline name: {{ r_push_complete.resources[0].metadata.name }}"
+          - "Status keys: {{ r_push_complete.resources[0].status.keys() | list }}"
+          - "Has pipelineResults: {{ 'pipelineResults' in r_push_complete.resources[0].status }}"
+
     - name: Extract IMAGE_DIGEST from PipelineRun
       ansible.builtin.set_fact:
         _image_digest: "{{ r_push_complete.resources[0].status.pipelineResults | selectattr('name', 'equalto', 'IMAGE_DIGEST') | map(attribute='value') | first }}"
