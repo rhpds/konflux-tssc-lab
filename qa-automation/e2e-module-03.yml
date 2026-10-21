@@ -224,14 +224,13 @@
           - "appstudio.openshift.io/component={{ component_name }}"
           - "pipelinesascode.tekton.dev/event-type=pull_request"
       register: r_pr_pipelineruns
-      until: r_pr_pipelineruns.resources | length >= 1
+      until: r_pr_pipelineruns.resources | length > 0
       retries: 30
       delay: 10
 
     - name: Get latest on-pull-request PipelineRun
       ansible.builtin.set_fact:
         _pr_pipelinerun: "{{ r_pr_pipelineruns.resources | sort(attribute='metadata.creationTimestamp') | last }}"
-      when: r_pr_pipelineruns.resources | length >= 1
 
 
     - name: Wait for on-pull-request PipelineRun to complete
@@ -268,7 +267,7 @@
           - "appstudio.openshift.io/component={{ component_name }}"
           - "pipelinesascode.tekton.dev/event-type=pull_request"
       register: r_post_commit_build_pipelines
-      until: r_post_commit_build_pipelines.resources | length >= 1
+      until: r_post_commit_build_pipelines.resources | length > 0
       retries: 30
       delay: 10
 
@@ -305,7 +304,7 @@
           - "appstudio.openshift.io/application={{ application_name }}"
           - "test.appstudio.openshift.io/scenario={{ application_name }}-enterprise-contract"
       register: r_post_commit_integration_tests
-      until: r_post_commit_integration_tests.resources | length >= 1
+      until: r_post_commit_integration_tests.resources | length > 0
       retries: 30
       delay: 10
 
