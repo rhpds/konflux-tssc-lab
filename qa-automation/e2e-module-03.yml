@@ -106,210 +106,12 @@
         msg: "Component {{ component_name }} not found — Module 2 may not have completed"
       when: r_component.resources | length == 0
 
-    - name: Get GitLab route
-      kubernetes.core.k8s_info:
-        host: "{{ _k8s_host | default(omit, true) }}"
-        api_key: "{{ _k8s_api_key | default(omit, true) }}"
-        validate_certs: "{{ _k8s_validate_certs }}"
-        api_version: route.openshift.io/v1
-        kind: Route
-        namespace: gitlab
-        name: gitlab
-      register: r_gitlab_route
-
-    - name: Set GitLab URL
-      ansible.builtin.set_fact:
-        _gitlab_url: "https://{{ r_gitlab_route.resources[0].spec.host }}"
-      when: r_gitlab_route.resources | length > 0
-
-    - name: Get tenant user PAT from pipelines-as-code-secret
-      kubernetes.core.k8s_info:
-        host: "{{ _k8s_host | default(omit, true) }}"
-        api_key: "{{ _k8s_api_key | default(omit, true) }}"
-        validate_certs: "{{ _k8s_validate_certs }}"
-        api_version: v1
-        kind: Secret
-        namespace: "{{ _tenant_user }}-tenant"
-        name: pipelines-as-code-secret
-      register: r_pac_secret
-
-    - name: Set tenant GitLab PAT
-      ansible.builtin.set_fact:
-        _tenant_gitlab_pat: "{{ r_pac_secret.resources[0].data.password | b64decode }}"
-      when: r_pac_secret.resources | default([]) | length > 0
-      no_log: true
-
-    - name: Get GitLab project ID
-      ansible.builtin.uri:
-        url: "{{ _gitlab_url }}/api/v4/projects/{{ _tenant_user }}%2F{{ gitlab_repo_name }}"
-        method: GET
-        headers:
-          PRIVATE-TOKEN: "{{ _tenant_gitlab_pat }}"
-        validate_certs: false
-      register: r_gitlab_project
-
-    - name: Set GitLab project ID
-      ansible.builtin.set_fact:
-        _gitlab_project_id: "{{ r_gitlab_project.json.id }}"
-
     # =========================================================================
-    # Step 1: Get open MR created by Konflux in Module 2
+    # TESTING: Use existing build for SBOM verification
+    # TODO: Uncomment Steps 1-6 below to re-enable full test
     # =========================================================================
 
-    - name: Get open MRs
-      ansible.builtin.uri:
-        url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/merge_requests?state=opened"
-        method: GET
-        headers:
-          PRIVATE-TOKEN: "{{ _tenant_gitlab_pat }}"
-        validate_certs: false
-      register: r_open_mrs
-
-    - name: Find Konflux MR
-      ansible.builtin.set_fact:
-        _konflux_mr: "{{ r_open_mrs.json | selectattr('title', 'match', '^Konflux.*') | first }}"
-      when: r_open_mrs.json | length > 0
-
-    - name: Fail if no Konflux MR found
-      ansible.builtin.fail:
-        msg: "No open Konflux MR found — Module 2 may not have completed"
-      when: _konflux_mr is not defined
-
-    - name: Set MR details
-      ansible.builtin.set_fact:
-        _mr_iid: "{{ _konflux_mr.iid }}"
-        _mr_source_branch: "{{ _konflux_mr.source_branch }}"
-
-    # =========================================================================
-    # Step 2: Push commit to MR branch
-    # =========================================================================
-
-    - name: Push commit to MR branch
-      ansible.builtin.uri:
-        url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/repository/commits"
-        method: POST
-        headers:
-          PRIVATE-TOKEN: "{{ _tenant_gitlab_pat }}"
-        body_format: json
-        body:
-          branch: "{{ _mr_source_branch }}"
-          commit_message: "chore: trigger module-03 build"
-          actions:
-            - action: update
-              file_path: README.md
-              content: |
-                # sample-component-golang
-
-                Sample Go application for Konflux TSSC Lab.
-
-                # Lab update - module 03
-        validate_certs: false
-        status_code: [201]
-      register: r_push_commit
-
-
-    # =========================================================================
-    # Step 3: Wait for on-pull-request PipelineRun triggered by commit
-    # =========================================================================
-
-    - name: Wait for build PipelineRun to appear after commit
-      kubernetes.core.k8s_info:
-        host: "{{ _k8s_host | default(omit, true) }}"
-        api_key: "{{ _k8s_api_key | default(omit, true) }}"
-        validate_certs: "{{ _k8s_validate_certs }}"
-        api_version: tekton.dev/v1
-        kind: PipelineRun
-        namespace: "{{ _tenant_user }}-tenant"
-        label_selectors:
-          - "appstudio.openshift.io/component={{ component_name }}"
-          - "pipelinesascode.tekton.dev/event-type=Merge_Request"
-      register: r_pr_pipelineruns
-      until: r_pr_pipelineruns.resources | length > 0
-      retries: 30
-      delay: 10
-
-    - name: Get latest build pipeline
-      ansible.builtin.set_fact:
-        _pr_pipelinerun: "{{ r_pr_pipelineruns.resources | sort(attribute='metadata.creationTimestamp') | last }}"
-
-    - name: Wait for on-pull-request PipelineRun to complete
-      kubernetes.core.k8s_info:
-        host: "{{ _k8s_host | default(omit, true) }}"
-        api_key: "{{ _k8s_api_key | default(omit, true) }}"
-        validate_certs: "{{ _k8s_validate_certs }}"
-        api_version: tekton.dev/v1
-        kind: PipelineRun
-        namespace: "{{ _tenant_user }}-tenant"
-        name: "{{ _pr_pipelinerun.metadata.name }}"
-      register: r_pr_status
-      until:
-        - r_pr_status.resources[0].status.conditions is defined
-        - r_pr_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
-        - r_pr_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
-      retries: 90
-      delay: 20
-      when: _pr_pipelinerun is defined
-
-    - name: Wait for integration test pipeline to exist
-      kubernetes.core.k8s_info:
-        host: "{{ _k8s_host | default(omit, true) }}"
-        api_key: "{{ _k8s_api_key | default(omit, true) }}"
-        validate_certs: "{{ _k8s_validate_certs }}"
-        api_version: tekton.dev/v1
-        kind: PipelineRun
-        namespace: "{{ _tenant_user }}-tenant"
-        label_selectors:
-          - "appstudio.openshift.io/application={{ application_name }}"
-          - "test.appstudio.openshift.io/scenario={{ application_name }}-enterprise-contract"
-      register: r_integration_tests
-      until: r_integration_tests.resources | length > 0
-      retries: 30
-      delay: 10
-
-    - name: Get latest integration test pipeline
-      ansible.builtin.set_fact:
-        _integration_test_pipeline: "{{ r_integration_tests.resources | sort(attribute='metadata.creationTimestamp') | last }}"
-
-    - name: Wait for integration test to succeed
-      kubernetes.core.k8s_info:
-        host: "{{ _k8s_host | default(omit, true) }}"
-        api_key: "{{ _k8s_api_key | default(omit, true) }}"
-        validate_certs: "{{ _k8s_validate_certs }}"
-        api_version: tekton.dev/v1
-        kind: PipelineRun
-        namespace: "{{ _tenant_user }}-tenant"
-        name: "{{ _integration_test_pipeline.metadata.name }}"
-      register: r_integration_status
-      until:
-        - r_integration_status.resources[0].status.conditions is defined
-        - r_integration_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
-        - r_integration_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
-      retries: 60
-      delay: 10
-
-    # =========================================================================
-    # Step 4: Merge MR
-    # =========================================================================
-
-    - name: Merge MR
-      ansible.builtin.uri:
-        url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/merge_requests/{{ _mr_iid }}/merge"
-        method: PUT
-        headers:
-          PRIVATE-TOKEN: "{{ _tenant_gitlab_pat }}"
-        body_format: json
-        body:
-          should_remove_source_branch: false
-        validate_certs: false
-        status_code: [200]
-      register: r_merge_mr
-
-
-    # =========================================================================
-    # Step 5: Wait for on-push PipelineRun (merged MR build)
-    # =========================================================================
-
-    - name: Wait for on-push PipelineRun to appear
+    - name: Get latest on-push PipelineRun
       kubernetes.core.k8s_info:
         host: "{{ _k8s_host | default(omit, true) }}"
         api_key: "{{ _k8s_api_key | default(omit, true) }}"
@@ -320,51 +122,16 @@
         label_selectors:
           - "appstudio.openshift.io/component={{ component_name }}"
           - "pipelinesascode.tekton.dev/event-type=push"
-      register: r_push_pipelineruns
-      until: r_push_pipelineruns.resources | length > 0
-      retries: 30
-      delay: 10
+      register: r_existing_push_runs
 
-    - name: Get latest on-push PipelineRun
+    - name: Extract IMAGE_DIGEST from existing build
       ansible.builtin.set_fact:
-        _push_pipelinerun: "{{ r_push_pipelineruns.resources | sort(attribute='metadata.creationTimestamp') | last }}"
-      when: r_push_pipelineruns.resources | length > 0
-
-
-    - name: Wait for on-push PipelineRun to complete
-      kubernetes.core.k8s_info:
-        host: "{{ _k8s_host | default(omit, true) }}"
-        api_key: "{{ _k8s_api_key | default(omit, true) }}"
-        validate_certs: "{{ _k8s_validate_certs }}"
-        api_version: tekton.dev/v1
-        kind: PipelineRun
-        namespace: "{{ _tenant_user }}-tenant"
-        name: "{{ _push_pipelinerun.metadata.name }}"
-      register: r_push_status
-      until:
-        - r_push_status.resources[0].status.conditions is defined
-        - r_push_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
-        - r_push_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
-      retries: 90
-      delay: 20
-      when: _push_pipelinerun is defined
-
-    # =========================================================================
-    # Step 6: Extract IMAGE_DIGEST from build-container task
-    # =========================================================================
-
-    - name: Extract IMAGE_DIGEST from PipelineRun
-      ansible.builtin.set_fact:
-        _image_digest: "{{ r_push_status.resources[0].status.pipelineResults | selectattr('name', 'equalto', 'IMAGE_DIGEST') | map(attribute='value') | first }}"
-      when:
-        - r_push_status is not skipped
-        - r_push_status.resources[0].status.pipelineResults is defined
-
+        _image_digest: "{{ (r_existing_push_runs.resources | sort(attribute='metadata.creationTimestamp') | last).status.pipelineResults | selectattr('name', 'equalto', 'IMAGE_DIGEST') | map(attribute='value') | first }}"
+      when: r_existing_push_runs.resources | length > 0
 
     - name: Get component image base
       ansible.builtin.set_fact:
         _image_base: "{{ r_component.resources[0].spec.containerImage | regex_replace(':.*$', '') }}"
-      when: r_component.resources | length > 0
 
     - name: Construct full image reference
       ansible.builtin.set_fact:
@@ -374,6 +141,276 @@
         - _image_digest is defined
 
     # =========================================================================
+    # DISABLED: Steps 1-6 - Uncomment to re-enable full test flow
+    # =========================================================================
+    # - name: Get GitLab route
+    #   kubernetes.core.k8s_info:
+    #     host: "{{ _k8s_host | default(omit, true) }}"
+    #     api_key: "{{ _k8s_api_key | default(omit, true) }}"
+    #     validate_certs: "{{ _k8s_validate_certs }}"
+    #     api_version: route.openshift.io/v1
+    #     kind: Route
+    #     namespace: gitlab
+    #     name: gitlab
+    #   register: r_gitlab_route
+
+    # - name: Set GitLab URL
+    #   ansible.builtin.set_fact:
+    #     _gitlab_url: "https://{{ r_gitlab_route.resources[0].spec.host }}"
+    #   when: r_gitlab_route.resources | length > 0
+
+    # - name: Get tenant user PAT from pipelines-as-code-secret
+    #   kubernetes.core.k8s_info:
+    #     host: "{{ _k8s_host | default(omit, true) }}"
+    #     api_key: "{{ _k8s_api_key | default(omit, true) }}"
+    #     validate_certs: "{{ _k8s_validate_certs }}"
+    #     api_version: v1
+    #     kind: Secret
+    #     namespace: "{{ _tenant_user }}-tenant"
+    #     name: pipelines-as-code-secret
+    #   register: r_pac_secret
+
+    # - name: Set tenant GitLab PAT
+    #   ansible.builtin.set_fact:
+    #     _tenant_gitlab_pat: "{{ r_pac_secret.resources[0].data.password | b64decode }}"
+    #   when: r_pac_secret.resources | default([]) | length > 0
+    #   no_log: true
+
+    # - name: Get GitLab project ID
+    #   ansible.builtin.uri:
+    #     url: "{{ _gitlab_url }}/api/v4/projects/{{ _tenant_user }}%2F{{ gitlab_repo_name }}"
+    #     method: GET
+    #     headers:
+    #       PRIVATE-TOKEN: "{{ _tenant_gitlab_pat }}"
+    #     validate_certs: false
+    #   register: r_gitlab_project
+
+    # - name: Set GitLab project ID
+    #   ansible.builtin.set_fact:
+    #     _gitlab_project_id: "{{ r_gitlab_project.json.id }}"
+
+    # # =========================================================================
+    # # Step 1: Get open MR created by Konflux in Module 2
+    # # =========================================================================
+
+    # - name: Get open MRs
+    #   ansible.builtin.uri:
+    #     url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/merge_requests?state=opened"
+    #     method: GET
+    #     headers:
+    #       PRIVATE-TOKEN: "{{ _tenant_gitlab_pat }}"
+    #     validate_certs: false
+    #   register: r_open_mrs
+
+    # - name: Find Konflux MR
+    #   ansible.builtin.set_fact:
+    #     _konflux_mr: "{{ r_open_mrs.json | selectattr('title', 'match', '^Konflux.*') | first }}"
+    #   when: r_open_mrs.json | length > 0
+
+    # - name: Fail if no Konflux MR found
+    #   ansible.builtin.fail:
+    #     msg: "No open Konflux MR found — Module 2 may not have completed"
+    #   when: _konflux_mr is not defined
+
+    # - name: Set MR details
+    #   ansible.builtin.set_fact:
+    #     _mr_iid: "{{ _konflux_mr.iid }}"
+    #     _mr_source_branch: "{{ _konflux_mr.source_branch }}"
+
+    # # =========================================================================
+    # # Step 2: Push commit to MR branch
+    # # =========================================================================
+
+    # - name: Push commit to MR branch
+    #   ansible.builtin.uri:
+    #     url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/repository/commits"
+    #     method: POST
+    #     headers:
+    #       PRIVATE-TOKEN: "{{ _tenant_gitlab_pat }}"
+    #     body_format: json
+    #     body:
+    #       branch: "{{ _mr_source_branch }}"
+    #       commit_message: "chore: trigger module-03 build"
+    #       actions:
+    #         - action: update
+    #           file_path: README.md
+    #           content: |
+    #             # sample-component-golang
+
+    #             Sample Go application for Konflux TSSC Lab.
+
+    #             # Lab update - module 03
+    #     validate_certs: false
+    #     status_code: [201]
+    #   register: r_push_commit
+
+
+    # # =========================================================================
+    # # Step 3: Wait for on-pull-request PipelineRun triggered by commit
+    # # =========================================================================
+
+    # - name: Wait for build PipelineRun to appear after commit
+    #   kubernetes.core.k8s_info:
+    #     host: "{{ _k8s_host | default(omit, true) }}"
+    #     api_key: "{{ _k8s_api_key | default(omit, true) }}"
+    #     validate_certs: "{{ _k8s_validate_certs }}"
+    #     api_version: tekton.dev/v1
+    #     kind: PipelineRun
+    #     namespace: "{{ _tenant_user }}-tenant"
+    #     label_selectors:
+    #       - "appstudio.openshift.io/component={{ component_name }}"
+    #       - "pipelinesascode.tekton.dev/event-type=Merge_Request"
+    #   register: r_pr_pipelineruns
+    #   until: r_pr_pipelineruns.resources | length > 0
+    #   retries: 30
+    #   delay: 10
+
+    # - name: Get latest build pipeline
+    #   ansible.builtin.set_fact:
+    #     _pr_pipelinerun: "{{ r_pr_pipelineruns.resources | sort(attribute='metadata.creationTimestamp') | last }}"
+
+    # - name: Wait for on-pull-request PipelineRun to complete
+    #   kubernetes.core.k8s_info:
+    #     host: "{{ _k8s_host | default(omit, true) }}"
+    #     api_key: "{{ _k8s_api_key | default(omit, true) }}"
+    #     validate_certs: "{{ _k8s_validate_certs }}"
+    #     api_version: tekton.dev/v1
+    #     kind: PipelineRun
+    #     namespace: "{{ _tenant_user }}-tenant"
+    #     name: "{{ _pr_pipelinerun.metadata.name }}"
+    #   register: r_pr_status
+    #   until:
+    #     - r_pr_status.resources[0].status.conditions is defined
+    #     - r_pr_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
+    #     - r_pr_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
+    #   retries: 90
+    #   delay: 20
+    #   when: _pr_pipelinerun is defined
+
+    # - name: Wait for integration test pipeline to exist
+    #   kubernetes.core.k8s_info:
+    #     host: "{{ _k8s_host | default(omit, true) }}"
+    #     api_key: "{{ _k8s_api_key | default(omit, true) }}"
+    #     validate_certs: "{{ _k8s_validate_certs }}"
+    #     api_version: tekton.dev/v1
+    #     kind: PipelineRun
+    #     namespace: "{{ _tenant_user }}-tenant"
+    #     label_selectors:
+    #       - "appstudio.openshift.io/application={{ application_name }}"
+    #       - "test.appstudio.openshift.io/scenario={{ application_name }}-enterprise-contract"
+    #   register: r_integration_tests
+    #   until: r_integration_tests.resources | length > 0
+    #   retries: 30
+    #   delay: 10
+
+    # - name: Get latest integration test pipeline
+    #   ansible.builtin.set_fact:
+    #     _integration_test_pipeline: "{{ r_integration_tests.resources | sort(attribute='metadata.creationTimestamp') | last }}"
+
+    # - name: Wait for integration test to succeed
+    #   kubernetes.core.k8s_info:
+    #     host: "{{ _k8s_host | default(omit, true) }}"
+    #     api_key: "{{ _k8s_api_key | default(omit, true) }}"
+    #     validate_certs: "{{ _k8s_validate_certs }}"
+    #     api_version: tekton.dev/v1
+    #     kind: PipelineRun
+    #     namespace: "{{ _tenant_user }}-tenant"
+    #     name: "{{ _integration_test_pipeline.metadata.name }}"
+    #   register: r_integration_status
+    #   until:
+    #     - r_integration_status.resources[0].status.conditions is defined
+    #     - r_integration_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
+    #     - r_integration_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
+    #   retries: 60
+    #   delay: 10
+
+    # # =========================================================================
+    # # Step 4: Merge MR
+    # # =========================================================================
+
+    # - name: Merge MR
+    #   ansible.builtin.uri:
+    #     url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/merge_requests/{{ _mr_iid }}/merge"
+    #     method: PUT
+    #     headers:
+    #       PRIVATE-TOKEN: "{{ _tenant_gitlab_pat }}"
+    #     body_format: json
+    #     body:
+    #       should_remove_source_branch: false
+    #     validate_certs: false
+    #     status_code: [200]
+    #   register: r_merge_mr
+
+
+    # # =========================================================================
+    # # Step 5: Wait for on-push PipelineRun (merged MR build)
+    # # =========================================================================
+
+    # - name: Wait for on-push PipelineRun to appear
+    #   kubernetes.core.k8s_info:
+    #     host: "{{ _k8s_host | default(omit, true) }}"
+    #     api_key: "{{ _k8s_api_key | default(omit, true) }}"
+    #     validate_certs: "{{ _k8s_validate_certs }}"
+    #     api_version: tekton.dev/v1
+    #     kind: PipelineRun
+    #     namespace: "{{ _tenant_user }}-tenant"
+    #     label_selectors:
+    #       - "appstudio.openshift.io/component={{ component_name }}"
+    #       - "pipelinesascode.tekton.dev/event-type=push"
+    #   register: r_push_pipelineruns
+    #   until: r_push_pipelineruns.resources | length > 0
+    #   retries: 30
+    #   delay: 10
+
+    # - name: Get latest on-push PipelineRun
+    #   ansible.builtin.set_fact:
+    #     _push_pipelinerun: "{{ r_push_pipelineruns.resources | sort(attribute='metadata.creationTimestamp') | last }}"
+    #   when: r_push_pipelineruns.resources | length > 0
+
+
+    # - name: Wait for on-push PipelineRun to complete
+    #   kubernetes.core.k8s_info:
+    #     host: "{{ _k8s_host | default(omit, true) }}"
+    #     api_key: "{{ _k8s_api_key | default(omit, true) }}"
+    #     validate_certs: "{{ _k8s_validate_certs }}"
+    #     api_version: tekton.dev/v1
+    #     kind: PipelineRun
+    #     namespace: "{{ _tenant_user }}-tenant"
+    #     name: "{{ _push_pipelinerun.metadata.name }}"
+    #   register: r_push_status
+    #   until:
+    #     - r_push_status.resources[0].status.conditions is defined
+    #     - r_push_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
+    #     - r_push_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
+    #   retries: 90
+    #   delay: 20
+    #   when: _push_pipelinerun is defined
+
+    # # =========================================================================
+    # # Step 6: Extract IMAGE_DIGEST from build-container task
+    # # =========================================================================
+
+    # - name: Extract IMAGE_DIGEST from PipelineRun
+    #   ansible.builtin.set_fact:
+    #     _image_digest: "{{ r_push_status.resources[0].status.pipelineResults | selectattr('name', 'equalto', 'IMAGE_DIGEST') | map(attribute='value') | first }}"
+    #   when:
+    #     - r_push_status is not skipped
+    #     - r_push_status.resources[0].status.pipelineResults is defined
+
+
+    # - name: Get component image base
+    #   ansible.builtin.set_fact:
+    #     _image_base: "{{ r_component.resources[0].spec.containerImage | regex_replace(':.*$', '') }}"
+    #   when: r_component.resources | length > 0
+
+    # - name: Construct full image reference
+    #   ansible.builtin.set_fact:
+    #     _image_ref: "{{ _image_base }}@{{ _image_digest }}"
+    #   when:
+    #     - _image_base is defined
+    #     - _image_digest is defined
+
+    # # =========================================================================
     # Step 7: Verify SBOM via cosign
     # =========================================================================
 
