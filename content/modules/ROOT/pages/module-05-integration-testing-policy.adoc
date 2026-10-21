@@ -62,12 +62,19 @@ export EC_POLICY=$(oc get enterprisecontractpolicy lab-policy \
 echo "Policy bundle: ${EC_POLICY}"
 ----
 
-. Recover the image reference from your Component if you no longer have `$IMAGE` set in your terminal:
+. Recover the image reference from your Component if you no longer have `$IMAGE` set in your terminal.
+The reference must include the digest (`@sha256:...`) — `ec` requires it to locate the attestations:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
-export IMAGE=$(oc get component -n {openshift_username}-tenant \
-  -o jsonpath='{.items[0].spec.containerImage}')
+if [ -z "${IMAGE_BASE}" ] || [ -z "${IMAGE_DIGEST}" ]; then
+  export IMAGE_BASE=$(oc get component -n {openshift_username}-tenant \
+    -o jsonpath='{.items[0].spec.containerImage}' | cut -d: -f1)
+  export IMAGE_DIGEST=$(oc get snapshot -n {openshift_username}-tenant \
+    --sort-by=.metadata.creationTimestamp \
+    -o jsonpath='{.items[-1].spec.components[0].containerImage}' | cut -d@ -f2)
+fi
+export IMAGE="${IMAGE_BASE}@${IMAGE_DIGEST}"
 echo "Image: ${IMAGE}"
 ----
 
