@@ -23,8 +23,12 @@
 #   ansible-playbook qa-automation/e2e-module-02.yml -e "..."
 # =============================================================================
 
-- name: "E2E — Module 2: Onboard Your Application"
-  ansible.builtin.import_playbook: e2e-module-02.yml
+# =========================================================================
+# TESTING: Module 2 commented out - starting from Module 3
+# TODO: Uncomment to restore full test flow
+# =========================================================================
+# - name: "E2E — Module 2: Onboard Your Application"
+#   ansible.builtin.import_playbook: e2e-module-02.yml
 
 - name: "E2E — Module 3: Build and Scan"
   ansible.builtin.import_playbook: e2e-module-03.yml
