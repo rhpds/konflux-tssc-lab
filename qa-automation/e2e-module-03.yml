@@ -181,6 +181,49 @@
         _mr_source_branch: "{{ _konflux_mr.source_branch }}"
 
     # =========================================================================
+    # Step 1.5: Wait for initial Module 2 pipelines to complete
+    # =========================================================================
+
+    - name: Wait for initial on-pull-request PipelineRun from Module 2
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        label_selectors:
+          - "appstudio.openshift.io/component={{ component_name }}"
+          - "pipelinesascode.tekton.dev/event-type=pull_request"
+      register: r_initial_pipelineruns
+      until:
+        - r_initial_pipelineruns.resources | length > 0
+        - r_initial_pipelineruns.resources[0].status.conditions is defined
+        - r_initial_pipelineruns.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
+      retries: 90
+      delay: 20
+
+    - name: Wait 30 seconds for integration test pipelines to start
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: Wait for all integration test pipelines to complete before pushing commit
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        label_selectors:
+          - "appstudio.openshift.io/application={{ application_name }}"
+      register: r_all_initial_pipelines
+      until:
+        - r_all_initial_pipelines.resources | selectattr('status.startTime', 'defined') | rejectattr('status.completionTime', 'defined') | list | length == 0
+      retries: 60
+      delay: 10
+
+    # =========================================================================
     # Step 2: Push commit to MR branch
     # =========================================================================
 
@@ -251,6 +294,30 @@
       retries: 90
       delay: 20
       when: _pr_pipelinerun is defined
+
+    # =========================================================================
+    # Step 3.5: Wait for all pipelines to complete before merging
+    # =========================================================================
+
+    - name: Wait 30 seconds for integration test pipelines to start after new build
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: Wait for all pipelines to complete before merging MR
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        label_selectors:
+          - "appstudio.openshift.io/application={{ application_name }}"
+      register: r_all_pipelines_before_merge
+      until:
+        - r_all_pipelines_before_merge.resources | selectattr('status.startTime', 'defined') | rejectattr('status.completionTime', 'defined') | list | length == 0
+      retries: 60
+      delay: 10
 
     # =========================================================================
     # Step 4: Merge MR
