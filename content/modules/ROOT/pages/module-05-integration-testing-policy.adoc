@@ -81,10 +81,10 @@ echo "Image: ${IMAGE}"
 ec validate image \
   --image "${IMAGE}" \
   --policy k8s://enterprise-contract-service/lab-policy \
-  --output json | jq '.components[].violations'
+  2>/dev/null | grep -E 'success:|violations'
 ----
 +
-Expected output: an empty array (`[]`) for each component, confirming no violations were found against the artifact from Module 3.
+Expected output: `success: true` with no `violations` entries, confirming no violations were found against the artifact from Module 3.
 
 === Verify
 
@@ -185,39 +185,39 @@ echo "Testing against: ${BAD_IMAGE}"
 ec validate image \
   --image "${BAD_IMAGE}" \
   --policy k8s://enterprise-contract-service/lab-policy \
-  --output json | jq '.components[].violations'
+  2>/dev/null
 ----
 +
-The output is a non-empty array of violation objects.
-Each entry has a `metadata.code` and a `msg` field.
+The YAML output will show `success: false` and a `violations` list under `components`.
 You will see violations similar to these:
 +
 ----
-[
-  {
-    "metadata": { "code": "builtin.image.signature_check" },
-    "msg": "Image signature check failed: no signatures found"
-  },
-  {
-    "metadata": { "code": "builtin.attestation.signature_check" },
-    "msg": "Image attestation check failed: no matching attestations"
-  }
-]
+components:
+- success: false
+  violations:
+  - metadata:
+      code: builtin.image.signature_check
+    msg: 'Image signature check failed: no signatures found'
+  - metadata:
+      code: builtin.attestation.signature_check
+    msg: 'Image attestation check failed: no matching attestations'
+success: false
 ----
 +
-NOTE: `ec` exits with a non-zero status when violations are found and prints `Error: success criteria not met` after the JSON output — that is expected behavior, not a command error.
+NOTE: `ec` exits with a non-zero status and prints `Error: success criteria not met` to stderr when violations are found — that is expected behavior, not a command error.
+The `2>/dev/null` above suppresses it so only the policy output is shown.
 
-. Confirm the top-level `success` field is `false`:
+. Confirm the top-level `success` field in the output:
 +
 [source,bash,role="execute"]
 ----
 ec validate image \
   --image "${BAD_IMAGE}" \
   --policy k8s://enterprise-contract-service/lab-policy \
-  --output json | jq '.success'
+  2>/dev/null | grep '^success:'
 ----
 +
-Expected output: `false`
+Expected output: `success: false`
 +
 This `false` value is the signal Conforma sends to the Integration pipeline to block promotion.
 An artifact with any violation is never eligible for release — not partially, not conditionally.
