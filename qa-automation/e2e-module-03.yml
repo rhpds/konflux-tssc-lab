@@ -437,12 +437,12 @@
     # Step 6: Extract IMAGE_DIGEST from build-container task
     # =========================================================================
 
-    - name: Debug r_push_status
+    - name: Debug PipelineRun status
       ansible.builtin.debug:
         msg:
-          - "r_push_status is skipped: {{ r_push_status is skipped }}"
-          - "r_push_status.resources exists: {{ r_push_status.resources is defined }}"
-          - "r_push_status.resources length: {{ r_push_status.resources | default([]) | length }}"
+          - "PipelineRun name: {{ r_push_status.resources[0].metadata.name }}"
+          - "Status keys: {{ r_push_status.resources[0].status.keys() | list }}"
+          - "Has pipelineResults: {{ 'pipelineResults' in r_push_status.resources[0].status }}"
 
     - name: Extract IMAGE_DIGEST from PipelineRun
       ansible.builtin.set_fact:
@@ -450,17 +450,29 @@
       when:
         - r_push_status is not skipped
         - r_push_status.resources | default([]) | length > 0
+        - r_push_status.resources[0].status.pipelineResults is defined
 
+
+    - name: Fallback to Component.status.lastPromotedImage if no pipelineResults
+      ansible.builtin.set_fact:
+        _image_ref: "{{ r_component.resources[0].status.lastPromotedImage }}"
+      when:
+        - _image_digest is not defined
+        - r_component.resources | length > 0
+        - r_component.resources[0].status.lastPromotedImage is defined
 
     - name: Get component image base
       ansible.builtin.set_fact:
         _image_base: "{{ r_component.resources[0].spec.containerImage | regex_replace(':.*$', '') }}"
-      when: r_component.resources | length > 0
+      when:
+        - _image_ref is not defined
+        - r_component.resources | length > 0
 
     - name: Construct full image reference
       ansible.builtin.set_fact:
         _image_ref: "{{ _image_base }}@{{ _image_digest }}"
       when:
+        - _image_ref is not defined
         - _image_base is defined
         - _image_digest is defined
 
