@@ -189,12 +189,23 @@ ec validate image \
 ----
 +
 The output is a non-empty array of violation objects.
-Each entry has a `msg` field describing the failed rule.
-Look for violations in these categories:
+Each entry has a `metadata.code` and a `msg` field.
+You will see violations similar to these:
 +
-** *Missing signature* — no valid Sigstore signature found on the image.
-** *Missing SLSA attestation* — no provenance attestation is attached.
-** *Untrusted builder identity* — the image was not built by a recognized Konflux pipeline.
+----
+[
+  {
+    "metadata": { "code": "builtin.image.signature_check" },
+    "msg": "Image signature check failed: no signatures found"
+  },
+  {
+    "metadata": { "code": "builtin.attestation.signature_check" },
+    "msg": "Image attestation check failed: no matching attestations"
+  }
+]
+----
++
+NOTE: `ec` exits with a non-zero status when violations are found and prints `Error: success criteria not met` after the JSON output — that is expected behavior, not a command error.
 
 . Confirm the top-level `success` field is `false`:
 +
@@ -243,7 +254,7 @@ The artifact never reaches the production registry, and the violation details ar
 [%interactive]
 * [ ] `$BAD_IMAGE` is set in your terminal session.
 * [ ] `ec validate image` against `$BAD_IMAGE` returns a non-empty violations array.
-* [ ] At least one of the following violation types appears: missing signature, missing SLSA attestation, or untrusted builder identity.
+* [ ] At least one of the following violation codes appears: `builtin.image.signature_check` or `builtin.attestation.signature_check`.
 * [ ] The top-level `success` field in the output is `false`.
 
 == 4. Confirm the Passing Artifact Status
