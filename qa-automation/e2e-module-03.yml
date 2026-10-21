@@ -549,9 +549,6 @@
         msg: |
           ✅ Module 3 E2E Test PASSED
           - Component: {{ component_name }}
-          - MR branch: {{ _mr_branch }}
-          - on-pull-request PipelineRun: {{ _pr_pipelinerun.metadata.name }}
-          - MR merged to main
           - on-push PipelineRun: {{ _push_pipelinerun.metadata.name }}
           - IMAGE_DIGEST: {{ _image_digest }}
           - SBOM packages: {{ _sbom_package_count }}
