@@ -309,10 +309,16 @@
         name: "{{ component_name }}-image-pull"
       register: r_image_pull_secret
 
+    - name: Create Docker config directory for cosign
+      ansible.builtin.file:
+        path: /tmp/.docker-{{ _tenant_user }}
+        state: directory
+        mode: '0700'
+
     - name: Write Docker config for cosign
       ansible.builtin.copy:
         content: "{{ r_image_pull_secret.resources[0].data['.dockerconfigjson'] | b64decode }}"
-        dest: /tmp/.docker-config-{{ _tenant_user }}.json
+        dest: /tmp/.docker-{{ _tenant_user }}/config.json
         mode: '0600'
       when:
         - r_image_pull_secret is not failed
@@ -327,7 +333,7 @@
           --certificate-oidc-issuer {{ _tas_oidc_issuer }}
           {{ _prod_image_ref }}
       environment:
-        DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
+        DOCKER_CONFIG: /tmp/.docker-{{ _tenant_user }}
         COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
       register: r_prod_verify
       changed_when: false
@@ -340,7 +346,7 @@
       ansible.builtin.command:
         cmd: cosign download attestation {{ _prod_image_ref }}
       environment:
-        DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
+        DOCKER_CONFIG: /tmp/.docker-{{ _tenant_user }}
         COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
       register: r_prod_attestations
       changed_when: false
@@ -358,9 +364,9 @@
     # Cleanup
     # =========================================================================
 
-    - name: Remove temporary Docker config
+    - name: Remove temporary Docker config directory
       ansible.builtin.file:
-        path: /tmp/.docker-config-{{ _tenant_user }}.json
+        path: /tmp/.docker-{{ _tenant_user }}
         state: absent
 
     # =========================================================================
