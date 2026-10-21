@@ -329,14 +329,14 @@ This confirms the release pipeline promoted the existing artifact rather than re
 [source,bash,role="execute",subs="attributes+"]
 ----
 cosign verify \
-  --certificate-identity-regexp 'https://konflux.*' \
+  --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
   ${PROD_IMAGE}
 ----
 +
 Expected output: `Verification for <image> -- Verified OK`
 +
-The certificate identity regexp and OIDC issuer are the same values used in Module 4 — the image was signed by the same Konflux builder.
+The certificate identity regexp and OIDC issuer are the same values used in Module 4 — the image was signed by the same build pipeline service account.
 The same image digest is now tagged `production` instead of the `*-on-push-*` development tag — the bytes are identical, only the tag changed.
 +
 NOTE: If `cosign verify` returns a certificate error, confirm that `$PROD_IMAGE` contains the full digest reference (`@sha256:...`) and that the `{tas_oidc_issuer}` value matches the OIDC issuer shown in your lab instructions.
