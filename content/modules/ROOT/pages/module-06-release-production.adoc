@@ -115,6 +115,13 @@ NOTE: The *Application* and *Target* fields are how the ReleasePlan connects to 
 ** *Path in repository*: `tekton/pipelines/tenant-release.yaml`
 * *Auto release*: Off (leave toggled off for manual releases)
 * *Standing attribution*: Off (leave toggled off)
++
+.Completed release plan form — top section
+image::module-06-release-plan-1.png[Konflux Create release plan dialog showing the Name, Application, and Target fields completed,800]
++
+.Completed release plan form — Git options section
+image::module-06-release-plan-2.png[Konflux Create release plan dialog showing the Git options section expanded with URL, revision, and path filled in,800]
++
 * Click *Create*
 
 . Verify both resources were created.
