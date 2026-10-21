@@ -437,12 +437,19 @@
     # Step 6: Extract IMAGE_DIGEST from build-container task
     # =========================================================================
 
+    - name: Debug r_push_status
+      ansible.builtin.debug:
+        msg:
+          - "r_push_status is skipped: {{ r_push_status is skipped }}"
+          - "r_push_status.resources exists: {{ r_push_status.resources is defined }}"
+          - "r_push_status.resources length: {{ r_push_status.resources | default([]) | length }}"
+
     - name: Extract IMAGE_DIGEST from PipelineRun
       ansible.builtin.set_fact:
         _image_digest: "{{ r_push_status.resources[0].status.pipelineResults | selectattr('name', 'equalto', 'IMAGE_DIGEST') | map(attribute='value') | first }}"
       when:
         - r_push_status is not skipped
-        - r_push_status.resources[0].status.pipelineResults is defined
+        - r_push_status.resources | default([]) | length > 0
 
 
     - name: Get component image base
