@@ -388,10 +388,16 @@
         name: "{{ component_name }}-image-pull"
       register: r_image_pull_secret
 
+    - name: Create Docker config directory for cosign
+      ansible.builtin.file:
+        path: /tmp/.docker-{{ _tenant_user }}
+        state: directory
+        mode: '0700'
+
     - name: Write Docker config for cosign
       ansible.builtin.copy:
         content: "{{ r_image_pull_secret.resources[0].data['.dockerconfigjson'] | b64decode }}"
-        dest: /tmp/.docker-config-{{ _tenant_user }}.json
+        dest: /tmp/.docker-{{ _tenant_user }}/config.json
         mode: '0600'
       when:
         - r_image_pull_secret is not failed
@@ -404,7 +410,7 @@
           cosign download sbom {{ _image_ref }}
           --allow-insecure-registry
       environment:
-        DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
+        DOCKER_CONFIG: /tmp/.docker-{{ _tenant_user }}
         COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
       register: r_cosign_sbom
       when: _image_ref is defined
@@ -433,7 +439,7 @@
 
     - name: Verify merged MR build image in Quay
       ansible.builtin.command:
-        cmd: skopeo inspect docker://{{ _image_ref }} --tls-verify=false
+        cmd: skopeo inspect docker://{{ _image_ref }} --tls-verify=false --authfile /tmp/.docker-{{ _tenant_user }}/config.json
       register: r_skopeo_merged
       when: _image_ref is defined
       changed_when: false
@@ -442,9 +448,9 @@
     # Cleanup
     # =========================================================================
 
-    - name: Remove temporary Docker config
+    - name: Remove temporary Docker config directory
       ansible.builtin.file:
-        path: /tmp/.docker-config-{{ _tenant_user }}.json
+        path: /tmp/.docker-{{ _tenant_user }}
         state: absent
 
     # =========================================================================
