@@ -329,6 +329,41 @@
         - r_tas_config is not failed
         - r_tas_config.resources | length > 0
 
+    - name: Get TUF route
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: route.openshift.io/v1
+        kind: Route
+        namespace: tsf-tas
+        name: tuf
+      register: r_tuf_route
+
+    - name: Set TAS TUF URL
+      ansible.builtin.set_fact:
+        _tas_tuf_url: "https://{{ r_tuf_route.resources[0].spec.host }}"
+      when: r_tuf_route.resources | length > 0
+
+    - name: Download TUF root.json
+      ansible.builtin.uri:
+        url: "{{ _tas_tuf_url }}/root.json"
+        method: GET
+        validate_certs: false
+        dest: /tmp/tuf-root-{{ _tenant_user }}.json
+      register: r_tuf_root
+
+    - name: Initialize cosign with TAS TUF
+      ansible.builtin.command:
+        cmd: >-
+          cosign initialize
+          --mirror {{ _tas_tuf_url }}
+          --root /tmp/tuf-root-{{ _tenant_user }}.json
+      environment:
+        COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
+      register: r_cosign_init
+      changed_when: false
+
     - name: Verify production image signature
       ansible.builtin.command:
         cmd: >-
@@ -368,10 +403,13 @@
     # Cleanup
     # =========================================================================
 
-    - name: Remove temporary Docker config directory
+    - name: Remove temporary files
       ansible.builtin.file:
-        path: /tmp/.docker-{{ _tenant_user }}
+        path: "{{ item }}"
         state: absent
+      loop:
+        - /tmp/.docker-{{ _tenant_user }}
+        - /tmp/tuf-root-{{ _tenant_user }}.json
 
     # =========================================================================
     # Summary

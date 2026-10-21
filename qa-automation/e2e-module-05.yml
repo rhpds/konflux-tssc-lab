@@ -371,6 +371,7 @@
           --rekor-url https://rekor-server-tsf-tas.{{ _apps_domain }}
           --output yaml
       environment:
+        DOCKER_CONFIG: /tmp/.docker-{{ _tenant_user }}
         COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
       register: r_ec_unsigned
       failed_when: r_ec_unsigned.rc == 0
