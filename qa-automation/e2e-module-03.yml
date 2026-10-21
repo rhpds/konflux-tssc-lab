@@ -288,7 +288,7 @@
           retries: 30
           delay: 5
 
-    - name: Get build pipelines
+    - name: Wait for on-pull-request build pipelines to appear
       kubernetes.core.k8s_info:
         host: "{{ _k8s_host | default(omit, true) }}"
         api_key: "{{ _k8s_api_key | default(omit, true) }}"
@@ -300,6 +300,9 @@
           - "appstudio.openshift.io/component={{ component_name }}"
           - "pipelinesascode.tekton.dev/event-type=pull_request"
       register: r_all_pr_pipelineruns
+      until: r_all_pr_pipelineruns.resources | length > 0
+      retries: 30
+      delay: 10
 
     - name: Get latest build pipeline
       ansible.builtin.set_fact:
