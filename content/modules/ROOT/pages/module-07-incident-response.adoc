@@ -24,104 +24,88 @@ By the end of this module, you will be able to:
 
 During an outage, a developer bypasses the Konflux pipeline and pushes a hotfix image directly to the Quay registry.
 The image is unsigned and carries no SLSA attestation.
-They attempt to release it through the existing ReleasePlan.
-In this scenario, you test that image against the Conforma policy and observe how the integration layer blocks it.
+They now need to get this fix to production and attempt to release it through the existing ReleasePlan.
 
-. Ensure cosign is configured to skip TLS verification for the lab's self-signed certificates.
-If you are in a new terminal session, re-run this command before proceeding:
-+
-[source,bash,role="execute"]
-----
-export COSIGN_INSECURE_SKIP_TLS_VERIFY=true
-----
-+
-NOTE: If cosign returns TUF-related errors, re-run the initialization step from Module 04 Section 1 to restore the lab's Rekor and Fulcio endpoint configuration.
+In Module 05 Section 3 you already confirmed that this unsigned image fails `ec validate image` with `builtin.image.signature_check` and `builtin.attestation.signature_check` violations.
+This scenario picks up from that knowledge and shows what happens at the *release layer* — the point where the developer actually tries to promote the hotfix.
 
-. Set the hotfix image reference to the pre-provisioned unsigned image in the lab registry:
+. Confirm your tenant namespace has no Snapshot that corresponds to an out-of-band image push.
+List your Snapshots and note that every entry maps to a Konflux PipelineRun, not a manual registry push:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
-export HOTFIX_IMAGE={quay_url}/lab-examples/unsigned-sample:latest
-echo "Testing against: ${HOTFIX_IMAGE}"
+oc get snapshots -n {openshift_username}-tenant \
+  -o custom-columns='NAME:.metadata.name,IMAGE:.spec.components[0].containerImage,CREATED:.metadata.creationTimestamp'
 ----
 +
-NOTE: This is the same unsigned image used in Module 05 Section 3. The lab reuses it here to represent the out-of-band hotfix push.
+Every Snapshot in the list was created by the Konflux build pipeline — there is no entry for the out-of-band hotfix.
+Without a Snapshot, there is nothing for the ReleasePlan to release.
+The release workflow in Konflux always starts from a Snapshot; a direct registry push creates no Snapshot and therefore has no entry point into the release pipeline.
 
-. Attempt to verify the image signature using the trusted Konflux builder identity:
+. To show what would happen if the developer attempted to force a release, create a Release object manually that references your Module 3 passing Snapshot but substitutes the hotfix image reference in the spec:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
-cosign verify \
-  --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
-  --certificate-oidc-issuer {tas_oidc_issuer} \
-  ${HOTFIX_IMAGE}
+cat <<EOF | oc apply -f -
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: Release
+metadata:
+  name: hotfix-release-attempt
+  namespace: {openshift_username}-tenant
+spec:
+  snapshot: ${SNAPSHOT}
+  releasePlan: production-release
+EOF
 ----
 +
-Expected output: an error indicating no valid signatures were found:
+NOTE: `$SNAPSHOT` must be set from Module 05. If it is not, run: `export SNAPSHOT=$(oc get snapshots -n {openshift_username}-tenant --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')`
 +
-----
-Error: no matching signatures: [... no signatures found ...]
-----
-+
-The image was never signed.
-There is no signature record in the Rekor transparency log and no Fulcio certificate to verify against.
+Even using a real passing Snapshot, watch what the Release object reports in its conditions:
 
-. Run `ec` against the hotfix image using the same validation flags as Module 05:
+. Describe the Release object and read its status conditions:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
-ec validate image \
-  --image "${HOTFIX_IMAGE}" \
-  --policy enterprise-contract-service/lab-policy \
-  --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
-  --certificate-oidc-issuer {tas_oidc_issuer} \
-  --rekor-url https://rekor-server-tsf-tas.{openshift_cluster_ingress_domain} \
-  --output yaml
+oc get release hotfix-release-attempt -n {openshift_username}-tenant -o yaml | grep -A 20 'conditions:'
 ----
 +
-The YAML output shows `success: false` and a `violations` list under `components`:
+The conditions show whether the Snapshot's integration status was verified before the release pipeline started.
+A Snapshot that failed integration will produce a condition indicating it is not eligible for release.
+A real unsigned hotfix would produce its own Snapshot with a failing integration status — and any Release pointing to it would be blocked at this gate.
+
+. Clean up the test Release object:
 +
+[source,bash,role="execute",subs="attributes+"]
 ----
-components:
-- success: false
-  violations:
-  - metadata:
-      code: builtin.image.signature_check
-    msg: 'Image signature check failed: no signatures found'
-  - metadata:
-      code: builtin.attestation.signature_check
-    msg: 'Image attestation check failed: no matching attestations'
-success: false
+oc delete release hotfix-release-attempt -n {openshift_username}-tenant
 ----
+
+. Review the two layers that block the unsigned hotfix:
 +
-NOTE: `ec` also prints `Error: success criteria not met` to stderr. That is expected behavior, not a command failure.
-+
-Read the two violation codes:
-+
-[cols="35h,~", options="header"]
+[cols="20h,40,~", options="header"]
 |===
-|Violation code |What it means
+|Layer |Check |Result for unsigned hotfix
 
-|`builtin.image.signature_check`
-|No cryptographic signature exists for this image digest. The image was not processed by the Konflux signing step.
+|Integration pipeline
+|`ec validate image` evaluates the Snapshot against the Conforma policy
+|`success: false` — `builtin.image.signature_check` and `builtin.attestation.signature_check` violations (demonstrated in Module 05 Section 3)
 
-|`builtin.attestation.signature_check`
-|No SLSA provenance attestation is attached. The image has no verifiable build history from a trusted pipeline.
+|Release gate
+|Release object checks that the Snapshot's `AppStudioIntegrationStatus` condition is `True` before starting the release pipeline
+|Release blocked — the Snapshot is never in passing state because the integration pipeline found violations
+
 |===
 +
-The layer that caught this failure is the *integration policy gate* — the `ec validate image` evaluation inside the Integration pipeline.
-No signature and no attestation means there is nothing to trust.
-There is no approved path for an out-of-band image push to reach production through Konflux.
-Any Snapshot referencing this image would be marked failing before the release gate is ever reached.
+An out-of-band image push fails at *both* layers.
+Even if an operator bypassed the integration check, the release pipeline re-evaluates Conforma policy independently — the unsigned image would be blocked a second time at the release gate.
 
 === Verify
 
 [%interactive]
-* [ ] `$HOTFIX_IMAGE` is set in your terminal session.
-* [ ] `cosign verify` against `$HOTFIX_IMAGE` returns an error — no valid signatures found.
-* [ ] `ec validate image` against `$HOTFIX_IMAGE` returns `success: false`.
-* [ ] The violations list includes both `builtin.image.signature_check` and `builtin.attestation.signature_check`.
-* [ ] You can identify the integration policy gate as the supply chain layer that blocked the hotfix.
+* [ ] `oc get snapshots` shows no Snapshot corresponding to a direct registry push — every entry traces to a Konflux PipelineRun.
+* [ ] The manually created Release object shows a condition indicating the Snapshot is not eligible for release (or the Release pipeline is blocked).
+* [ ] You can name the two supply chain layers that independently block an unsigned hotfix: the integration policy gate and the release gate.
+* [ ] The test Release object has been deleted from your namespace.
 
 == 2. Scenario B — The CVE Policy Breach
 
