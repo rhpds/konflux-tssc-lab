@@ -84,7 +84,28 @@ oc get snapshot hotfix-snapshot -n {openshift_username}-tenant \
   -o jsonpath='{.status.conditions}' | jq .
 ----
 +
-Expected output: a condition with `type: AppStudioIntegrationStatus` and `status: "False"` — the Snapshot is not eligible for release.
+Expected output:
++
+----
+[
+  {
+    "message": "Snapshot integration status condition is finished since all testing pipelines completed",
+    "reason": "Finished",
+    "status": "True",
+    "type": "AppStudioIntegrationStatus"
+  },
+  {
+    "message": "Some Integration pipeline tests failed",
+    "reason": "Failed",
+    "status": "False",
+    "type": "AppStudioTestSucceeded"
+  }
+]
+----
++
+`AppStudioIntegrationStatus: True` means the integration pipeline *finished* — not that it passed.
+The pass/fail result is in `AppStudioTestSucceeded: False` with `reason: Failed`.
+This condition is what the release gate reads to determine eligibility.
 
 . Now attempt to create a Release that targets the hotfix Snapshot:
 +
@@ -129,11 +150,11 @@ oc delete snapshot hotfix-snapshot -n {openshift_username}-tenant
 
 |Integration pipeline
 |`ec validate image` evaluates every Snapshot against the Conforma policy
-|`success: false` — `builtin.image.signature_check` and `builtin.attestation.signature_check` violations. `AppStudioIntegrationStatus` set to `False`.
+|`success: false` — `builtin.image.signature_check` and `builtin.attestation.signature_check` violations. Snapshot condition `AppStudioTestSucceeded: False`.
 
 |Release gate
-|Release object verifies `AppStudioIntegrationStatus` is `True` before starting the release pipeline
-|Release blocked — the hotfix Snapshot never passes integration, so the release pipeline never starts.
+|Release object verifies `AppStudioTestSucceeded` is `True` before starting the release pipeline
+|Release blocked — `AppStudioTestSucceeded: False` signals the Snapshot is ineligible, so the release pipeline never starts.
 
 |===
 +
@@ -145,7 +166,7 @@ There is no approved path to bypass either gate.
 [%interactive]
 * [ ] `oc get snapshots` initially shows no Snapshot for the hotfix image — only PipelineRun-created Snapshots exist.
 * [ ] After creating `hotfix-snapshot`, the Integration pipeline runs and fails against the unsigned image.
-* [ ] `hotfix-snapshot` conditions show `AppStudioIntegrationStatus: False`.
+* [ ] `hotfix-snapshot` conditions show `AppStudioTestSucceeded: False` with `reason: Failed` (and `AppStudioIntegrationStatus: True` with `reason: Finished` — meaning the pipeline ran to completion and determined the result).
 * [ ] `hotfix-release-attempt` is blocked — the Release conditions confirm the Snapshot was not eligible.
 * [ ] Both `hotfix-snapshot` and `hotfix-release-attempt` have been deleted from your namespace.
 
