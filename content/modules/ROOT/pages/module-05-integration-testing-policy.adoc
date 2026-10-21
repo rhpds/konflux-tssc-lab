@@ -83,7 +83,7 @@ ec validate image \
   --policy enterprise-contract-service/lab-policy \
   --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
-  --rekor-url {tas_rekor_url} \
+  --rekor-url https://rekor-server-tsf-tas.{openshift_cluster_ingress_domain} \
   --output yaml
 ----
 +
@@ -190,7 +190,7 @@ ec validate image \
   --policy enterprise-contract-service/lab-policy \
   --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
-  --rekor-url {tas_rekor_url} \
+  --rekor-url https://rekor-server-tsf-tas.{openshift_cluster_ingress_domain} \
   --output yaml
 ----
 +
