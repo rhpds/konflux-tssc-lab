@@ -186,7 +186,7 @@
           spec:
             application: "{{ application_name }}"
             target: "{{ _tenant_user }}-managed"
-            pipeline:
+            tenantPipeline:
               pipelineRef:
                 resolver: git
                 params:
@@ -368,7 +368,7 @@
       ansible.builtin.command:
         cmd: >-
           cosign verify
-          --certificate-identity-regexp 'https://konflux.*'
+          --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*'
           --certificate-oidc-issuer {{ _tas_oidc_issuer }}
           {{ _prod_image_ref }}
       environment:
