@@ -548,6 +548,61 @@
         - _component_image is not defined or _component_image | length == 0
 
     # =========================================================================
+    # Step 8: Wait for at least 1 integration test to succeed
+    # =========================================================================
+
+    - name: Wait 30 seconds for integration test pipeline to start
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: Wait for at least one integration test pipeline to exist
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        label_selectors:
+          - "appstudio.openshift.io/application={{ application_name }}"
+          - "test.appstudio.openshift.io/scenario={{ application_name }}-enterprise-contract"
+      register: r_integration_tests
+      until: r_integration_tests.resources | length > 0
+      retries: 30
+      delay: 10
+
+    - name: Get latest integration test pipeline
+      ansible.builtin.set_fact:
+        _integration_test_pipeline: "{{ r_integration_tests.resources | sort(attribute='metadata.creationTimestamp') | last }}"
+
+    - name: Wait for integration test pipeline to succeed
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ _integration_test_pipeline.metadata.name }}"
+      register: r_integration_test_status
+      until:
+        - r_integration_test_status.resources[0].status.conditions is defined
+        - r_integration_test_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
+        - r_integration_test_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
+      retries: 60
+      delay: 10
+
+    # =========================================================================
+    # Step 9: Cleanup - Delete all PipelineRuns
+    # =========================================================================
+
+    - name: Delete all PipelineRuns in tenant namespace
+      ansible.builtin.command:
+        cmd: oc delete pipelinerun --all -n {{ _tenant_user }}-tenant
+      register: r_delete_pipelineruns
+      changed_when: r_delete_pipelineruns.rc == 0
+
+    # =========================================================================
     # Summary
     # =========================================================================
 
@@ -567,4 +622,7 @@
           - Running pipeline found: {{ _any_running | default(false) }}
           - MR close/reopen triggered: {{ not (_any_running | default(true) | bool) }}
           - PipelineRun status: Succeeded
+          - Integration test pipeline: {{ _integration_test_pipeline.metadata.name }}
+          - Integration test status: Succeeded
           - Component containerImage set: {{ _component_image }}
+          - All PipelineRuns cleaned up: Yes
