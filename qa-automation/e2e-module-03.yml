@@ -87,6 +87,52 @@
       when: not (_use_sa_token | bool)
 
     # =========================================================================
+    # Install required CLIs
+    # =========================================================================
+
+    - name: Ensure ~/.local/bin directory exists
+      ansible.builtin.file:
+        path: ~/.local/bin
+        state: directory
+        mode: '0755'
+
+    - name: Check if cosign is available
+      ansible.builtin.command:
+        cmd: which cosign
+      register: r_cosign_check
+      failed_when: false
+      changed_when: false
+
+    - name: Download and install cosign
+      ansible.builtin.shell:
+        cmd: |
+          COSIGN_VERSION=v2.4.1
+          ARCH=$(uname -m)
+          if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi
+          if [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi
+          curl -sL -o ~/.local/bin/cosign https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-${ARCH}
+          chmod +x ~/.local/bin/cosign
+      when: r_cosign_check.rc != 0
+
+    - name: Check if skopeo is available
+      ansible.builtin.command:
+        cmd: which skopeo
+      register: r_skopeo_check
+      failed_when: false
+      changed_when: false
+
+    - name: Download and install skopeo
+      ansible.builtin.shell:
+        cmd: |
+          SKOPEO_VERSION=v1.16.1
+          ARCH=$(uname -m)
+          if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi
+          if [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi
+          curl -sL -o ~/.local/bin/skopeo https://github.com/lework/skopeo-binary/releases/download/${SKOPEO_VERSION}/skopeo-linux-${ARCH}
+          chmod +x ~/.local/bin/skopeo
+      when: r_skopeo_check.rc != 0
+
+    # =========================================================================
     # Pre-conditions
     # =========================================================================
 
