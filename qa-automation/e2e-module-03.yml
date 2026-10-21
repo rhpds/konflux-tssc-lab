@@ -134,8 +134,19 @@
 
     # =========================================================================
     # TESTING: Skip to waiting for existing on-push pipeline success
-    # Get the latest on-push pipeline (assumes Module 2 already ran)
+    # Get Component and latest on-push pipeline (assumes Module 2 already ran)
     # =========================================================================
+
+    - name: Get Component
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: appstudio.redhat.com/v1alpha1
+        kind: Component
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ component_name }}"
+      register: r_component
 
     - name: Get latest on-push PipelineRun
       kubernetes.core.k8s_info:
