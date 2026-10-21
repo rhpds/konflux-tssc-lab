@@ -434,47 +434,31 @@
       when: _push_pipelinerun is defined
 
     # =========================================================================
-    # Step 6: Extract IMAGE_DIGEST from build-container task
+    # Step 6: Re-query pipeline to get complete results including IMAGE_DIGEST
     # =========================================================================
 
-    - name: Debug PipelineRun status
-      ansible.builtin.debug:
-        msg:
-          - "PipelineRun name: {{ r_push_status.resources[0].metadata.name }}"
-          - "Status keys: {{ r_push_status.resources[0].status.keys() | list }}"
-          - "Has pipelineResults: {{ 'pipelineResults' in r_push_status.resources[0].status }}"
+    - name: Re-query successful pipeline to get pipelineResults
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ _push_pipelinerun.metadata.name }}"
+      register: r_push_complete
 
     - name: Extract IMAGE_DIGEST from PipelineRun
       ansible.builtin.set_fact:
-        _image_digest: "{{ r_push_status.resources[0].status.pipelineResults | selectattr('name', 'equalto', 'IMAGE_DIGEST') | map(attribute='value') | first }}"
-      when:
-        - r_push_status is not skipped
-        - r_push_status.resources | default([]) | length > 0
-        - r_push_status.resources[0].status.pipelineResults is defined
-
-
-    - name: Fallback to Component.status.lastPromotedImage if no pipelineResults
-      ansible.builtin.set_fact:
-        _image_ref: "{{ r_component.resources[0].status.lastPromotedImage }}"
-      when:
-        - _image_digest is not defined
-        - r_component.resources | length > 0
-        - r_component.resources[0].status.lastPromotedImage is defined
+        _image_digest: "{{ r_push_complete.resources[0].status.pipelineResults | selectattr('name', 'equalto', 'IMAGE_DIGEST') | map(attribute='value') | first }}"
 
     - name: Get component image base
       ansible.builtin.set_fact:
         _image_base: "{{ r_component.resources[0].spec.containerImage | regex_replace(':.*$', '') }}"
-      when:
-        - _image_ref is not defined
-        - r_component.resources | length > 0
 
     - name: Construct full image reference
       ansible.builtin.set_fact:
         _image_ref: "{{ _image_base }}@{{ _image_digest }}"
-      when:
-        - _image_ref is not defined
-        - _image_base is defined
-        - _image_digest is defined
 
     # =========================================================================
     # Step 7: Verify SBOM via cosign
