@@ -226,6 +226,7 @@
         namespace: "{{ _tenant_user }}-tenant"
         label_selectors:
           - "appstudio.openshift.io/component={{ component_name }}"
+          - "pipelinesascode.tekton.dev/event-type=pull_request"
       register: r_pr_pipelineruns
       until: r_pr_pipelineruns.resources | length > 0
       retries: 30
@@ -241,6 +242,7 @@
         namespace: "{{ _tenant_user }}-tenant"
         label_selectors:
           - "appstudio.openshift.io/component={{ component_name }}"
+          - "pipelinesascode.tekton.dev/event-type=pull_request"
       register: r_check_running
 
     - name: Get running pipelines
@@ -282,31 +284,16 @@
             namespace: "{{ _tenant_user }}-tenant"
             label_selectors:
               - "appstudio.openshift.io/component={{ component_name }}"
+              - "pipelinesascode.tekton.dev/event-type=pull_request"
           register: r_new_pipelines
           until:
             - r_new_pipelines.resources | selectattr('status.startTime', 'defined') | rejectattr('status.completionTime', 'defined') | list | length > 0
           retries: 30
           delay: 5
 
-    - name: Wait for on-pull-request build pipelines to appear
-      kubernetes.core.k8s_info:
-        host: "{{ _k8s_host | default(omit, true) }}"
-        api_key: "{{ _k8s_api_key | default(omit, true) }}"
-        validate_certs: "{{ _k8s_validate_certs }}"
-        api_version: tekton.dev/v1
-        kind: PipelineRun
-        namespace: "{{ _tenant_user }}-tenant"
-        label_selectors:
-          - "appstudio.openshift.io/component={{ component_name }}"
-          - "pipelinesascode.tekton.dev/event-type=pull_request"
-      register: r_all_pr_pipelineruns
-      until: r_all_pr_pipelineruns.resources | length > 0
-      retries: 30
-      delay: 10
-
-    - name: Get latest build pipeline
+    - name: Get latest build pipeline (use pipelines already found)
       ansible.builtin.set_fact:
-        _pr_pipelinerun: "{{ r_all_pr_pipelineruns.resources | sort(attribute='metadata.creationTimestamp') | last }}"
+        _pr_pipelinerun: "{{ r_pr_pipelineruns.resources | sort(attribute='metadata.creationTimestamp') | last }}"
 
     - name: Wait for on-pull-request PipelineRun to complete
       kubernetes.core.k8s_info:
