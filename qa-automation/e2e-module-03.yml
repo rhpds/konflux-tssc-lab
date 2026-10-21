@@ -437,7 +437,7 @@
     # Step 6: Re-query pipeline to get complete results including IMAGE_DIGEST
     # =========================================================================
 
-    - name: Re-query successful pipeline to get pipelineResults
+    - name: Re-query successful pipeline to get results
       kubernetes.core.k8s_info:
         host: "{{ _k8s_host | default(omit, true) }}"
         api_key: "{{ _k8s_api_key | default(omit, true) }}"
@@ -448,16 +448,9 @@
         name: "{{ _push_pipelinerun.metadata.name }}"
       register: r_push_complete
 
-    - name: Debug what we got back
-      ansible.builtin.debug:
-        msg:
-          - "Pipeline name: {{ r_push_complete.resources[0].metadata.name }}"
-          - "Status keys: {{ r_push_complete.resources[0].status.keys() | list }}"
-          - "Has pipelineResults: {{ 'pipelineResults' in r_push_complete.resources[0].status }}"
-
-    - name: Extract IMAGE_DIGEST from PipelineRun
+    - name: Extract IMAGE_DIGEST from PipelineRun results
       ansible.builtin.set_fact:
-        _image_digest: "{{ r_push_complete.resources[0].status.pipelineResults | selectattr('name', 'equalto', 'IMAGE_DIGEST') | map(attribute='value') | first }}"
+        _image_digest: "{{ r_push_complete.resources[0].status.results | selectattr('name', 'equalto', 'IMAGE_DIGEST') | map(attribute='value') | first }}"
 
     - name: Get component image base
       ansible.builtin.set_fact:
