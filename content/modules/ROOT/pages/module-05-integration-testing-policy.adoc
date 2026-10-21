@@ -38,7 +38,7 @@ oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service -o yam
 ----
 
 . In the YAML output, locate `spec.sources[0]`.
-Each source entry has three sub-fields that together define what Conforma evaluates:
+Each source entry has two key sub-fields:
 +
 [cols="25h,~", options="header"]
 |===
@@ -47,12 +47,9 @@ Each source entry has three sub-fields that together define what Conforma evalua
 |`policy[]`
 |An OCI image reference (`oci::quay.io/conforma/release-policy:latest@sha256:...`) containing the Rego rules Conforma applies to your artifact.
 
-|`data[]`
-|A Git URL (`github.com/rhpds/konflux-tssc-lab.git//tekton/data?ref=main`) with lab-specific trusted task definitions — the list of pipeline tasks Conforma considers authoritative builders.
-
 |`config`
 |`include` and `exclude` lists that control which rule categories are active.
-The lab policy includes the `@redhat` rule set and excludes several rules (such as `hermetic_task` and `source_image`) that are not applicable in this environment.
+The lab policy includes specific rules such as `slsa_provenance_available` and `sbom_cyclonedx`, and excludes rules that are not applicable in this environment.
 |===
 
 . Extract the policy bundle OCI reference and store it in a shell variable:
@@ -94,7 +91,7 @@ Expected output: `success: true` with no `violations` entries under `components`
 [%interactive]
 * [ ] `oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service` returns the lab policy object.
 * [ ] `spec.sources[0].policy[]` contains an `oci::` image reference to the Conforma release policy bundle.
-* [ ] `spec.sources[0].data[]` contains a Git URL pointing to the lab's trusted task definitions.
+* [ ] `spec.sources[0].config` contains `include` and `exclude` rule lists.
 * [ ] `ec validate image` against your Module 3 image returns an empty violations array.
 
 == 2. Review Integration Pipeline Results
