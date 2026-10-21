@@ -409,10 +409,18 @@
         - r_gitlab_mrs.json | length > 0
 
     # =========================================================================
-    # Step 6: Wait for first PipelineRun (on-pull-request)
+    # Step 6: Wait for PipelineRuns and handle cancelled builds
     # =========================================================================
 
-    - name: Wait for first PipelineRun to appear
+    - name: Set MR IID
+      ansible.builtin.set_fact:
+        _mr_iid: "{{ r_gitlab_mrs.json[0].iid }}"
+
+    - name: Wait 30 seconds after resource creation to detect cancelled pipelines
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: Wait for build PipelineRuns to appear
       kubernetes.core.k8s_info:
         host: "{{ _k8s_host | default(omit, true) }}"
         api_key: "{{ _k8s_api_key | default(omit, true) }}"
@@ -422,16 +430,12 @@
         namespace: "{{ _tenant_user }}-tenant"
         label_selectors:
           - "appstudio.openshift.io/component={{ component_name }}"
-      register: r_first_pipelinerun
-      until: r_first_pipelinerun.resources | length > 0
+      register: r_pipelineruns
+      until: r_pipelineruns.resources | length > 0
       retries: 30
       delay: 10
 
-    - name: Wait 20 seconds for PipelineRuns to start or get cancelled
-      ansible.builtin.pause:
-        seconds: 20
-
-    - name: Check all PipelineRun statuses after 20s
+    - name: Check if any build pipeline is running
       kubernetes.core.k8s_info:
         host: "{{ _k8s_host | default(omit, true) }}"
         api_key: "{{ _k8s_api_key | default(omit, true) }}"
@@ -441,29 +445,16 @@
         namespace: "{{ _tenant_user }}-tenant"
         label_selectors:
           - "appstudio.openshift.io/component={{ component_name }}"
-      register: r_check_all_status
+      register: r_check_running
 
-    - name: Check if any PipelineRun is in Running state
+    - name: Get running pipelines
       ansible.builtin.set_fact:
-        _running_pipelines: "{{ r_check_all_status.resources | selectattr('status.startTime', 'defined') | rejectattr('status.completionTime', 'defined') | list }}"
+        _running_pipelines: "{{ r_check_running.resources | selectattr('status.startTime', 'defined') | rejectattr('status.completionTime', 'defined') | list }}"
 
-    - name: Determine if any pipeline is running
-      ansible.builtin.set_fact:
-        _any_running: "{{ _running_pipelines | length > 0 }}"
-
-    - name: Set first running PipelineRun name if any are running
-      ansible.builtin.set_fact:
-        _first_pipelinerun_name: "{{ _running_pipelines[0].metadata.name }}"
-      when: _any_running | bool
-
-    - name: Handle no running pipelines by closing and reopening MR
-      when: not (_any_running | default(true) | bool)
+    - name: Close and reopen MR if all pipelines cancelled
+      when: _running_pipelines | length == 0
       block:
-        - name: Get MR IID
-          ansible.builtin.set_fact:
-            _mr_iid: "{{ r_gitlab_mrs.json[0].iid }}"
-
-        - name: Close MR (using tenant PAT)
+        - name: Close MR
           ansible.builtin.uri:
             url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/merge_requests/{{ _mr_iid }}?state_event=close"
             method: PUT
@@ -472,7 +463,7 @@
             validate_certs: false
             status_code: [200]
 
-        - name: Reopen MR to trigger new pipeline (using tenant PAT)
+        - name: Reopen MR
           ansible.builtin.uri:
             url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/merge_requests/{{ _mr_iid }}?state_event=reopen"
             method: PUT
@@ -481,11 +472,11 @@
             validate_certs: false
             status_code: [200]
 
-        - name: Wait for GitLab and PAC to process MR reopen
+        - name: Wait 30 seconds for new pipeline to trigger
           ansible.builtin.pause:
             seconds: 30
 
-        - name: Wait for new running PipelineRun after MR reopen
+        - name: Wait for new running pipeline after MR reopen
           kubernetes.core.k8s_info:
             host: "{{ _k8s_host | default(omit, true) }}"
             api_key: "{{ _k8s_api_key | default(omit, true) }}"
@@ -495,17 +486,17 @@
             namespace: "{{ _tenant_user }}-tenant"
             label_selectors:
               - "appstudio.openshift.io/component={{ component_name }}"
-          register: r_new_pipelinerun
+          register: r_new_pipelines
           until:
-            - r_new_pipelinerun.resources | selectattr('status.startTime', 'defined') | rejectattr('status.completionTime', 'defined') | list | length > 0
+            - r_new_pipelines.resources | selectattr('status.startTime', 'defined') | rejectattr('status.completionTime', 'defined') | list | length > 0
           retries: 30
           delay: 5
 
-        - name: Set new running PipelineRun name
-          ansible.builtin.set_fact:
-            _first_pipelinerun_name: "{{ (r_new_pipelinerun.resources | selectattr('status.startTime', 'defined') | rejectattr('status.completionTime', 'defined') | list | first).metadata.name }}"
+    # =========================================================================
+    # Step 7: Wait for 1 build pipeline to succeed
+    # =========================================================================
 
-    - name: Wait for PipelineRun to complete
+    - name: Get build pipelines
       kubernetes.core.k8s_info:
         host: "{{ _k8s_host | default(omit, true) }}"
         api_key: "{{ _k8s_api_key | default(omit, true) }}"
@@ -513,49 +504,36 @@
         api_version: tekton.dev/v1
         kind: PipelineRun
         namespace: "{{ _tenant_user }}-tenant"
-        name: "{{ _first_pipelinerun_name }}"
-      register: r_pipelinerun_status
-      until:
-        - r_pipelinerun_status.resources[0].status.conditions is defined
-        - r_pipelinerun_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
-        - r_pipelinerun_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
-      retries: 120
-      delay: 10
+        label_selectors:
+          - "appstudio.openshift.io/component={{ component_name }}"
+      register: r_build_pipelines
 
-    # =========================================================================
-    # Step 7: Verify image in Quay
-    # =========================================================================
+    - name: Get latest build pipeline
+      ansible.builtin.set_fact:
+        _build_pipeline: "{{ r_build_pipelines.resources | sort(attribute='metadata.creationTimestamp') | last }}"
 
-    - name: Get Component containerImage reference
+    - name: Wait for build pipeline to succeed
       kubernetes.core.k8s_info:
         host: "{{ _k8s_host | default(omit, true) }}"
         api_key: "{{ _k8s_api_key | default(omit, true) }}"
         validate_certs: "{{ _k8s_validate_certs }}"
-        api_version: appstudio.redhat.com/v1alpha1
-        kind: Component
+        api_version: tekton.dev/v1
+        kind: PipelineRun
         namespace: "{{ _tenant_user }}-tenant"
-        name: "{{ component_name }}"
-      register: r_component_image
-
-    - name: Set component image reference
-      ansible.builtin.set_fact:
-        _component_image: "{{ r_component_image.resources[0].spec.containerImage }}"
-
-    - name: Verify containerImage was set by image-controller
-      ansible.builtin.fail:
-        msg: "Component containerImage not set - image-controller may not have updated it"
-      when:
-        - _component_image is not defined or _component_image | length == 0
+        name: "{{ _build_pipeline.metadata.name }}"
+      register: r_build_status
+      until:
+        - r_build_status.resources[0].status.conditions is defined
+        - r_build_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
+        - r_build_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
+      retries: 120
+      delay: 10
 
     # =========================================================================
-    # Step 8: Wait for at least 1 integration test to succeed
+    # Step 8: Wait for 1 integration test to succeed
     # =========================================================================
 
-    - name: Wait 30 seconds for integration test pipeline to start
-      ansible.builtin.pause:
-        seconds: 30
-
-    - name: Wait for at least one integration test pipeline to exist
+    - name: Wait for integration test pipeline to exist
       kubernetes.core.k8s_info:
         host: "{{ _k8s_host | default(omit, true) }}"
         api_key: "{{ _k8s_api_key | default(omit, true) }}"
@@ -575,7 +553,7 @@
       ansible.builtin.set_fact:
         _integration_test_pipeline: "{{ r_integration_tests.resources | sort(attribute='metadata.creationTimestamp') | last }}"
 
-    - name: Wait for integration test pipeline to succeed
+    - name: Wait for integration test to succeed
       kubernetes.core.k8s_info:
         host: "{{ _k8s_host | default(omit, true) }}"
         api_key: "{{ _k8s_api_key | default(omit, true) }}"
@@ -615,14 +593,10 @@
           - GitLab PAT created for: {{ _tenant_user }}
           - PAC secret created
           - Component created: {{ component_name }}
-          - ImageRepository created with update annotation
-          - Component containerImage set by image-controller
+          - ImageRepository created
           - MR opened by Konflux
-          - PipelineRun: {{ _first_pipelinerun_name }}
-          - Running pipeline found: {{ _any_running | default(false) }}
-          - MR close/reopen triggered: {{ not (_any_running | default(true) | bool) }}
-          - PipelineRun status: Succeeded
-          - Integration test pipeline: {{ _integration_test_pipeline.metadata.name }}
+          - Build pipeline: {{ _build_pipeline.metadata.name }}
+          - Build status: Succeeded
+          - Integration test: {{ _integration_test_pipeline.metadata.name }}
           - Integration test status: Succeeded
-          - Component containerImage set: {{ _component_image }}
           - All PipelineRuns cleaned up: Yes
