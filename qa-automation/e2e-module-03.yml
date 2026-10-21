@@ -438,9 +438,6 @@
       when: _image_ref is defined
       changed_when: false
 
-        - r_skopeo_merged is not skipped
-        - r_skopeo_merged is failed
-
     # =========================================================================
     # Cleanup
     # =========================================================================
