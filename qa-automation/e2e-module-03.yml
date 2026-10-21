@@ -209,10 +209,86 @@
 
 
     # =========================================================================
-    # Step 3: Wait for on-pull-request PipelineRun
+    # Step 3: Wait for on-pull-request PipelineRun (same as Module 2)
     # =========================================================================
 
-    - name: Wait for on-pull-request PipelineRun to appear
+    - name: Wait 30 seconds after commit to detect cancelled pipelines
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: Wait for build PipelineRuns to appear
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        label_selectors:
+          - "appstudio.openshift.io/component={{ component_name }}"
+      register: r_pr_pipelineruns
+      until: r_pr_pipelineruns.resources | length > 0
+      retries: 30
+      delay: 10
+
+    - name: Check if any build pipeline is running
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        label_selectors:
+          - "appstudio.openshift.io/component={{ component_name }}"
+      register: r_check_running
+
+    - name: Get running pipelines
+      ansible.builtin.set_fact:
+        _running_pipelines: "{{ r_check_running.resources | selectattr('status.startTime', 'defined') | rejectattr('status.completionTime', 'defined') | list }}"
+
+    - name: Close and reopen MR if all pipelines cancelled
+      when: _running_pipelines | length == 0
+      block:
+        - name: Close MR
+          ansible.builtin.uri:
+            url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/merge_requests/{{ _mr_iid }}?state_event=close"
+            method: PUT
+            headers:
+              PRIVATE-TOKEN: "{{ _tenant_gitlab_pat }}"
+            validate_certs: false
+            status_code: [200]
+
+        - name: Reopen MR
+          ansible.builtin.uri:
+            url: "{{ _gitlab_url }}/api/v4/projects/{{ _gitlab_project_id }}/merge_requests/{{ _mr_iid }}?state_event=reopen"
+            method: PUT
+            headers:
+              PRIVATE-TOKEN: "{{ _tenant_gitlab_pat }}"
+            validate_certs: false
+            status_code: [200]
+
+        - name: Wait 30 seconds for new pipeline to trigger
+          ansible.builtin.pause:
+            seconds: 30
+
+        - name: Wait for new running pipeline after MR reopen
+          kubernetes.core.k8s_info:
+            host: "{{ _k8s_host | default(omit, true) }}"
+            api_key: "{{ _k8s_api_key | default(omit, true) }}"
+            validate_certs: "{{ _k8s_validate_certs }}"
+            api_version: tekton.dev/v1
+            kind: PipelineRun
+            namespace: "{{ _tenant_user }}-tenant"
+            label_selectors:
+              - "appstudio.openshift.io/component={{ component_name }}"
+          register: r_new_pipelines
+          until:
+            - r_new_pipelines.resources | selectattr('status.startTime', 'defined') | rejectattr('status.completionTime', 'defined') | list | length > 0
+          retries: 30
+          delay: 5
+
+    - name: Get build pipelines
       kubernetes.core.k8s_info:
         host: "{{ _k8s_host | default(omit, true) }}"
         api_key: "{{ _k8s_api_key | default(omit, true) }}"
@@ -223,15 +299,11 @@
         label_selectors:
           - "appstudio.openshift.io/component={{ component_name }}"
           - "pipelinesascode.tekton.dev/event-type=pull_request"
-      register: r_pr_pipelineruns
-      until: r_pr_pipelineruns.resources | length > 0
-      retries: 30
-      delay: 10
+      register: r_all_pr_pipelineruns
 
-    - name: Get latest on-pull-request PipelineRun
+    - name: Get latest build pipeline
       ansible.builtin.set_fact:
-        _pr_pipelinerun: "{{ r_pr_pipelineruns.resources | sort(attribute='metadata.creationTimestamp') | last }}"
-
+        _pr_pipelinerun: "{{ r_all_pr_pipelineruns.resources | sort(attribute='metadata.creationTimestamp') | last }}"
 
     - name: Wait for on-pull-request PipelineRun to complete
       kubernetes.core.k8s_info:
@@ -251,48 +323,7 @@
       delay: 20
       when: _pr_pipelinerun is defined
 
-    # =========================================================================
-    # Step 3.5: Wait for pipelines after commit before merging
-    # =========================================================================
-
-    - name: Get on-pull-request pipelines after commit
-      kubernetes.core.k8s_info:
-        host: "{{ _k8s_host | default(omit, true) }}"
-        api_key: "{{ _k8s_api_key | default(omit, true) }}"
-        validate_certs: "{{ _k8s_validate_certs }}"
-        api_version: tekton.dev/v1
-        kind: PipelineRun
-        namespace: "{{ _tenant_user }}-tenant"
-        label_selectors:
-          - "appstudio.openshift.io/component={{ component_name }}"
-          - "pipelinesascode.tekton.dev/event-type=pull_request"
-      register: r_post_commit_build_pipelines
-      until: r_post_commit_build_pipelines.resources | length > 0
-      retries: 30
-      delay: 10
-
-    - name: Get latest on-pull-request pipeline after commit
-      ansible.builtin.set_fact:
-        _post_commit_build_pipeline: "{{ r_post_commit_build_pipelines.resources | sort(attribute='metadata.creationTimestamp') | last }}"
-
-    - name: Wait for on-pull-request pipeline to succeed after commit
-      kubernetes.core.k8s_info:
-        host: "{{ _k8s_host | default(omit, true) }}"
-        api_key: "{{ _k8s_api_key | default(omit, true) }}"
-        validate_certs: "{{ _k8s_validate_certs }}"
-        api_version: tekton.dev/v1
-        kind: PipelineRun
-        namespace: "{{ _tenant_user }}-tenant"
-        name: "{{ _post_commit_build_pipeline.metadata.name }}"
-      register: r_post_commit_build_status
-      until:
-        - r_post_commit_build_status.resources[0].status.conditions is defined
-        - r_post_commit_build_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
-        - r_post_commit_build_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
-      retries: 90
-      delay: 10
-
-    - name: Get integration test pipelines after commit
+    - name: Wait for integration test pipeline to exist
       kubernetes.core.k8s_info:
         host: "{{ _k8s_host | default(omit, true) }}"
         api_key: "{{ _k8s_api_key | default(omit, true) }}"
@@ -303,16 +334,16 @@
         label_selectors:
           - "appstudio.openshift.io/application={{ application_name }}"
           - "test.appstudio.openshift.io/scenario={{ application_name }}-enterprise-contract"
-      register: r_post_commit_integration_tests
-      until: r_post_commit_integration_tests.resources | length > 0
+      register: r_integration_tests
+      until: r_integration_tests.resources | length > 0
       retries: 30
       delay: 10
 
-    - name: Get latest integration test after commit
+    - name: Get latest integration test pipeline
       ansible.builtin.set_fact:
-        _post_commit_integration_test: "{{ r_post_commit_integration_tests.resources | sort(attribute='metadata.creationTimestamp') | last }}"
+        _integration_test_pipeline: "{{ r_integration_tests.resources | sort(attribute='metadata.creationTimestamp') | last }}"
 
-    - name: Wait for integration test to succeed before merging
+    - name: Wait for integration test to succeed
       kubernetes.core.k8s_info:
         host: "{{ _k8s_host | default(omit, true) }}"
         api_key: "{{ _k8s_api_key | default(omit, true) }}"
@@ -320,12 +351,12 @@
         api_version: tekton.dev/v1
         kind: PipelineRun
         namespace: "{{ _tenant_user }}-tenant"
-        name: "{{ _post_commit_integration_test.metadata.name }}"
-      register: r_post_commit_integration_status
+        name: "{{ _integration_test_pipeline.metadata.name }}"
+      register: r_integration_status
       until:
-        - r_post_commit_integration_status.resources[0].status.conditions is defined
-        - r_post_commit_integration_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
-        - r_post_commit_integration_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
+        - r_integration_status.resources[0].status.conditions is defined
+        - r_integration_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
+        - r_integration_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
       retries: 60
       delay: 10
 
