@@ -38,7 +38,7 @@ oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service -o yam
 ----
 
 . In the YAML output, locate `spec.sources[0]`.
-Each source entry has three sub-fields that together define what Conforma evaluates:
+Each source entry has two key sub-fields:
 +
 [cols="25h,~", options="header"]
 |===
@@ -47,12 +47,9 @@ Each source entry has three sub-fields that together define what Conforma evalua
 |`policy[]`
 |An OCI image reference (`oci::quay.io/conforma/release-policy:latest@sha256:...`) containing the Rego rules Conforma applies to your artifact.
 
-|`data[]`
-|A Git URL (`github.com/rhpds/konflux-tssc-lab.git//tekton/data?ref=main`) with lab-specific trusted task definitions — the list of pipeline tasks Conforma considers authoritative builders.
-
 |`config`
 |`include` and `exclude` lists that control which rule categories are active.
-The lab policy includes the `@redhat` rule set and excludes several rules (such as `hermetic_task` and `source_image`) that are not applicable in this environment.
+The lab policy includes specific rules such as `slsa_provenance_available` and `sbom_cyclonedx`, and excludes rules that are not applicable in this environment.
 |===
 
 . Extract the policy bundle OCI reference and store it in a shell variable:
@@ -65,12 +62,19 @@ export EC_POLICY=$(oc get enterprisecontractpolicy lab-policy \
 echo "Policy bundle: ${EC_POLICY}"
 ----
 
-. Recover the image reference from your Component if you no longer have `$IMAGE` set in your terminal:
+. Recover the image reference from your Component if you no longer have `$IMAGE` set in your terminal.
+The reference must include the digest (`@sha256:...`) — `ec` requires it to locate the attestations:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
-export IMAGE=$(oc get component -n {openshift_username}-tenant \
-  -o jsonpath='{.items[0].spec.containerImage}')
+if [ -z "${IMAGE_BASE}" ] || [ -z "${IMAGE_DIGEST}" ]; then
+  export IMAGE_BASE=$(oc get component -n {openshift_username}-tenant \
+    -o jsonpath='{.items[0].spec.containerImage}' | cut -d: -f1)
+  export IMAGE_DIGEST=$(oc get snapshot -n {openshift_username}-tenant \
+    --sort-by=.metadata.creationTimestamp \
+    -o jsonpath='{.items[-1].spec.components[0].containerImage}' | cut -d@ -f2)
+fi
+export IMAGE="${IMAGE_BASE}@${IMAGE_DIGEST}"
 echo "Image: ${IMAGE}"
 ----
 
@@ -94,7 +98,7 @@ Expected output: `success: true` with no `violations` entries under `components`
 [%interactive]
 * [ ] `oc get enterprisecontractpolicy lab-policy -n enterprise-contract-service` returns the lab policy object.
 * [ ] `spec.sources[0].policy[]` contains an `oci::` image reference to the Conforma release policy bundle.
-* [ ] `spec.sources[0].data[]` contains a Git URL pointing to the lab's trusted task definitions.
+* [ ] `spec.sources[0].config` contains `include` and `exclude` rule lists.
 * [ ] `ec validate image` against your Module 3 image returns an empty violations array.
 
 == 2. Review Integration Pipeline Results
@@ -190,7 +194,7 @@ ec validate image \
   --policy enterprise-contract-service/lab-policy \
   --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
-  --rekor-url https://rekor-server-tsf-tas.{openshift_cluster_ingress_domain} \
+  --rekor-url https://rekor-server-tsf-tas.{openshift_apps_domain} \
   --output yaml
 ----
 +
