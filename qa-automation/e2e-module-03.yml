@@ -410,20 +410,22 @@
       when: _image_ref is defined
       changed_when: false
 
-    - name: Verify SBOM has packages
+    - name: Parse SBOM and count packages
       ansible.builtin.set_fact:
-        _sbom_package_count: "{{ (r_cosign_sbom.stdout | from_json).packages | length }}"
+        _sbom_data: "{{ r_cosign_sbom.stdout | from_json }}"
+        _sbom_package_count: "{{ (r_cosign_sbom.stdout | from_json).packages | default([]) | length }}"
       when:
         - r_cosign_sbom is not skipped
         - r_cosign_sbom is not failed
-        - r_cosign_sbom.stdout is defined
-        - r_cosign_sbom.stdout | length > 0
 
     - name: Fail if SBOM download failed or has no packages
       ansible.builtin.fail:
-        msg: "SBOM verification failed"
-      when:
-        - r_cosign_sbom is failed or _sbom_package_count is not defined
+        msg: "SBOM verification failed - downloaded: {{ 'yes' if r_cosign_sbom is not skipped else 'no' }}, packages: {{ _sbom_package_count | default(0) }}"
+      when: >-
+        r_cosign_sbom is skipped or
+        r_cosign_sbom is failed or
+        _sbom_package_count is not defined or
+        _sbom_package_count | int == 0
 
     # =========================================================================
     # Step 8: Verify image in Quay
