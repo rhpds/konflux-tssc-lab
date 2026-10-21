@@ -84,6 +84,30 @@
       when: not (_use_sa_token | bool)
 
     # =========================================================================
+    # Install required CLIs
+    # =========================================================================
+
+    - name: Ensure ~/.local/bin directory exists
+      ansible.builtin.file:
+        path: ~/.local/bin
+        state: directory
+        mode: '0755'
+
+    - name: Check if ec is available
+      ansible.builtin.command:
+        cmd: which ec
+      register: r_ec_check
+      failed_when: false
+      changed_when: false
+
+    - name: Download and install ec CLI from cluster
+      ansible.builtin.shell:
+        cmd: |
+          curl -sL "http://cli-server.trusted-artifact-signer.svc:8080/clients/linux/ec-amd64.gz" | gunzip > ~/.local/bin/ec
+          chmod +x ~/.local/bin/ec
+      when: r_ec_check.rc != 0
+
+    # =========================================================================
     # Pre-conditions
     # =========================================================================
 
@@ -170,10 +194,16 @@
         name: "{{ component_name }}-image-pull"
       register: r_image_pull_secret
 
+    - name: Create Docker config directory for ec
+      ansible.builtin.file:
+        path: /tmp/.docker-{{ _tenant_user }}
+        state: directory
+        mode: '0700'
+
     - name: Write Docker config for ec
       ansible.builtin.copy:
         content: "{{ r_image_pull_secret.resources[0].data['.dockerconfigjson'] | b64decode }}"
-        dest: /tmp/.docker-config-{{ _tenant_user }}.json
+        dest: /tmp/.docker-{{ _tenant_user }}/config.json
         mode: '0600'
       when:
         - r_image_pull_secret is not failed
@@ -195,7 +225,7 @@
           --rekor-url https://rekor-server-tsf-tas.{{ _apps_domain }}
           --output yaml
       environment:
-        DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
+        DOCKER_CONFIG: /tmp/.docker-{{ _tenant_user }}
         COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
       register: r_ec_validate
       changed_when: false
@@ -327,9 +357,9 @@
     # Cleanup
     # =========================================================================
 
-    - name: Remove temporary Docker config
+    - name: Remove temporary Docker config directory
       ansible.builtin.file:
-        path: /tmp/.docker-config-{{ _tenant_user }}.json
+        path: /tmp/.docker-{{ _tenant_user }}
         state: absent
 
     # =========================================================================
