@@ -29,8 +29,16 @@ They now need to get this fix to production and attempt to release it through th
 In Module 05 Section 3 you already confirmed that this unsigned image fails `ec validate image` with `builtin.image.signature_check` and `builtin.attestation.signature_check` violations.
 This scenario picks up from that knowledge and shows what happens at the *release layer* — the point where the developer actually tries to promote the hotfix.
 
+. Set the hotfix image reference:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+export HOTFIX_IMAGE={quay_url}/lab-examples/unsigned-sample:latest
+echo "Hotfix image: ${HOTFIX_IMAGE}"
+----
+
 . Confirm your tenant namespace has no Snapshot that corresponds to an out-of-band image push.
-List your Snapshots and note that every entry maps to a Konflux PipelineRun, not a manual registry push:
+Every Snapshot in the list was created by the Konflux build pipeline:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
@@ -38,11 +46,47 @@ oc get snapshots -n {openshift_username}-tenant \
   -o custom-columns='NAME:.metadata.name,IMAGE:.spec.components[0].containerImage,CREATED:.metadata.creationTimestamp'
 ----
 +
-Every Snapshot in the list was created by the Konflux build pipeline — there is no entry for the out-of-band hotfix.
-Without a Snapshot, there is nothing for the ReleasePlan to release.
-The release workflow in Konflux always starts from a Snapshot; a direct registry push creates no Snapshot and therefore has no entry point into the release pipeline.
+There is no entry for the hotfix image.
+The Konflux release workflow always starts from a Snapshot; a direct registry push never creates one.
+Without a Snapshot there is no entry point into the release pipeline.
 
-. To show what would happen if the developer attempted to force a release, create a Release object manually that references your Module 3 passing Snapshot but substitutes the hotfix image reference in the spec:
+. To simulate the developer's next move, create a Snapshot manually that references the hotfix image.
+This is the closest a developer can get to "forcing" the unsigned image into the release pipeline:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+cat <<EOF | oc apply -f -
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: Snapshot
+metadata:
+  name: hotfix-snapshot
+  namespace: {openshift_username}-tenant
+spec:
+  application: my-sample-app
+  components:
+  - name: sample-component-golang
+    containerImage: ${HOTFIX_IMAGE}
+EOF
+----
++
+Creating the Snapshot triggers the Integration pipeline — Konflux immediately evaluates the hotfix image against the Conforma policy.
+
+. Watch the Integration pipeline run against the hotfix Snapshot.
+In the Konflux UI, navigate to your `my-sample-app` Application and click the *Snapshots* tab.
+Locate `hotfix-snapshot` and click into it.
+Observe the enterprise contract integration test run — it will fail with the same violations you saw in Module 05 Section 3.
+
+. In the terminal, check the Snapshot conditions after the Integration pipeline completes:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+oc get snapshot hotfix-snapshot -n {openshift_username}-tenant \
+  -o jsonpath='{.status.conditions}' | jq .
+----
++
+Expected output: a condition with `type: AppStudioIntegrationStatus` and `status: "False"` — the Snapshot is not eligible for release.
+
+. Now attempt to create a Release that targets the hotfix Snapshot:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
@@ -53,59 +97,57 @@ metadata:
   name: hotfix-release-attempt
   namespace: {openshift_username}-tenant
 spec:
-  snapshot: ${SNAPSHOT}
+  snapshot: hotfix-snapshot
   releasePlan: production-release
 EOF
 ----
-+
-NOTE: `$SNAPSHOT` must be set from Module 05. If it is not, run: `export SNAPSHOT=$(oc get snapshots -n {openshift_username}-tenant --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')`
-+
-Even using a real passing Snapshot, watch what the Release object reports in its conditions:
 
-. Describe the Release object and read its status conditions:
+. Check the Release conditions to see why it was blocked:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
-oc get release hotfix-release-attempt -n {openshift_username}-tenant -o yaml | grep -A 20 'conditions:'
+oc get release hotfix-release-attempt -n {openshift_username}-tenant \
+  -o jsonpath='{.status.conditions}' | jq .
 ----
 +
-The conditions show whether the Snapshot's integration status was verified before the release pipeline started.
-A Snapshot that failed integration will produce a condition indicating it is not eligible for release.
-A real unsigned hotfix would produce its own Snapshot with a failing integration status — and any Release pointing to it would be blocked at this gate.
+The Release is blocked because the Snapshot never reached passing integration status.
+The release pipeline did not start — the unsigned hotfix never left the tenant namespace.
 
-. Clean up the test Release object:
+. Clean up both test resources:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
 oc delete release hotfix-release-attempt -n {openshift_username}-tenant
+oc delete snapshot hotfix-snapshot -n {openshift_username}-tenant
 ----
 
-. Review the two layers that block the unsigned hotfix:
+. Review the two layers that independently block the unsigned hotfix:
 +
 [cols="20h,40,~", options="header"]
 |===
 |Layer |Check |Result for unsigned hotfix
 
 |Integration pipeline
-|`ec validate image` evaluates the Snapshot against the Conforma policy
-|`success: false` — `builtin.image.signature_check` and `builtin.attestation.signature_check` violations (demonstrated in Module 05 Section 3)
+|`ec validate image` evaluates every Snapshot against the Conforma policy
+|`success: false` — `builtin.image.signature_check` and `builtin.attestation.signature_check` violations. `AppStudioIntegrationStatus` set to `False`.
 
 |Release gate
-|Release object checks that the Snapshot's `AppStudioIntegrationStatus` condition is `True` before starting the release pipeline
-|Release blocked — the Snapshot is never in passing state because the integration pipeline found violations
+|Release object verifies `AppStudioIntegrationStatus` is `True` before starting the release pipeline
+|Release blocked — the hotfix Snapshot never passes integration, so the release pipeline never starts.
 
 |===
 +
-An out-of-band image push fails at *both* layers.
-Even if an operator bypassed the integration check, the release pipeline re-evaluates Conforma policy independently — the unsigned image would be blocked a second time at the release gate.
+An out-of-band image push fails at both layers even if the Snapshot is created manually.
+There is no approved path to bypass either gate.
 
 === Verify
 
 [%interactive]
-* [ ] `oc get snapshots` shows no Snapshot corresponding to a direct registry push — every entry traces to a Konflux PipelineRun.
-* [ ] The manually created Release object shows a condition indicating the Snapshot is not eligible for release (or the Release pipeline is blocked).
-* [ ] You can name the two supply chain layers that independently block an unsigned hotfix: the integration policy gate and the release gate.
-* [ ] The test Release object has been deleted from your namespace.
+* [ ] `oc get snapshots` initially shows no Snapshot for the hotfix image — only PipelineRun-created Snapshots exist.
+* [ ] After creating `hotfix-snapshot`, the Integration pipeline runs and fails against the unsigned image.
+* [ ] `hotfix-snapshot` conditions show `AppStudioIntegrationStatus: False`.
+* [ ] `hotfix-release-attempt` is blocked — the Release conditions confirm the Snapshot was not eligible.
+* [ ] Both `hotfix-snapshot` and `hotfix-release-attempt` have been deleted from your namespace.
 
 == 2. Scenario B — The CVE Policy Breach
 
