@@ -92,12 +92,17 @@ image::module-05-snapshot-tab.png[Konflux Snapshots tab showing the list of Snap
 . In the Snapshot detail view, locate the list of Integration pipeline runs.
 The default integration pipeline includes a Conforma check task labelled *enterprise-contract*.
 
-. Click the enterprise contract integration test run.
-In its task logs or results tab, find the EC evaluation output and confirm the result shows *Pass*.
+. Click the enterprise contract integration test run to open the Pipeline run detail view.
+Confirm the pipeline status shows *Succeeded*.
+In the *Results* section at the bottom of the page, locate the `TEST_OUTPUT` entry.
+Its value is a JSON object — confirm it shows `"result":"SUCCESS"` and `"failures":0`:
 +
-// TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/6
-.Conforma check task result in the Integration pipeline
-image::screenshot-placeholder.svg[Konflux Integration pipeline task log showing the enterprise contract evaluation result as Pass with a green status indicator,800]
+----
+{"successes":18,"failures":0,"warnings":0,"result":"SUCCESS"}
+----
++
+.Conforma check Pipeline run showing Succeeded status and TEST_OUTPUT result
+image::module-05-ec-pipeline-result.png[Konflux Integration pipeline run detail view showing Succeeded status and TEST_OUTPUT JSON with result SUCCESS and failures 0,800]
 
 . In the terminal, list the `IntegrationTestScenario` resources in your tenant namespace:
 +
@@ -135,7 +140,7 @@ echo "Snapshot: ${SNAPSHOT}"
 [%interactive]
 * [ ] `oc get integrationtestscenario -n {openshift_username}-tenant` returns the integration test scenario for `my-sample-app`.
 * [ ] `oc get snapshots -n {openshift_username}-tenant` returns at least one Snapshot.
-* [ ] The Snapshot detail view in the Konflux UI shows a *Pass* result for the enterprise contract check.
+* [ ] The enterprise contract Pipeline run shows *Succeeded* status and `TEST_OUTPUT` contains `"result":"SUCCESS"` with `"failures":0`.
 * [ ] `$SNAPSHOT` is set in your terminal session.
 
 == 3. Observe a Policy Failure
