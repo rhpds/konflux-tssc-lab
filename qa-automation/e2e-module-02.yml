@@ -575,10 +575,16 @@
     # =========================================================================
 
     - name: Delete all PipelineRuns in tenant namespace
-      ansible.builtin.command:
-        cmd: oc delete pipelinerun --all -n {{ _tenant_user }}-tenant
-      register: r_delete_pipelineruns
-      changed_when: r_delete_pipelineruns.rc == 0
+      kubernetes.core.k8s:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        state: absent
+        label_selectors:
+          - "appstudio.openshift.io/application={{ application_name }}"
 
     # =========================================================================
     # Summary
