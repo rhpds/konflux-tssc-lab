@@ -1,1 +1,352 @@
-= Incident Response
+= Real-World Incident Response
+:navtitle: Real-World Incident Response
+
+Estimated time: *25 minutes*
+
+The supply chain you built across Modules 2 through 6 works when every component behaves as expected.
+This module tests what happens when things go wrong.
+You intentionally break three trust mechanisms — an unsigned hotfix image, a CVE-flagged artifact, and a certificate identity mismatch — then use the same tools you have worked with throughout the lab to read the failure signals.
+No new tooling is introduced.
+Each scenario is self-contained: you trigger the failure, read the output, and identify exactly which control caught the problem and why.
+
+This is how a real team diagnoses a supply chain incident — working from specific, structured error output rather than intuition.
+
+== Learning Objectives
+
+By the end of this module, you will be able to:
+
+* Identify how Conforma detects and blocks an unsigned image pushed outside the Konflux pipeline, and explain the failure signals a customer would see.
+* Diagnose a policy violation caused by a dependency CVE and trace which policy rule triggered the block.
+* Observe how signature verification fails when a signing certificate identity does not match the expected trusted builder, and explain the config drift scenario this represents.
+* Articulate, for each scenario, which layer of the supply chain caught the problem: build pipeline, integration policy, or release gate.
+
+== 1. Scenario A — The Unsigned Hotfix
+
+During an outage, a developer bypasses the Konflux pipeline and pushes a hotfix image directly to the Quay registry.
+The image is unsigned and carries no SLSA attestation.
+They attempt to release it through the existing ReleasePlan.
+In this scenario, you test that image against the Conforma policy and observe how the integration layer blocks it.
+
+. Ensure cosign is configured to skip TLS verification for the lab's self-signed certificates.
+If you are in a new terminal session, re-run this command before proceeding:
++
+[source,bash,role="execute"]
+----
+export COSIGN_INSECURE_SKIP_TLS_VERIFY=true
+----
++
+NOTE: If cosign returns TUF-related errors, re-run the initialization step from Module 04 Section 1 to restore the lab's Rekor and Fulcio endpoint configuration.
+
+. Set the hotfix image reference to the pre-provisioned unsigned image in the lab registry:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+export HOTFIX_IMAGE={quay_url}/lab-examples/unsigned-sample:latest
+echo "Testing against: ${HOTFIX_IMAGE}"
+----
++
+NOTE: This is the same unsigned image used in Module 05 Section 3. The lab reuses it here to represent the out-of-band hotfix push.
+
+. Attempt to verify the image signature using the trusted Konflux builder identity:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+cosign verify \
+  --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
+  --certificate-oidc-issuer {tas_oidc_issuer} \
+  ${HOTFIX_IMAGE}
+----
++
+Expected output: an error indicating no valid signatures were found:
++
+----
+Error: no matching signatures: [... no signatures found ...]
+----
++
+The image was never signed.
+There is no signature record in the Rekor transparency log and no Fulcio certificate to verify against.
+
+. Run `ec` against the hotfix image using the same validation flags as Module 05:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+ec validate image \
+  --image "${HOTFIX_IMAGE}" \
+  --policy enterprise-contract-service/lab-policy \
+  --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
+  --certificate-oidc-issuer {tas_oidc_issuer} \
+  --rekor-url https://rekor-server-tsf-tas.{openshift_cluster_ingress_domain} \
+  --output yaml
+----
++
+The YAML output shows `success: false` and a `violations` list under `components`:
++
+----
+components:
+- success: false
+  violations:
+  - metadata:
+      code: builtin.image.signature_check
+    msg: 'Image signature check failed: no signatures found'
+  - metadata:
+      code: builtin.attestation.signature_check
+    msg: 'Image attestation check failed: no matching attestations'
+success: false
+----
++
+NOTE: `ec` also prints `Error: success criteria not met` to stderr. That is expected behavior, not a command failure.
++
+Read the two violation codes:
++
+[cols="35h,~", options="header"]
+|===
+|Violation code |What it means
+
+|`builtin.image.signature_check`
+|No cryptographic signature exists for this image digest. The image was not processed by the Konflux signing step.
+
+|`builtin.attestation.signature_check`
+|No SLSA provenance attestation is attached. The image has no verifiable build history from a trusted pipeline.
+|===
++
+The layer that caught this failure is the *integration policy gate* — the `ec validate image` evaluation inside the Integration pipeline.
+No signature and no attestation means there is nothing to trust.
+There is no approved path for an out-of-band image push to reach production through Konflux.
+Any Snapshot referencing this image would be marked failing before the release gate is ever reached.
+
+=== Verify
+
+[%interactive]
+* [ ] `$HOTFIX_IMAGE` is set in your terminal session.
+* [ ] `cosign verify` against `$HOTFIX_IMAGE` returns an error — no valid signatures found.
+* [ ] `ec validate image` against `$HOTFIX_IMAGE` returns `success: false`.
+* [ ] The violations list includes both `builtin.image.signature_check` and `builtin.attestation.signature_check`.
+* [ ] You can identify the integration policy gate as the supply chain layer that blocked the hotfix.
+
+== 2. Scenario B — The CVE Policy Breach
+
+[IMPORTANT]
+====
+*Infrastructure dependency:* This scenario requires a pre-provisioned `cve-sample` image in the lab registry and a CVE-checking rule in the Conforma policy bundle.
+The current lab policy only includes `slsa_provenance_available` and `sbom_cyclonedx` — it does not enforce CVE checks by default.
+If the `cve-sample` image is not available in your lab environment, skip to Scenario C.
+Your lab facilitator will confirm whether this scenario is active.
+====
+
+A new critical CVE is discovered in a base image dependency.
+The security team updates the Conforma policy bundle to block any image whose SBOM references the affected package version.
+An artifact that passed policy at build time now fails on re-evaluation — not because the image changed, but because the policy did.
+This scenario shows the effect of a policy tightening event on an existing artifact.
+
+. Set the CVE image reference:
++
+// TODO: replace placeholder — {quay_url}/lab-examples/cve-sample:latest must be provisioned in the lab registry with a CVE-containing image before this step works. A matching CVE-checking rule must also be added to the Conforma policy bundle.
++
+[source,bash,role="execute",subs="attributes+"]
+----
+export CVE_IMAGE={quay_url}/lab-examples/cve-sample:latest
+echo "Testing against: ${CVE_IMAGE}"
+----
+
+. Run `ec` against the CVE image:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+ec validate image \
+  --image "${CVE_IMAGE}" \
+  --policy enterprise-contract-service/lab-policy \
+  --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
+  --certificate-oidc-issuer {tas_oidc_issuer} \
+  --rekor-url https://rekor-server-tsf-tas.{openshift_cluster_ingress_domain} \
+  --output yaml
+----
++
+In the YAML output, locate the `violations` array under `components`.
+The violation `msg` field references the CVE identifier and names the rule that detected it.
++
+NOTE: `ec` also prints `Error: success criteria not met` to stderr. That is expected, not a command failure.
+
+. If your lab facilitator has pre-created a failing Snapshot that uses the CVE image, navigate to it in the Konflux UI to observe the integration block:
++
+// TODO: replace placeholder with real screenshot — capture the Snapshots tab showing a failed integration pipeline run caused by a CVE policy violation
+image::screenshot-placeholder.svg[Konflux Snapshots tab showing a Snapshot with a failed Integration pipeline run due to a CVE policy violation,800]
++
+.. In the Konflux UI, navigate to your `my-sample-app` Application and click the *Snapshots* tab.
+.. Locate the pre-created failing Snapshot and click its name.
+.. In the Snapshot detail view, find the enterprise contract integration test run and confirm its status shows *Failed*.
+.. Open the task logs for the enterprise contract task and locate the violation entry referencing the CVE.
+
+. Consider the remediation path.
+The fix for a CVE policy block is not to update the policy — it is to update the image.
+Patch the base layer to remove the affected package, rebuild through the Konflux pipeline, and the new Snapshot is automatically re-evaluated against the current policy.
+If the patched image no longer contains the prohibited dependency, the new Snapshot passes.
+The old Snapshot remains blocked and is never promoted.
+
+=== Verify
+
+[%interactive]
+* [ ] `$CVE_IMAGE` is set in your terminal session.
+* [ ] `ec validate image` against `$CVE_IMAGE` returns `success: false` (if the CVE image is provisioned).
+* [ ] The violations list identifies the policy rule that flagged the vulnerable dependency.
+* [ ] You can explain why a previously-passing artifact fails after a policy update, without any change to the image itself.
+
+== 3. Scenario C — Config Drift and Certificate Identity Mismatch
+
+// TODO: {quay_url}/lab-examples/key-drift:latest must be provisioned in the lab registry. It must be signed with a certificate identity that does NOT match the trusted builder regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*'. Without this image, steps 2-5 below cannot be completed end-to-end. As a fallback, participants can substitute $HOTFIX_IMAGE to observe cosign verify failing, but the failure reason will be "no signatures" rather than "wrong identity".
+
+A key rotation was performed on the cluster, but the Conforma policy was not updated to trust the new signing identity.
+An image signed with the old certificate identity no longer matches the policy's trusted builder list.
+Both `cosign verify` and the `ec` CLI output tell you exactly which identity was used and why it was rejected.
+This scenario shows how the Rekor transparency log makes config drift detectable without any internal cluster access.
+
+. Set the drifted image reference:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+export DRIFTED_IMAGE={quay_url}/lab-examples/key-drift:latest
+echo "Testing against: ${DRIFTED_IMAGE}"
+----
+
+. Attempt to verify the image using a deliberately mismatched certificate identity regexp.
+This simulates checking an image against the wrong builder:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+cosign verify \
+  --certificate-identity-regexp 'https://different-builder.*' \
+  --certificate-oidc-issuer {tas_oidc_issuer} \
+  ${DRIFTED_IMAGE}
+----
++
+Expected output: an error — no signatures match the provided identity regexp.
+
+. Now attempt to verify using the correct trusted builder regexp from Module 04.
+This also fails, because the image was signed by a different identity — one that does not match the policy's trusted builder:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+cosign verify \
+  --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
+  --certificate-oidc-issuer {tas_oidc_issuer} \
+  ${DRIFTED_IMAGE}
+----
++
+Expected output: an error indicating the certificate subject does not match the trusted identity pattern.
++
+This is the key distinction from Scenario A: the image IS signed — but by a builder identity the policy does not trust.
+In Scenario A there was no signature at all.
+Here the signature exists and is cryptographically valid; the problem is the signer's identity.
+
+. Run `ec` against the drifted image to capture the structured violation:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+ec validate image \
+  --image "${DRIFTED_IMAGE}" \
+  --policy enterprise-contract-service/lab-policy \
+  --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
+  --certificate-oidc-issuer {tas_oidc_issuer} \
+  --rekor-url https://rekor-server-tsf-tas.{openshift_cluster_ingress_domain} \
+  --output yaml
+----
++
+The violations entry indicates the certificate identity in the image's attestation does not match the trusted builder pattern configured in the policy.
++
+NOTE: `ec` also prints `Error: success criteria not met` to stderr. That is expected, not a command failure.
+
+. Use `cosign download attestation` to retrieve the builder ID recorded in the SLSA provenance and confirm the mismatch.
+First, check which SLSA predicate version the attestation uses:
++
+[source,bash,role="execute"]
+----
+cosign download attestation ${DRIFTED_IMAGE} | jq -rs '.[0].payload | @base64d | fromjson | .predicateType'
+----
++
+Then extract the builder identity using the matching path below:
++
+.SLSA v0.2 — `https://slsa.dev/provenance/v0.2` (run if the command above returned `v0.2`)
+[source,bash,role="execute"]
+----
+cosign download attestation ${DRIFTED_IMAGE} | jq -s '
+  map(select(.payload | @base64d | fromjson | .predicateType == "https://slsa.dev/provenance/v0.2")) |
+  .[0].payload | @base64d | fromjson | {
+    builder: .predicate.builder.id,
+    repo:    .predicate.invocation.environment.annotations["pipelinesascode.tekton.dev/repo-url"]
+  }'
+----
++
+.SLSA v1 — `https://slsa.dev/provenance/v1` (run if the command above returned `v1`)
+[source,bash]
+----
+cosign download attestation ${DRIFTED_IMAGE} | jq -s '
+  map(select(.payload | @base64d | fromjson | .predicateType == "https://slsa.dev/provenance/v1")) |
+  .[0].payload | @base64d | fromjson | {
+    builder: .predicate.runDetails.builder.id,
+    repo:    .predicate.buildDefinition.resolvedDependencies[0].uri
+  }'
+----
++
+The builder ID in the output does not match the trusted builder regexp (`build-pipeline-.*`).
+The Rekor transparency log recorded the signing event with this identity at the time of signing — the drift is visible and auditable without access to internal cluster state.
+
+. Review the remediation paths for this scenario:
++
+[cols="35h,~", options="header"]
+|===
+|Cause of mismatch |Remediation
+
+|Key rotation without policy update
+|Update the `EnterpriseContractPolicy` object to include the new certificate identity regexp in the trusted builder list. Re-validate all affected Snapshots against the updated policy.
+
+|Image signed by the wrong pipeline
+|Rebuild through the correct Konflux pipeline. The rebuilt image carries an attestation from the trusted builder identity and passes the certificate check.
+|===
+
+=== Verify
+
+[%interactive]
+* [ ] `$DRIFTED_IMAGE` is set in your terminal session.
+* [ ] `cosign verify` with the mismatched identity regexp returns an error.
+* [ ] `cosign verify` with the trusted builder regexp also returns an error (wrong signing identity).
+* [ ] `ec validate image` returns `success: false` with a certificate identity violation.
+* [ ] `cosign download attestation` reveals a builder ID that does not match the trusted pipeline identity.
+
+== Learning Outcomes Checkpoint
+
+Before moving on, confirm you can answer the following:
+
+*Which supply chain layer catches each failure type?*
+
+All three scenarios are caught at the *integration policy gate* — the `ec validate image` evaluation that Conforma runs inside the Integration pipeline.
+The build pipeline itself succeeds in producing an artifact; the failure is always at the point where the artifact's evidence is evaluated against the policy.
+The release gate would catch the same violations again if a non-compliant artifact somehow reached a ReleasePlan trigger, because the managed pipeline re-evaluates Conforma policy independently.
+
+*Why does an out-of-band image have no path to production?*
+
+A Konflux ReleasePlan always releases a Snapshot — an immutable record produced by the Konflux build pipeline.
+An image pushed directly to the registry has no corresponding Snapshot and no SLSA provenance attestation from a trusted builder.
+Even if someone created a Snapshot manually referencing the unsigned image, the Integration pipeline would evaluate it, find no signature and no attestation, and mark the Snapshot as failing.
+The fail-closed policy means that image cannot advance.
+
+*What happens when policy tightens after an artifact passes the integration check?*
+
+The passing result in Module 05 reflects the policy that was active at that moment.
+Policy bundles are versioned — when the security team publishes a new version that adds a CVE rule, any Snapshot re-evaluated against the new bundle may fail.
+Konflux re-evaluates Conforma policy at release time, so a Snapshot that passed integration can still be blocked at the release gate if the policy has changed since.
+This is the intended behavior: it ensures that artifacts always meet the current standard before reaching production.
+
+*How do you distinguish "no signature" from "wrong identity" in the output?*
+
+The violation code `builtin.image.signature_check` appears in both cases — the code names the rule that failed, not the specific cause.
+The `msg` field differentiates them: "no signatures found" indicates a completely unsigned image, while a message referencing certificate subject or identity mismatch indicates the image was signed but by an untrusted party.
+Running `cosign download attestation` followed by a predicate-type check reveals the actual builder identity recorded at signing time, giving you the exact value to compare against the policy's trusted builder list.
+
+== Key Takeaways
+
+* The policy gate is the last line of defense — all three scenarios show different failure modes caught by `ec` evaluation, not by the build pipeline itself.
+* Out-of-band pushes have no approved path to production. An image built outside the Konflux pipeline carries no SLSA attestation from a trusted builder, and no Snapshot is created to trigger the release workflow.
+* Policy changes affect existing artifacts. When the Conforma policy is tightened, Snapshots that previously passed may fail on re-evaluation at release time — this protects production from newly-discovered risks.
+* Config drift is detectable and auditable. Every signing event is recorded in the Rekor transparency log with the builder identity. A certificate identity mismatch is visible without any secrets or internal cluster access.
+* Failure messages are actionable. Each scenario produces specific `code` and `msg` fields in the `ec` output that tell an operator exactly which rule failed and why. Structured output supports triage, not guesswork.
+
+xref:conclusion.adoc[Next: Conclusion →]
