@@ -226,10 +226,16 @@
         name: "{{ component_name }}-image-pull"
       register: r_image_pull_secret
 
+    - name: Create Docker config directory for cosign
+      ansible.builtin.file:
+        path: /tmp/.docker-{{ _tenant_user }}
+        state: directory
+        mode: '0700'
+
     - name: Write Docker config for cosign
       ansible.builtin.copy:
         content: "{{ r_image_pull_secret.resources[0].data['.dockerconfigjson'] | b64decode }}"
-        dest: /tmp/.docker-config-{{ _tenant_user }}.json
+        dest: /tmp/.docker-{{ _tenant_user }}/config.json
         mode: '0600'
       when:
         - r_image_pull_secret is not failed
@@ -244,7 +250,7 @@
           --certificate-oidc-issuer {{ _tas_oidc_issuer }}
           {{ _image_ref }}
       environment:
-        DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
+        DOCKER_CONFIG: /tmp/.docker-{{ _tenant_user }}
         COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
       register: r_cosign_verify
       changed_when: false
@@ -257,7 +263,7 @@
       ansible.builtin.command:
         cmd: cosign download attestation {{ _image_ref }}
       environment:
-        DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
+        DOCKER_CONFIG: /tmp/.docker-{{ _tenant_user }}
         COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
       register: r_attestations
       changed_when: false
@@ -337,7 +343,7 @@
           {{ _image_ref }}
           --output json
       environment:
-        DOCKER_CONFIG: /tmp/.docker-config-{{ _tenant_user }}.json
+        DOCKER_CONFIG: /tmp/.docker-{{ _tenant_user }}
         COSIGN_INSECURE_SKIP_TLS_VERIFY: "true"
       register: r_cosign_verify_json
       changed_when: false
@@ -355,7 +361,7 @@
         path: "{{ item }}"
         state: absent
       loop:
-        - /tmp/.docker-config-{{ _tenant_user }}.json
+        - /tmp/.docker-{{ _tenant_user }}
         - /tmp/tuf-root-{{ _tenant_user }}.json
 
     # =========================================================================
