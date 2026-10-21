@@ -329,12 +329,12 @@ This confirms the release pipeline promoted the existing artifact rather than re
 [source,bash,role="execute",subs="attributes+"]
 ----
 cosign verify \
-  --certificate-identity-regexp 'https://konflux.*' \
+  --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
   --certificate-oidc-issuer {tas_oidc_issuer} \
   ${PROD_IMAGE}
 ----
 +
-Expected output: `Verification for <image> -- Verified OK`
+Expected output: a `Verification for <image> --` header followed by three validation checks and a JSON array — the same format seen in Module 4.
 +
 The certificate identity regexp and OIDC issuer are the same values used in Module 4 — the image was signed by the same Konflux builder.
 The same image digest is now tagged `production` instead of `on-push-<commit>` — the bytes are identical, only the tag changed.
@@ -345,7 +345,7 @@ NOTE: If `cosign verify` returns a certificate error, confirm that `$PROD_IMAGE`
 +
 [source,bash,role="execute"]
 ----
-cosign download attestation ${PROD_IMAGE} | jq 'length'
+cosign download attestation ${PROD_IMAGE} | jq -s 'length'
 ----
 +
 Expected output: a number greater than zero, confirming that at least one attestation traveled with the image to the production registry.
@@ -355,29 +355,34 @@ First, check which SLSA predicate version your cluster uses:
 +
 [source,bash,role="execute"]
 ----
-cosign download attestation ${PROD_IMAGE} | jq -r '.[0].payload | @base64d | fromjson | .predicateType'
+cosign download attestation ${PROD_IMAGE} | jq -rs '.[0].payload | @base64d | fromjson | .predicateType'
 ----
 +
 Then extract the source commit and builder using the matching path below.
 +
-.SLSA v1 — `https://slsa.dev/provenance/v1`
-[source,bash,role="execute"]
-----
-cosign download attestation ${PROD_IMAGE} | \
-  jq '.[0].payload | @base64d | fromjson |
-    {repo: .predicate.buildDefinition.resolvedDependencies[0].uri,
-     commit: .predicate.buildDefinition.resolvedDependencies[0].digest.gitCommit,
-     pipeline: .predicate.runDetails.builder.id}'
-----
-+
 .SLSA v0.2 — `https://slsa.dev/provenance/v0.2`
 [source,bash,role="execute"]
 ----
-cosign download attestation ${PROD_IMAGE} | \
-  jq '.[0].payload | @base64d | fromjson |
-    {repo: .predicate.materials[0].uri,
-     commit: .predicate.materials[0].digest.sha1,
-     pipeline: .predicate.builder.id}'
+cosign download attestation ${PROD_IMAGE} | jq -s '
+  map(select(.payload | @base64d | fromjson | .predicateType == "https://slsa.dev/provenance/v0.2")) |
+  .[0].payload | @base64d | fromjson | {
+    repo:     .predicate.invocation.environment.annotations["pipelinesascode.tekton.dev/repo-url"],
+    commit:   .predicate.invocation.environment.annotations["build.appstudio.redhat.com/commit_sha"],
+    pipeline: .predicate.builder.id
+  }'
+----
++
+.SLSA v1 — `https://slsa.dev/provenance/v1` (run only if step above returned `v1`)
+[source,bash]
+----
+cosign download attestation ${PROD_IMAGE} | jq -s '
+  map(select(.payload | @base64d | fromjson | .predicateType == "https://slsa.dev/provenance/v1")) |
+  if length == 0 then "No SLSA v1 attestations — your cluster uses v0.2 (run the command above)" else
+  .[0].payload | @base64d | fromjson | {
+    repo:     .predicate.buildDefinition.resolvedDependencies[0].uri,
+    commit:   .predicate.buildDefinition.resolvedDependencies[0].digest.gitCommit,
+    pipeline: .predicate.runDetails.builder.id
+  } end'
 ----
 +
 Expected output: a JSON object showing the source repository URL, the merge commit SHA, and the Konflux builder identifier.

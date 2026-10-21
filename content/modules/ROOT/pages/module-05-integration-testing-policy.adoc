@@ -79,17 +79,15 @@ When your PipelineRun from Module 3 succeeded, Konflux automatically created a S
 The Integration pipeline then ran against that Snapshot, executing the Conforma check you just examined.
 Walk through the Integration pipeline results now in both the UI and the CLI.
 
-. In the Konflux UI, navigate to your `my-sample-app` Application and click the *Activity* tab.
+. In the Konflux UI, navigate to your `my-sample-app` Application and click the *Snapshots* tab.
 
-. Locate the Snapshot entry associated with your Module 3 build.
-Snapshots appear alongside PipelineRun entries in the Activity feed.
+. Locate the Snapshot associated with your Module 3 build.
+Look for the entry whose *Commit message* column reads *Merge branch 'konflux-sample-component-golang-XXXXX' into 'main'* — that is the snapshot Konflux created when your merge request landed on the main branch.
 +
-// TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/6
-.Konflux Activity tab showing a Snapshot entry
-image::screenshot-placeholder.svg[Konflux Activity tab showing a Snapshot entry with its image digest and integration test results listed below the build PipelineRun,800]
+.Konflux Snapshots tab showing the Module 3 build Snapshot
+image::module-05-snapshot-tab.png[Konflux Snapshots tab showing the list of Snapshots with commit messages, with the main branch merge Snapshot highlighted,800]
 
-. Click the Snapshot entry to open its detail view.
-Confirm that the image digest shown matches the one produced by your Module 3 PipelineRun.
+. Click the Snapshot name to open its detail view.
 
 . In the Snapshot detail view, locate the list of Integration pipeline runs.
 The default integration pipeline includes a Conforma check task labelled *enterprise-contract*.
