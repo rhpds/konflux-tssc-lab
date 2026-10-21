@@ -127,9 +127,45 @@
         msg: "Component {{ component_name }} not found"
       when: r_component.resources | length == 0
 
-    - name: Get component containerImage
+    - name: Get latest on-push PipelineRun from Module 3
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ _tenant_user }}-tenant"
+        label_selectors:
+          - "appstudio.openshift.io/component={{ component_name }}"
+          - "pipelinesascode.tekton.dev/event-type=push"
+      register: r_pipelineruns
+
+    - name: Fail if no on-push PipelineRun found
+      ansible.builtin.fail:
+        msg: "No on-push PipelineRun found — Module 3 may not have completed"
+      when: r_pipelineruns.resources | length == 0
+
+    - name: Get latest PipelineRun
       ansible.builtin.set_fact:
-        _component_image: "{{ r_component.resources[0].spec.containerImage }}"
+        _latest_pipelinerun: "{{ r_pipelineruns.resources | sort(attribute='metadata.creationTimestamp') | last }}"
+
+    - name: Extract IMAGE_DIGEST
+      ansible.builtin.set_fact:
+        _image_digest: "{{ _latest_pipelinerun.status.results | selectattr('name', 'equalto', 'IMAGE_DIGEST') | map(attribute='value') | first }}"
+      when: _latest_pipelinerun.status.results is defined
+
+    - name: Fail if IMAGE_DIGEST not found
+      ansible.builtin.fail:
+        msg: "IMAGE_DIGEST not found in PipelineRun results"
+      when: _image_digest is not defined
+
+    - name: Get image base
+      ansible.builtin.set_fact:
+        _image_base: "{{ r_component.resources[0].spec.containerImage | regex_replace(':.*$', '') }}"
+
+    - name: Construct full image reference with digest
+      ansible.builtin.set_fact:
+        _component_image: "{{ _image_base }}@{{ _image_digest }}"
 
     # =========================================================================
     # Step 1: Get EnterpriseContractPolicy
