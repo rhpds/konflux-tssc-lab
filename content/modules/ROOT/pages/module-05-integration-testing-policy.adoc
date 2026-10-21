@@ -76,15 +76,18 @@ echo "Image: ${IMAGE}"
 
 . Run the `ec` CLI to evaluate your image against the policy:
 +
-[source,bash,role="execute"]
+[source,bash,role="execute",subs="attributes+"]
 ----
 ec validate image \
   --image "${IMAGE}" \
-  --policy k8s://enterprise-contract-service/lab-policy \
-  2>/dev/null | grep -E 'success:|violations'
+  --policy enterprise-contract-service/lab-policy \
+  --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
+  --certificate-oidc-issuer {tas_oidc_issuer} \
+  --rekor-url {tas_rekor_url} \
+  --output yaml
 ----
 +
-Expected output: `success: true` with no `violations` entries, confirming no violations were found against the artifact from Module 3.
+Expected output: `success: true` with no `violations` entries under `components`, confirming no violations were found against the artifact from Module 3.
 
 === Verify
 
@@ -180,15 +183,18 @@ echo "Testing against: ${BAD_IMAGE}"
 
 . Run the `ec` CLI against the unsigned image:
 +
-[source,bash,role="execute"]
+[source,bash,role="execute",subs="attributes+"]
 ----
 ec validate image \
   --image "${BAD_IMAGE}" \
-  --policy k8s://enterprise-contract-service/lab-policy \
-  2>/dev/null
+  --policy enterprise-contract-service/lab-policy \
+  --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
+  --certificate-oidc-issuer {tas_oidc_issuer} \
+  --rekor-url {tas_rekor_url} \
+  --output yaml
 ----
 +
-The YAML output will show `success: false` and a `violations` list under `components`.
+The YAML output shows `success: false` and a `violations` list under `components`.
 You will see violations similar to these:
 +
 ----
@@ -204,24 +210,11 @@ components:
 success: false
 ----
 +
-NOTE: `ec` exits with a non-zero status and prints `Error: success criteria not met` to stderr when violations are found — that is expected behavior, not a command error.
-The `2>/dev/null` above suppresses it so only the policy output is shown.
-
-. Confirm the top-level `success` field in the output:
-+
-[source,bash,role="execute"]
-----
-ec validate image \
-  --image "${BAD_IMAGE}" \
-  --policy k8s://enterprise-contract-service/lab-policy \
-  2>/dev/null | grep '^success:'
-----
-+
-Expected output: `success: false`
-+
-This `false` value is the signal Conforma sends to the Integration pipeline to block promotion.
+`success: false` is the signal Conforma sends to the Integration pipeline to block promotion.
 An artifact with any violation is never eligible for release — not partially, not conditionally.
 The check is fail-closed.
++
+NOTE: `ec` also prints `Error: success criteria not met` to stderr — that is expected, not a command error.
 
 . Compare the two artifacts side by side:
 +

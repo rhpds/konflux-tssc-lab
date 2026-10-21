@@ -15,3 +15,4 @@ asciidoc:
     openshift_cluster_ingress_domain: 'apps.cluster-%GUID%.example.com'
     tas_oidc_issuer: 'https://kubernetes.default.svc'
     tas_tuf_url: 'https://tuf-tsf-tas.apps.cluster-%GUID%.example.com'
+    tas_rekor_url: 'https://rekor-server-tsf-tas.apps.cluster-%GUID%.example.com'
