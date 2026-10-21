@@ -103,14 +103,10 @@
       failed_when: false
       changed_when: false
 
-    - name: Download and install cosign
+    - name: Download and install cosign from cluster CLI server
       ansible.builtin.shell:
         cmd: |
-          COSIGN_VERSION=v2.4.1
-          ARCH=$(uname -m)
-          if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi
-          if [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi
-          curl -sL -o ~/.local/bin/cosign https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-${ARCH}
+          curl -sL "http://cli-server.trusted-artifact-signer.svc:8080/clients/linux/cosign-amd64.gz" | gunzip > ~/.local/bin/cosign
           chmod +x ~/.local/bin/cosign
       when: r_cosign_check.rc != 0
 
