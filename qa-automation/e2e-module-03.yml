@@ -226,7 +226,7 @@
         namespace: "{{ _tenant_user }}-tenant"
         label_selectors:
           - "appstudio.openshift.io/component={{ component_name }}"
-          - "pipelinesascode.tekton.dev/event-type=pull_request"
+          - "pipelinesascode.tekton.dev/event-type=Merge_Request"
       register: r_pr_pipelineruns
       until: r_pr_pipelineruns.resources | length > 0
       retries: 30
@@ -242,7 +242,7 @@
         namespace: "{{ _tenant_user }}-tenant"
         label_selectors:
           - "appstudio.openshift.io/component={{ component_name }}"
-          - "pipelinesascode.tekton.dev/event-type=pull_request"
+          - "pipelinesascode.tekton.dev/event-type=Merge_Request"
       register: r_check_running
 
     - name: Get running pipelines
@@ -284,7 +284,7 @@
             namespace: "{{ _tenant_user }}-tenant"
             label_selectors:
               - "appstudio.openshift.io/component={{ component_name }}"
-              - "pipelinesascode.tekton.dev/event-type=pull_request"
+              - "pipelinesascode.tekton.dev/event-type=Merge_Request"
           register: r_new_pipelines
           until:
             - r_new_pipelines.resources | selectattr('status.startTime', 'defined') | rejectattr('status.completionTime', 'defined') | list | length > 0
