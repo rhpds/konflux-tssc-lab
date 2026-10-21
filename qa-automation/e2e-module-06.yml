@@ -245,6 +245,37 @@
       delay: 10
 
     # =========================================================================
+    # Prepare Docker config for image operations
+    # =========================================================================
+
+    - name: Get component image-pull secret
+      kubernetes.core.k8s_info:
+        host: "{{ _k8s_host | default(omit, true) }}"
+        api_key: "{{ _k8s_api_key | default(omit, true) }}"
+        validate_certs: "{{ _k8s_validate_certs }}"
+        api_version: v1
+        kind: Secret
+        namespace: "{{ _tenant_user }}-tenant"
+        name: "{{ component_name }}-image-pull"
+      register: r_image_pull_secret
+
+    - name: Create Docker config directory
+      ansible.builtin.file:
+        path: /tmp/.docker-{{ _tenant_user }}
+        state: directory
+        mode: '0700'
+
+    - name: Write Docker config
+      ansible.builtin.copy:
+        content: "{{ r_image_pull_secret.resources[0].data['.dockerconfigjson'] | b64decode }}"
+        dest: /tmp/.docker-{{ _tenant_user }}/config.json
+        mode: '0600'
+      when:
+        - r_image_pull_secret is not failed
+        - r_image_pull_secret.resources | length > 0
+      no_log: true
+
+    # =========================================================================
     # Step 5: Verify production image exists in Quay
     # =========================================================================
 
@@ -254,7 +285,7 @@
 
     - name: Verify production tag exists
       ansible.builtin.command:
-        cmd: skopeo inspect docker://{{ _image_base }}:production --tls-verify=false
+        cmd: skopeo inspect docker://{{ _image_base }}:production --tls-verify=false --authfile /tmp/.docker-{{ _tenant_user }}/config.json
       register: r_prod_inspect
       changed_when: false
 
@@ -297,33 +328,6 @@
       when:
         - r_tas_config is not failed
         - r_tas_config.resources | length > 0
-
-    - name: Get component image-pull secret
-      kubernetes.core.k8s_info:
-        host: "{{ _k8s_host | default(omit, true) }}"
-        api_key: "{{ _k8s_api_key | default(omit, true) }}"
-        validate_certs: "{{ _k8s_validate_certs }}"
-        api_version: v1
-        kind: Secret
-        namespace: "{{ _tenant_user }}-tenant"
-        name: "{{ component_name }}-image-pull"
-      register: r_image_pull_secret
-
-    - name: Create Docker config directory for cosign
-      ansible.builtin.file:
-        path: /tmp/.docker-{{ _tenant_user }}
-        state: directory
-        mode: '0700'
-
-    - name: Write Docker config for cosign
-      ansible.builtin.copy:
-        content: "{{ r_image_pull_secret.resources[0].data['.dockerconfigjson'] | b64decode }}"
-        dest: /tmp/.docker-{{ _tenant_user }}/config.json
-        mode: '0600'
-      when:
-        - r_image_pull_secret is not failed
-        - r_image_pull_secret.resources | length > 0
-      no_log: true
 
     - name: Verify production image signature
       ansible.builtin.command:
