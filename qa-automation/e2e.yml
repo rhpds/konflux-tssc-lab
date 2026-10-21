@@ -24,8 +24,9 @@
 # =============================================================================
 
 # =========================================================================
-# TESTING: Module 2 commented out - starting from Module 3
-# TODO: Uncomment to restore full test flow
+# TESTING: Module 2 commented out - Module 3 starts from waiting for pipeline
+# Module 3 has Steps 1-5 commented out (MR flow), starts at "Wait for success"
+# TODO: Uncomment Module 2 and uncomment Steps 1-5 in e2e-module-03.yml
 # =========================================================================
 # - name: "E2E — Module 2: Onboard Your Application"
 #   ansible.builtin.import_playbook: e2e-module-02.yml
