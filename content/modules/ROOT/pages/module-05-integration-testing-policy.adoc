@@ -252,15 +252,8 @@ The artifact never reaches the production registry, and the violation details ar
 
 == 4. Confirm the Passing Artifact Status
 
-With the policy failure observed, return to your own Snapshot and confirm it is in a state that qualifies for release.
+With the policy failure observed, use the CLI to confirm your Module 3 Snapshot is in a state that qualifies for release.
 A Snapshot in passing state is the prerequisite for the ReleasePlan in Module 6 to trigger.
-
-. Return to your `my-sample-app` Snapshot in the Konflux UI.
-Confirm the status column reads *Passing* or *Eligible*.
-+
-// TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/6
-.Konflux Snapshot showing a passing status eligible for release
-image::screenshot-placeholder.svg[Konflux Snapshot detail view showing a Passing integration test status and an eligible for release indicator in the status column,800]
 
 . In the terminal, describe the Snapshot and check its conditions:
 +
@@ -289,7 +282,6 @@ A Snapshot that did not pass integration cannot be released through the controll
 === Verify
 
 [%interactive]
-* [ ] The Konflux UI shows your Module 3 Snapshot with *Passing* or *Eligible* status.
 * [ ] `oc get snapshot ${SNAPSHOT} -n {openshift_username}-tenant -o yaml` shows a conditions entry with `type: AppStudioIntegrationStatus` and `status: "True"`.
 * [ ] The Snapshot conditions confirm the Integration pipeline completed successfully.
 
