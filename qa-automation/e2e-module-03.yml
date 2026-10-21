@@ -181,88 +181,6 @@
         _mr_source_branch: "{{ _konflux_mr.source_branch }}"
 
     # =========================================================================
-    # Step 1.5: Wait for initial pipelines before pushing commit
-    # =========================================================================
-
-    - name: Wait 30 seconds for pipelines to settle
-      ansible.builtin.pause:
-        seconds: 30
-
-    - name: Get on-pull-request pipelines
-      kubernetes.core.k8s_info:
-        host: "{{ _k8s_host | default(omit, true) }}"
-        api_key: "{{ _k8s_api_key | default(omit, true) }}"
-        validate_certs: "{{ _k8s_validate_certs }}"
-        api_version: tekton.dev/v1
-        kind: PipelineRun
-        namespace: "{{ _tenant_user }}-tenant"
-        label_selectors:
-          - "appstudio.openshift.io/component={{ component_name }}"
-          - "pipelinesascode.tekton.dev/event-type=pull_request"
-      register: r_initial_build_pipelines
-      until: r_initial_build_pipelines.resources | length > 0
-      retries: 30
-      delay: 10
-
-    - name: Get latest on-pull-request pipeline
-      ansible.builtin.set_fact:
-        _initial_build_pipeline: "{{ r_initial_build_pipelines.resources | sort(attribute='metadata.creationTimestamp') | last }}"
-
-    - name: Wait for on-pull-request pipeline to succeed
-      kubernetes.core.k8s_info:
-        host: "{{ _k8s_host | default(omit, true) }}"
-        api_key: "{{ _k8s_api_key | default(omit, true) }}"
-        validate_certs: "{{ _k8s_validate_certs }}"
-        api_version: tekton.dev/v1
-        kind: PipelineRun
-        namespace: "{{ _tenant_user }}-tenant"
-        name: "{{ _initial_build_pipeline.metadata.name }}"
-      register: r_initial_build_status
-      until:
-        - r_initial_build_status.resources[0].status.conditions is defined
-        - r_initial_build_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
-        - r_initial_build_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
-      retries: 90
-      delay: 10
-
-    - name: Get integration test pipelines
-      kubernetes.core.k8s_info:
-        host: "{{ _k8s_host | default(omit, true) }}"
-        api_key: "{{ _k8s_api_key | default(omit, true) }}"
-        validate_certs: "{{ _k8s_validate_certs }}"
-        api_version: tekton.dev/v1
-        kind: PipelineRun
-        namespace: "{{ _tenant_user }}-tenant"
-        label_selectors:
-          - "appstudio.openshift.io/application={{ application_name }}"
-          - "test.appstudio.openshift.io/scenario={{ application_name }}-enterprise-contract"
-      register: r_initial_integration_tests
-      until: r_initial_integration_tests.resources | length > 0
-      retries: 30
-      delay: 10
-
-    - name: Get latest integration test pipeline
-      ansible.builtin.set_fact:
-        _initial_integration_test: "{{ r_initial_integration_tests.resources | sort(attribute='metadata.creationTimestamp') | last }}"
-
-    - name: Wait for integration test to succeed before pushing commit
-      kubernetes.core.k8s_info:
-        host: "{{ _k8s_host | default(omit, true) }}"
-        api_key: "{{ _k8s_api_key | default(omit, true) }}"
-        validate_certs: "{{ _k8s_validate_certs }}"
-        api_version: tekton.dev/v1
-        kind: PipelineRun
-        namespace: "{{ _tenant_user }}-tenant"
-        name: "{{ _initial_integration_test.metadata.name }}"
-      register: r_initial_integration_status
-      until:
-        - r_initial_integration_status.resources[0].status.conditions is defined
-        - r_initial_integration_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
-        - r_initial_integration_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | selectattr('status', 'equalto', 'True') | list | length > 0
-      retries: 60
-      delay: 10
-
-    # =========================================================================
     # Step 2: Push commit to MR branch
     # =========================================================================
 
@@ -306,14 +224,14 @@
           - "appstudio.openshift.io/component={{ component_name }}"
           - "pipelinesascode.tekton.dev/event-type=pull_request"
       register: r_pr_pipelineruns
-      until: r_pr_pipelineruns.resources | length >= 2
+      until: r_pr_pipelineruns.resources | length >= 1
       retries: 30
       delay: 10
 
     - name: Get latest on-pull-request PipelineRun
       ansible.builtin.set_fact:
         _pr_pipelinerun: "{{ r_pr_pipelineruns.resources | sort(attribute='metadata.creationTimestamp') | last }}"
-      when: r_pr_pipelineruns.resources | length >= 2
+      when: r_pr_pipelineruns.resources | length >= 1
 
 
     - name: Wait for on-pull-request PipelineRun to complete
@@ -338,10 +256,6 @@
     # Step 3.5: Wait for pipelines after commit before merging
     # =========================================================================
 
-    - name: Wait 30 seconds for new build to start
-      ansible.builtin.pause:
-        seconds: 30
-
     - name: Get on-pull-request pipelines after commit
       kubernetes.core.k8s_info:
         host: "{{ _k8s_host | default(omit, true) }}"
@@ -354,7 +268,7 @@
           - "appstudio.openshift.io/component={{ component_name }}"
           - "pipelinesascode.tekton.dev/event-type=pull_request"
       register: r_post_commit_build_pipelines
-      until: r_post_commit_build_pipelines.resources | length >= 2
+      until: r_post_commit_build_pipelines.resources | length >= 1
       retries: 30
       delay: 10
 
@@ -391,7 +305,7 @@
           - "appstudio.openshift.io/application={{ application_name }}"
           - "test.appstudio.openshift.io/scenario={{ application_name }}-enterprise-contract"
       register: r_post_commit_integration_tests
-      until: r_post_commit_integration_tests.resources | length >= 2
+      until: r_post_commit_integration_tests.resources | length >= 1
       retries: 30
       delay: 10
 
