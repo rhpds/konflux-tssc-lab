@@ -126,8 +126,8 @@
 
     - name: Extract IMAGE_DIGEST
       ansible.builtin.set_fact:
-        _image_digest: "{{ _latest_pipelinerun.status.pipelineResults | selectattr('name', 'equalto', 'IMAGE_DIGEST') | map(attribute='value') | first }}"
-      when: _latest_pipelinerun.status.pipelineResults is defined
+        _image_digest: "{{ _latest_pipelinerun.status.results | selectattr('name', 'equalto', 'IMAGE_DIGEST') | map(attribute='value') | first }}"
+      when: _latest_pipelinerun.status.results is defined
 
     - name: Fail if IMAGE_DIGEST not found
       ansible.builtin.fail:
