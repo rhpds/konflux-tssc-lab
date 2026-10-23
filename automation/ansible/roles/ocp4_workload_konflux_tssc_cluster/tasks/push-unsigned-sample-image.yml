@@ -14,16 +14,8 @@
   ansible.builtin.set_fact:
     quay_registry: "{{ r_quay_route.resources[0].spec.host }}"
 
-- name: Wait for the Quay alias registry API from the push pod
-  kubernetes.core.k8s_exec:
-    namespace: tsf
-    pod: tsf-cli
-    command: >-
-      bash -c {{ lookup('ansible.builtin.file', 'quay-registry-probe.sh') | quote }}
-      -- {{ ('https://' ~ quay_registry ~ '/v2/') | quote }}
-  register: r_quay_readiness_probe
-  changed_when: false
-  failed_when: (r_quay_readiness_probe.rc | default(r_quay_readiness_probe.return_code | default(1)) | int) != 0
+- name: Wait for the Quay alias registry API
+  ansible.builtin.include_tasks: probe-quay-registry.yml
 
 - name: Get Quay admin credentials
   kubernetes.core.k8s_info:
@@ -118,15 +110,10 @@
     quay_unsigned_push_failed: "{{ (r_push_image.rc | default(r_push_image.return_code | default(1)) | int) != 0 }}"
 
 - name: Probe the Quay alias once after a failed push
-  kubernetes.core.k8s_exec:
-    namespace: tsf
-    pod: tsf-cli
-    command: >-
-      bash -c {{ lookup('ansible.builtin.file', 'quay-registry-probe.sh') | quote }}
-      -- {{ ('https://' ~ quay_registry ~ '/v2/') | quote }} 1
-  register: r_quay_failure_probe
-  changed_when: false
-  failed_when: false
+  ansible.builtin.include_tasks: probe-quay-registry.yml
+  vars:
+    quay_registry_probe_retries: 0
+    quay_registry_probe_required: false
   when: quay_unsigned_push_failed | bool
 
 - name: Report sanitized unsigned image push failure
@@ -136,7 +123,7 @@
       Exit code: {{ r_push_image.rc | default(r_push_image.return_code | default('unavailable')) }}.
       Registry HTTP status from skopeo: {{ (r_push_image.stderr | default('') |
         regex_findall('StatusCode: ([0-9]{3})') | first) | default('unavailable') }}.
-      Post-failure alias probe: {{ r_quay_failure_probe.stdout | default('unavailable') }}.
+      Post-failure alias probe: {{ quay_registry_probe_summary }}.
       Probe success does not establish that registry writes work.
   when: quay_unsigned_push_failed | bool
 
