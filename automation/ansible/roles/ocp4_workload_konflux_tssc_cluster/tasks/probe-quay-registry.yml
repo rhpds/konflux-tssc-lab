@@ -1,0 +1,42 @@
+---
+# Runs from the Ansible execution environment, like the other Quay API tasks.
+- name: Probe the Quay alias registry API
+  ansible.builtin.uri:
+    url: "https://{{ quay_registry }}/v2/"
+    method: GET
+    follow_redirects: none
+    validate_certs: false
+    use_netrc: false
+    return_content: false
+    timeout: 10
+    status_code: [200, 401]
+  register: r_quay_registry_probe
+  changed_when: false
+  failed_when: false
+  # Stop on non-transient responses, including redirects and HTTP 405.
+  until: (r_quay_registry_probe.status | default(-1) | int) not in [-1, 502, 503, 504]
+  retries: "{{ quay_registry_probe_retries | default(11) }}"
+  delay: "{{ quay_registry_probe_delay | default(5) }}"
+  # Exhausted retries are reported by the sanitized assertion below.
+  ignore_errors: true
+  no_log: true
+
+- name: Record sanitized Quay alias diagnostics
+  ansible.builtin.set_fact:
+    quay_registry_probe_summary:
+      http_status: "{{ r_quay_registry_probe.status | default(-1) | int }}"
+      registry_api: "{{ r_quay_registry_probe.docker_distribution_api_version | default('') == 'registry/2.0' }}"
+      redirect: "{{ r_quay_registry_probe.location is defined }}"
+
+- name: Require the Quay alias to serve the registry API
+  ansible.builtin.assert:
+    that:
+      - quay_registry_probe_summary.http_status | int in [200, 401]
+      - quay_registry_probe_summary.registry_api | bool
+    fail_msg: >-
+      Quay alias registry API is not ready:
+      http_status={{ quay_registry_probe_summary.http_status }}
+      registry_api={{ quay_registry_probe_summary.registry_api }}
+      redirect={{ quay_registry_probe_summary.redirect }}.
+    quiet: true
+  when: quay_registry_probe_required | default(true) | bool

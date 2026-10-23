@@ -14,6 +14,9 @@
   ansible.builtin.set_fact:
     quay_registry: "{{ r_quay_route.resources[0].spec.host }}"
 
+- name: Wait for the Quay alias registry API
+  ansible.builtin.include_tasks: probe-quay-registry.yml
+
 - name: Get Quay admin credentials
   kubernetes.core.k8s_info:
     api_version: v1
@@ -21,6 +24,7 @@
     name: quay-admin-credentials
     namespace: quay-enterprise
   register: r_quay_admin_secret
+  no_log: true
 
 - name: Get Quay admin token for API access
   kubernetes.core.k8s_info:
@@ -29,12 +33,14 @@
     name: quay-admin-token
     namespace: quay-enterprise
   register: r_quay_admin_token_secret
+  no_log: true
 
 - name: Set Quay admin username, password, and token
   ansible.builtin.set_fact:
     quay_admin_username: "{{ r_quay_admin_secret.resources[0].data.username | b64decode }}"
     quay_admin_password: "{{ r_quay_admin_secret.resources[0].data.password | b64decode }}"
     quay_admin_token: "{{ r_quay_admin_token_secret.resources[0].data.token | b64decode }}"
+  no_log: true
 
 - name: Download and use static skopeo in tsf-cli pod to push unsigned image
   kubernetes.core.k8s_exec:
@@ -95,7 +101,32 @@
       rm -rf /tmp/skopeo /tmp/auth /tmp/containers
       '
   register: r_push_image
+  # The rendered command contains credentials; publish only allowlisted diagnostics.
+  no_log: true
+  failed_when: false
 
-- name: Print push output
+- name: Record whether the unsigned image push failed
+  ansible.builtin.set_fact:
+    quay_unsigned_push_failed: "{{ (r_push_image.rc | default(r_push_image.return_code | default(1)) | int) != 0 }}"
+
+- name: Probe the Quay alias once after a failed push
+  ansible.builtin.include_tasks: probe-quay-registry.yml
+  vars:
+    quay_registry_probe_retries: 0
+    quay_registry_probe_required: false
+  when: quay_unsigned_push_failed | bool
+
+- name: Report sanitized unsigned image push failure
+  ansible.builtin.fail:
+    msg: >-
+      Unsigned image push failed; no push retry was attempted.
+      Exit code: {{ r_push_image.rc | default(r_push_image.return_code | default('unavailable')) }}.
+      Registry HTTP status from skopeo: {{ (r_push_image.stderr | default('') |
+        regex_findall('StatusCode: ([0-9]{3})') | first) | default('unavailable') }}.
+      Post-failure alias probe: {{ quay_registry_probe_summary }}.
+      Probe success does not establish that registry writes work.
+  when: quay_unsigned_push_failed | bool
+
+- name: Report successful unsigned image push
   ansible.builtin.debug:
-    msg: "{{ r_push_image.stdout_lines }}"
+    msg: "Unsigned sample image push completed successfully."
