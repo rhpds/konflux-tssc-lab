@@ -36,6 +36,26 @@
     quay_admin_password: "{{ r_quay_admin_secret.resources[0].data.password | b64decode }}"
     quay_admin_token: "{{ r_quay_admin_token_secret.resources[0].data.token | b64decode }}"
 
+- name: Create unsigned-image repository in tsf organization
+  ansible.builtin.uri:
+    url: "https://{{ quay_registry }}/api/v1/repository"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ quay_admin_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      namespace: tsf
+      repository: unsigned-image
+      description: "Unsigned sample image for policy violation testing"
+      visibility: public
+    validate_certs: false
+    status_code:
+      - 201  # Created
+      - 400  # May already exist
+  register: r_create_repo
+  ignore_errors: true
+
 - name: Download and use static skopeo in tsf-cli pod to push unsigned image
   kubernetes.core.k8s_exec:
     namespace: tsf
@@ -60,23 +80,11 @@
       }
       EOF
 
-      echo "=== Creating auth file ==="
-      mkdir -p /tmp/auth
-      cat > /tmp/auth/config.json <<EOF
-      {
-        "auths": {
-          "{{ quay_registry }}": {
-            "auth": "$(echo -n "{{ quay_admin_username }}:{{ quay_admin_password }}" | base64)"
-          }
-        }
-      }
-      EOF
-
-      echo "=== Copying UBI minimal to Quay tsf org ==="
+      echo "=== Copying UBI minimal to Quay tsf org with admin credentials ==="
       /tmp/skopeo copy \
         --policy /tmp/containers/policy.json \
         --dest-tls-verify=false \
-        --dest-authfile /tmp/auth/config.json \
+        --dest-creds="{{ quay_admin_username }}:{{ quay_admin_password }}" \
         docker://registry.access.redhat.com/ubi9/ubi-minimal:latest \
         docker://{{ quay_registry }}/tsf/unsigned-image:latest
 
@@ -92,9 +100,12 @@
       echo "=== Complete ==="
       echo "Unsigned image available at: {{ quay_registry }}/tsf/unsigned-image:latest"
 
-      rm -rf /tmp/skopeo /tmp/auth /tmp/containers
+      rm -rf /tmp/skopeo /tmp/containers
       '
   register: r_push_image
+  retries: 3
+  delay: 10
+  until: r_push_image.rc == 0
 
 - name: Print push output
   ansible.builtin.debug:
