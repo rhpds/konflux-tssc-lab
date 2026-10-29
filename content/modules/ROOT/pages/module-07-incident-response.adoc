@@ -1,1 +1,412 @@
-= Incident Response
+= Real-World Incident Response
+:navtitle: Real-World Incident Response
+
+Estimated time: *25 minutes*
+
+You have completed a full software supply chain: source commit → build → sign → policy check → production release.
+This module shows what that chain is actually protecting against.
+You run two short scenarios using the same CLI tools from earlier modules, observe the exact failure output each one produces, and end with a set of copy-paste verification commands you can use in your own projects after this lab.
+
+No new tools are introduced.
+Everything you run here is a command you already know from Modules 4 and 5.
+
+== Learning Objectives
+
+By the end of this module, you will be able to:
+
+* Demonstrate what happens when an image is pushed to a registry outside the Konflux pipeline, and identify which supply chain controls catch it.
+* Show that cosign signatures are bound to a specific image digest, and explain why any modification to an image breaks signature verification.
+* Use four key verification commands against any image in your own projects after this lab.
+
+== What This Module Demonstrates
+
+[cols="25,~,~", options="header"]
+|===
+|Scenario |What the developer does |What the supply chain catches
+
+|A — Out-of-band push
+|Pushes a locally-built or copied image directly to Quay, bypassing Konflux entirely
+|`cosign verify` finds no valid signature; `cosign download attestation` returns zero records; `ec validate image` reports missing SLSA provenance from a trusted builder
+
+|B — Tampered production image
+|Changes any part of the production image after signing (a layer, a binary, a label)
+|The image SHA-256 digest changes; the existing signature no longer maps to the new digest; `cosign verify` returns no matching signatures
+|===
+
+Both scenarios produce specific, structured error output — not a silent failure.
+The sections below show you exactly what that output looks like.
+
+== Scenario A — The Out-of-Band Hotfix (10 min)
+
+=== The Situation
+
+A developer needs to ship a critical fix today.
+Rather than waiting for the Konflux pipeline, they build the image locally and push it directly to the Quay registry — bypassing every pipeline step: no SBOM, no signing, no SLSA attestation, no Conforma policy evaluation.
+
+From the outside, the image looks legitimate: it lives in the right Quay organization, carries a plausible version tag, and is ready to pull.
+The supply chain sees none of those surface signals — it checks cryptographic evidence, and there is none.
+
+=== Step 1. Push an Image Directly to Quay
+
+You will use `skopeo` to copy a public image directly into your Quay namespace, simulating the developer's out-of-band push.
+
+. Log in to the lab Quay registry using your OpenShift session token:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+QUAY_HOST=$(echo {quay_url} | sed 's|https://||')
+skopeo login "$QUAY_HOST" \
+  --username {openshift_username} \
+  --password "$(oc whoami -t)"
+----
++
+NOTE: If `oc whoami -t` does not authenticate against Quay, use the Quay robot account credentials visible under your Quay organization settings.
+
+. Copy a public image directly into your namespace as a simulated hotfix:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+skopeo copy \
+  docker://registry.access.redhat.com/ubi9/ubi-minimal:latest \
+  "docker://$QUAY_HOST/{openshift_username}/my-sample-app:hotfix-unsigned"
+----
++
+`skopeo copy` transfers the image manifest and layers directly between registries — no build pipeline ran, no signing step ran, no Tekton Tasks executed.
+The image now sits in your Quay namespace with a plausible production-style tag.
+
+. Store the hotfix image reference:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+HOTFIX_IMAGE="$QUAY_HOST/{openshift_username}/my-sample-app:hotfix-unsigned"
+echo $HOTFIX_IMAGE
+----
+
+=== Step 2. Run the Signature Check
+
+Run `cosign verify` against the hotfix image using the same certificate identity and OIDC issuer you used in Module 4:
+
+[source,bash,role="execute",subs="attributes+"]
+----
+cosign verify \
+  --certificate-identity-regexp 'https://konflux.*' \
+  --certificate-oidc-issuer {tas_oidc_issuer} \
+  "$HOTFIX_IMAGE"
+----
+
+Expected output:
+[source,text]
+----
+Error: no matching signatures:
+failed to verify signature
+----
+
+`cosign` looked up the signature store for this image digest in Quay — an OCI artifact stored at a tag derived from the SHA-256 digest.
+It found nothing.
+No Konflux pipeline ran for this image, so no Tekton Chains signing task ever executed.
+
+=== Step 3. Check for Attestations
+
+[source,bash,role="execute"]
+----
+cosign download attestation "$HOTFIX_IMAGE" | jq 'length'
+----
+
+Expected output:
+[source,text]
+----
+0
+----
+
+Zero attestations.
+There is no CycloneDX SBOM and no SLSA Level 3 provenance record attached to this digest.
+Without provenance from a trusted builder, Conforma cannot determine where this image came from or whether the build process was auditable.
+
+=== Step 4. Run Conforma Policy Evaluation
+
+Retrieve the Conforma policy bundle reference from your IntegrationTestScenario — the same policy evaluated in Module 5:
+
+[source,bash,role="execute",subs="attributes+"]
+----
+POLICY=$(oc get integrationtestscenario -n {openshift_username}-tenant \
+  -o jsonpath='{.items[0].spec.params[?(@.name=="POLICY_CONFIGURATION")].value}')
+echo "Policy bundle: $POLICY"
+----
+
+Run the full policy evaluation against the hotfix image:
+
+[source,bash,role="execute"]
+----
+ec validate image \
+  --image "$HOTFIX_IMAGE" \
+  --policy "$POLICY" \
+  --output json | jq '[.components[].violations[] | {rule: .metadata.code, msg: .msg}]'
+----
+
+Expected output (abbreviated):
+[source,json]
+----
+[
+  {
+    "rule": "builtin.attestation.signature_check",
+    "msg": "Image signature verification failed: no signatures found"
+  },
+  {
+    "rule": "builtin.provenance.slsa_provenance_available",
+    "msg": "No SLSA provenance attestation found from a trusted builder"
+  }
+]
+----
+
+The top-level `success` field in the full JSON output will be `false`.
+This is the exit signal that the release pipeline uses to block promotion.
+The image cannot be released through any Konflux ReleasePlan regardless of what tag it carries or who pushed it.
+
+[TIP]
+====
+*Why can't the developer just add a signature after pushing?*
+
+They can run `cosign sign` — but the resulting signature would be issued to their own OIDC identity (their personal Keycloak account), not to the Konflux pipeline's service account certificate.
+`cosign verify --certificate-identity-regexp 'https://konflux.*'` only accepts signatures whose certificate chain matches that pattern.
+A personal signature fails the regexp check.
+The policy's `signature_check` rule also verifies that the signing certificate was issued by the trusted OIDC issuer linked to the Tekton Chains service account — a path that does not exist outside the Konflux build pipeline.
+====
+
+=== Verify — Scenario A
+
+[%interactive]
+* [ ] `cosign verify` returns `no matching signatures` for `$HOTFIX_IMAGE`.
+* [ ] `cosign download attestation` returns `0` attestations.
+* [ ] `ec validate image` output includes violations for missing signature and missing SLSA provenance.
+* [ ] The top-level `success` field in the `ec validate image` JSON is `false`.
+
+== Scenario B — What a Tampered Image Looks Like (10 min)
+
+=== The Situation
+
+The production image passed Conforma policy, was signed by Tekton Chains, and was promoted to the production Quay registry.
+Now imagine someone with write access to the Quay registry modifies the image after the fact — swapping a binary, injecting a dependency, or even just adding a label — and pushes the modified version under the same tag.
+
+The original signature is still present in Quay.
+It was not deleted.
+`cosign verify` will not accept it for the modified image.
+This section shows why.
+
+=== Step 1. Confirm Your Production Image Passes Verification
+
+Make sure `$PROD_IMAGE` is set.
+If it is not, retrieve it from the Konflux UI release detail view or from the Module 6 release pipeline task logs as described in Module 6.
+
+[source,bash,role="execute"]
+----
+echo $PROD_IMAGE
+----
+
+Verify the production image:
+
+[source,bash,role="execute",subs="attributes+"]
+----
+cosign verify \
+  --certificate-identity-regexp 'https://konflux.*' \
+  --certificate-oidc-issuer {tas_oidc_issuer} \
+  "$PROD_IMAGE"
+----
+
+Expected output: `Verification for <image> -- Verified OK`
+
+This is your baseline.
+Keep this terminal window open.
+
+=== Step 2. Understand How Signatures Are Stored
+
+Signatures in cosign are not embedded inside the image — they are stored as a separate OCI artifact in the same registry, keyed to the exact SHA-256 digest of the image they sign.
+
+See where your production image's signature lives:
+
+[source,bash,role="execute"]
+----
+cosign triangulate "$PROD_IMAGE"
+----
+
+Expected output:
+[source,text]
+----
+quay.<cluster-domain>/<org>/my-sample-app:sha256-<digest>.sig
+----
+
+The tag name encodes the original digest.
+`cosign verify` looks up this specific tag, retrieves the signature blob, and checks whether the signature is cryptographically valid for the image digest in `$PROD_IMAGE`.
+
+*If the image bytes change — any byte, anywhere — the SHA-256 digest changes.*
+The new digest maps to a different `.sig` tag location.
+That tag does not exist: no one signed the modified image.
+The old signature at the old `.sig` tag is still present, but it is valid only for the original digest, not the new one.
+
+=== Step 3. See the Tampered-Image Error Mode
+
+Run `cosign verify` using your Konflux certificate identity against an image that was not built by Konflux.
+This produces the exact error that would appear for any tampered production image:
+
+[source,bash,role="execute",subs="attributes+"]
+----
+cosign verify \
+  --certificate-identity-regexp 'https://konflux.*' \
+  --certificate-oidc-issuer {tas_oidc_issuer} \
+  registry.access.redhat.com/ubi9/ubi-minimal:latest
+----
+
+Expected output:
+[source,text]
+----
+Error: no matching signatures:
+failed to verify signature
+----
+
+This is the same error your security team would see if:
+
+* Someone modified the production image after signing.
+* Someone pushed a different image under the same production tag.
+* A base image was refreshed in place, changing the layers without a new Konflux build.
+* The signing key was rotated and the existing signature no longer matches the new certificate identity.
+
+The error is unambiguous: this image digest has no valid signature from the expected builder.
+
+=== Step 4. Compare Both Images Side by Side
+
+Run both checks in sequence to see the contrast directly:
+
+[source,bash,role="execute",subs="attributes+"]
+----
+echo "=== Konflux-built production image ===" && \
+cosign verify \
+  --certificate-identity-regexp 'https://konflux.*' \
+  --certificate-oidc-issuer {tas_oidc_issuer} \
+  "$PROD_IMAGE" 2>&1 | grep -E 'Verified|failed'
+
+echo ""
+echo "=== Out-of-band or tampered image ===" && \
+cosign verify \
+  --certificate-identity-regexp 'https://konflux.*' \
+  --certificate-oidc-issuer {tas_oidc_issuer} \
+  "$HOTFIX_IMAGE" 2>&1 | grep -E 'Verified|failed'
+----
+
+Expected output:
+[source,text]
+----
+=== Konflux-built production image ===
+Verification for quay.<cluster>/<org>/my-sample-app@sha256:<digest> -- Verified OK
+
+=== Out-of-band or tampered image ===
+failed to verify signature
+----
+
+The two outputs are structurally different in a way that is easy to automate: `cosign verify` exits with code `0` on success and non-zero on failure.
+A CI gate, a release script, or an admission controller can make a binary decision on that exit code alone.
+
+=== Verify — Scenario B
+
+[%interactive]
+* [ ] `cosign verify` returns `Verified OK` for `$PROD_IMAGE`.
+* [ ] `cosign triangulate $PROD_IMAGE` returns a `.sig` tag reference containing the image digest.
+* [ ] `cosign verify` against an unsigned image returns `no matching signatures`.
+
+== Verification Commands to Take With You (5 min)
+
+These four commands are the practical core of supply chain verification.
+They work against any image in any Quay or OCI-compatible registry where the Sigstore toolchain is installed.
+Copy them to your team's runbook or admission controller scripts.
+
+[cols="20,~,~", options="header"]
+|===
+|Command |Purpose |What to look for
+
+|`cosign verify +
+  --certificate-identity-regexp '<regexp>' +
+  --certificate-oidc-issuer '<issuer>' +
+  IMAGE`
+|Confirms the image was signed by a certificate issued to the expected builder identity
+|Exit code 0 + `Verified OK` on success; `no matching signatures` on failure
+
+|`cosign download attestation IMAGE \| jq 'length'`
+|Counts the attestations (SBOM + SLSA provenance) attached to this digest
+|Any value greater than 0; `0` means no supply chain metadata exists
+
+|`cosign download attestation IMAGE \| +
+  jq '.[0].payload \| @base64d \| fromjson \| +
+  {type: .predicateType, +
+   builder: .predicate.runDetails.builder.id}'`
+|Extracts the SLSA predicate type and builder identity from the provenance attestation
+|`builder.id` should match the Tekton pipeline ref for your trusted Konflux instance
+
+|`ec validate image +
+  --image IMAGE +
+  --policy POLICY_BUNDLE +
+  --output json \| +
+  jq '[.components[].violations[] \| +
+  {rule: .metadata.code, msg: .msg}]'`
+|Runs the full policy evaluation: signature, provenance origin, SBOM format, and any custom org rules
+|Empty array `[]` means no violations; non-empty array is a block signal
+|===
+
+In your own cluster, substitute:
+
+* `<regexp>` → `https://konflux.*` or the specific Tekton pipeline URI for your instance
+* `<issuer>` → your Trusted Artifact Signer Keycloak realm URL (same as `{tas_oidc_issuer}` in this lab)
+* `POLICY_BUNDLE` → the OCI reference from your IntegrationTestScenario or ReleasePlanAdmission `spec.policy` field
+
+NOTE: The SLSA provenance jq path varies by predicate version.
+Check `.predicateType` first: `https://slsa.dev/provenance/v1` uses `.predicate.runDetails.builder.id`; `https://slsa.dev/provenance/v0.2` uses `.predicate.builder.id`.
+The commands in Module 4 show both paths with the version check.
+
+== Learning Outcomes Checkpoint
+
+*Both scenarios were blocked before the image ever reached a release.
+At exactly which stage does the supply chain catch each one?*
+
+The Conforma evaluation embedded in the Integration pipeline (Module 5) is the first gate.
+When the integration pipeline runs for a Snapshot, it evaluates every image in that Snapshot against the policy bundle.
+A Snapshot that contains an unsigned image or an image with no SLSA attestation is immediately marked as failed — it is ineligible for release.
+
+If someone attempted to trigger a Release directly by referencing an image digest that never went through an integration pipeline, the release pipeline runs its own Conforma evaluation at release time (as shown in Module 6).
+That evaluation applies the same policy rules.
+The check runs twice — integration time and release time — so there is no single gate whose failure lets an image through.
+
+*The developer could add `cosign sign` themselves after pushing.
+Why does that still not satisfy the policy?*
+
+`cosign sign` produces a valid signature — but the certificate embedded in that signature records the signer's OIDC identity (their personal account in the lab Keycloak instance).
+`cosign verify --certificate-identity-regexp 'https://konflux.*'` only accepts signatures whose certificate subject matches that regular expression.
+A personal account identity does not.
+The policy's `signature_check` rule enforces the same regexp, so the Conforma evaluation also fails.
+There is no way to produce a certificate with a Konflux pipeline identity without actually running a Konflux pipeline build.
+
+*What is the cheapest way to add this verification to an existing GitOps or deployment workflow?*
+
+Add a `cosign verify` step before any deployment action.
+The command exits non-zero on failure, so any shell `set -e` environment or CI job will stop on a failed verification without additional scripting.
+For Kubernetes admission, Sigstore's Policy Controller or Kyverno's cosign integration can enforce the same check cluster-wide, so every `kubectl apply` that references an image triggers the verification automatically.
+
+== Key Takeaways
+
+* An image pushed outside Konflux has no signature and no SLSA attestation.
+  These cannot be added retroactively — they are produced by specific Tekton Tasks inside the pipeline.
+  `cosign verify` and `ec validate image` both fail immediately and explicitly.
+
+* Signatures are digest-bound.
+  A cosign signature commits to the exact SHA-256 hash of the image manifest and its layers.
+  Any modification — a changed layer, a replaced binary, a new label — produces a new digest for which no valid signature exists.
+  The original signature is not invalidated; it is simply irrelevant to the new digest.
+
+* `cosign verify` exits with a non-zero code on failure.
+  Automated release gates, CI pipelines, and Kubernetes admission controllers can make a binary block decision without parsing output.
+
+* The same verification commands work outside this lab.
+  Substitute your own OIDC issuer, certificate identity regexp, and policy bundle reference to apply the same controls to any image in any Quay or OCI-compatible registry.
+
+* The supply chain's value is additive across modules.
+  Scenario A required no Konflux build history to catch.
+  Scenario B required only the digest stored at push time.
+  Each control is independent: an attacker cannot bypass all of them by defeating one.
+
+xref:module-06-release-production.adoc[← Module 6 — Release to Production]
