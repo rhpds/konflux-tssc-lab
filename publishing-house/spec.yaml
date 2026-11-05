@@ -42,9 +42,9 @@ spec:
     to a production Quay registry
   - Verify end-to-end supply chain integrity from source commit to signed, provenance-attested
     production release
-  - Diagnose supply chain failures — unsigned hotfix, CVE policy breach, and config
-    drift — using Conforma policy output and cosign to identify the specific control
-    that blocked each incident
+  - Diagnose supply chain failures — unsigned hotfix and tampered production image
+    — using cosign and Conforma policy output to identify which cryptographic control
+    blocked each incident
   modules:
   - id: module-01
     title: Orientation
@@ -72,7 +72,7 @@ spec:
     status: complete
   - id: module-07
     title: Real-World Incident Response
-    duration_min: 25
+    duration_min: 15
     status: complete
   environment:
     platform: ocp

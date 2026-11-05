@@ -60,8 +60,8 @@ Upstream projects (not GA Red Hat products):
 | 4 | Signing and Provenance | 20 min |
 | 5 | Integration Testing and Policy | 15 min |
 | 6 | Release to Production | 15 min |
-| 7 | Real-World Incident Response | 25 min |
-| — | **Total** | **120 min (2 hours)** |
+| 7 | Real-World Incident Response | 15 min |
+| — | **Total** | **110 min** |
 
 ## Difficulty Level
 
