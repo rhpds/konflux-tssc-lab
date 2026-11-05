@@ -1,0 +1,120 @@
+= Conclusion and Next Steps
+:navtitle: Conclusion and Next Steps
+
+You built a complete software supply chain from scratch.
+Over seven modules, you connected a GitLab repository to Konflux, watched the platform generate and sign every artifact automatically, evaluated policy compliance with Conforma, and released a verified image to production.
+Then you deliberately broke three trust guarantees and confirmed the controls caught each failure.
+
+The goal of this lab was not to show you that supply chain security is possible — it is to show you exactly which tool catches which failure, and what the evidence looks like when it succeeds or fails.
+You now have that operational knowledge.
+
+== What You've Learned
+
+Each objective below maps directly to what you did in the lab:
+
+* *Configured a Konflux Application and Component* linked to your GitLab repository and enabled Pipelines-as-Code so that every merge request and push triggered a build pipeline automatically — without any manual step between the code commit and the first PipelineRun.
+
+* *Built a container image and analyzed the automatically generated SPDX SBOM*, confirming the package inventory, licenses, and dependency tree the pipeline attached to your image before it was pushed to Quay.
+
+* *Verified cryptographic image signatures and SLSA Level 3 provenance attestations* using cosign and Red Hat Trusted Artifact Signer — checking the certificate subject, confirming the OIDC issuer, and reading the commit SHA and builder identity out of the signed attestation.
+
+* *Examined Conforma policy evaluation* against a Snapshot, observed the fail-closed behavior when a violation is present, and confirmed that a Snapshot with any failing rule cannot be released — regardless of how many other rules pass.
+
+* *Triggered a Konflux release* through the two-stage ReleasePlan / ReleasePlanAdmission pipeline, confirmed that the managed pipeline re-evaluated policy at release time, and verified that the production image in Quay carries the same digest as the original build.
+
+* *Traced end-to-end supply chain integrity* from a production image digest back to the source commit — using the SLSA provenance attestation, the cosign signature, and the Release object to confirm every link is recoverable from the artifact alone.
+
+* *Diagnosed supply chain failures* — an unsigned image pushed outside Konflux and a tampered production image — using `ec validate image` and `cosign verify` to identify which control blocked each incident and why the block cannot be bypassed after the fact.
+
+== The Architecture You Now Operate
+
+Each tool in this lab enforces a specific guarantee.
+Understanding which tool owns which control helps you operate this stack in production:
+
+[cols="25h,~,~", options="header"]
+|===
+|Control |Enforced by |How it fails closed
+
+|Image signing
+|Tekton Chains + Red Hat Trusted Artifact Signer
+|An image built outside Konflux carries no Tekton Chains certificate. `cosign verify --certificate-identity-regexp 'https://konflux.*'` exits non-zero — the check requires a certificate issued to the Tekton pipeline identity, which only exists inside a running Konflux build.
+
+|Tamper detection
+|cosign signature + SHA-256 digest binding
+|Any byte-level change to the image produces a new SHA-256 digest. The existing signature maps to the old digest. `cosign verify` exits non-zero because no valid signature exists for the new digest.
+
+|Provenance traceability
+|SLSA Level 3 attestation + Rekor transparency log
+|The attestation records the source commit, builder identity, and build environment. Rekor logs the signing event in an append-only structure. Neither can be retroactively altered without detection.
+
+|Artifact promotion
+|Conforma + EnterpriseContractPolicy
+|A single policy violation blocks the entire Snapshot from reaching production. The check is fail-closed: no partial pass, no override at the application team level.
+
+|Release governance
+|ReleasePlan / ReleasePlanAdmission
+|The application team controls the ReleasePlan. The platform team controls the ReleasePlanAdmission. Neither can complete a release without the other. Policy is re-evaluated at release time — not just at integration time.
+|===
+
+== Next Steps
+
+The supply chain you built in this lab applies directly to production workloads.
+These are the natural next areas to explore:
+
+*Customize Conforma policy* — The `EnterpriseContractPolicy` object accepts custom rule bundles alongside the upstream release policy.
+Add organization-specific Rego rules — license allowlists, CVE severity thresholds, or required base image registries — without forking the upstream policy.
+See the https://enterprisecontract.dev/docs/[Conforma documentation] for the bundle authoring guide.
+
+*Add an automated release gate* — This lab used manual release triggers.
+Set `autoRelease: true` on a ReleasePlan to let Konflux trigger a release automatically whenever a Snapshot passes integration.
+Combine this with GitLab branch protection rules to control which commits can trigger a production build.
+
+*Extend to multiple components* — A Konflux Application can include multiple Components, each with its own build pipeline.
+The Snapshot that enters the integration and release pipeline captures the complete set.
+A violation in any single component blocks the whole release — the policy boundary is the Application, not the individual image.
+
+*Add a vulnerability scan gate* — The build pipeline already generates a CycloneDX SBOM automatically.
+Feed that SBOM into a scanner — Red Hat Advanced Cluster Security, Grype, or Trivy — by adding a custom `IntegrationTestScenario` that wraps the scanner.
+Gate on CVE severity at integration time before any Snapshot becomes eligible for release.
+
+*Review SLSA Level progression* — This lab produces SLSA Level 3 artifacts: hermetic builds, signed provenance from the build system, and policy-gated promotion.
+SLSA Level 4 adds two-party review requirements for all build steps.
+Review the https://slsa.dev/spec/v1.0/levels[SLSA specification levels] to understand what additional controls are needed for your compliance posture.
+
+== References
+
+=== Konflux and Release Pipeline
+
+* https://konflux-ci.dev/docs/[Konflux documentation]
+* https://konflux-ci.dev/docs/concepts/pipelines-as-code/[Pipelines-as-Code in Konflux]
+* https://konflux-ci.dev/docs/how-tos/releasing/[Triggering and managing releases in Konflux]
+* https://pipelinesascode.com/[Pipelines-as-Code project]
+
+=== Policy Engine
+
+* https://enterprisecontract.dev/docs/[Conforma (Enterprise Contract) documentation]
+* https://enterprisecontract.dev/docs/ec-cli/main/[`ec` CLI reference]
+* https://github.com/enterprise-contract/ec-policies[Conforma built-in policy rules — GitHub]
+
+=== Signing, Attestation, and Transparency
+
+* https://docs.sigstore.dev/cosign/overview/[cosign documentation — Sigstore]
+* https://docs.sigstore.dev/rekor/overview/[Rekor transparency log — Sigstore]
+* https://tekton.dev/docs/chains/[Tekton Chains — supply chain security for Tekton pipelines]
+* https://docs.redhat.com/en/documentation/red_hat_trusted_artifact_signer/[Red Hat Trusted Artifact Signer documentation]
+
+=== Supply Chain Standards
+
+* https://slsa.dev/spec/v1.0/[SLSA Specification v1.0]
+* https://slsa.dev/spec/v1.0/levels[SLSA Level requirements and verification]
+* https://spdx.dev/specifications/[SPDX SBOM specification]
+* https://cyclonedx.org/specification/overview/[CycloneDX SBOM specification]
+
+=== Red Hat Product Documentation
+
+* https://docs.redhat.com/en/documentation/openshift_container_platform/[Red Hat OpenShift Container Platform]
+* https://docs.redhat.com/en/documentation/red_hat_openshift_pipelines/[Red Hat OpenShift Pipelines]
+* https://docs.redhat.com/en/documentation/red_hat_quay/[Red Hat Quay]
+* https://docs.redhat.com/en/documentation/red_hat_trusted_artifact_signer/[Red Hat Trusted Artifact Signer]
+
+xref:module-07-incident-response.adoc[← Module 7 — Real-World Incident Response]
