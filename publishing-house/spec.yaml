@@ -73,7 +73,7 @@ spec:
   - id: module-07
     title: Real-World Incident Response
     duration_min: 25
-    status: in_progress
+    status: complete
   environment:
     platform: ocp
     topology: shared-cluster
