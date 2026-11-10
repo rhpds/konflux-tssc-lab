@@ -181,7 +181,8 @@ The lab provides a pre-built unsigned image for this exercise.
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
-export BAD_IMAGE={quay_url}/lab-examples/unsigned-sample:latest
+QUAY_HOST=$(echo {quay_url} | sed 's|https://||')
+export BAD_IMAGE="${QUAY_HOST}/tsf/unsigned-image:latest"
 echo "Testing against: ${BAD_IMAGE}"
 ----
 

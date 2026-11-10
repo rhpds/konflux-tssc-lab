@@ -291,16 +291,20 @@ E2E waits for `Released` condition on the `Release` CR (60 retries × 10 seconds
 ### 4. Unsigned Image for Policy Failure Test
 Module 5 tests policy failure using:
 ```
-{quay_url}/lab-examples/unsigned-sample:latest
+<quay-host>/tsf/unsigned-image:latest
 ```
 
-This image must be pre-pushed to the `lab-examples` organization in Quay.
+Note: the image reference must be a bare registry host with no `https://` scheme.
+In the lab guide this is derived with `QUAY_HOST=$(echo {quay_url} | sed 's|https://||')`.
 
-**To create it:**
+This image is pre-pushed to the `tsf` organization in Quay automatically by
+`ocp4_workload_konflux_tssc_cluster` (see `push-unsigned-sample-image.yml`).
+
+**To create it manually:**
 ```bash
 podman pull registry.access.redhat.com/ubi9/ubi-minimal:latest
-podman tag ubi9/ubi-minimal:latest {quay_url}/lab-examples/unsigned-sample:latest
-podman push {quay_url}/lab-examples/unsigned-sample:latest --tls-verify=false
+podman tag ubi9/ubi-minimal:latest <quay-host>/tsf/unsigned-image:latest
+podman push <quay-host>/tsf/unsigned-image:latest --tls-verify=false
 ```
 
 ---
