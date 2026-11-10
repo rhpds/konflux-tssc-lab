@@ -295,7 +295,9 @@ Module 5 tests policy failure using:
 ```
 
 Note: the image reference must be a bare registry host with no `https://` scheme.
-In the lab guide this is derived with `QUAY_HOST=$(echo {quay_url} | sed 's|https://||')`.
+The lab guide uses the `{quay_hostname}` Showroom attribute (scheme-free), not
+`{quay_url}` (which includes `https://`). Both are set by
+`agnosticd.namespaced_workloads.ocp4_workload_tenant_quay`.
 
 This image is pre-pushed to the `tsf` organization in Quay automatically by
 `ocp4_workload_konflux_tssc_cluster` (see `push-unsigned-sample-image.yml`).

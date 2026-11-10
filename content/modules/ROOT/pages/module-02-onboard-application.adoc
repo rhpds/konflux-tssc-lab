@@ -292,7 +292,7 @@ Konflux reads the image push credentials attached to the `pipeline` service acco
 Those credentials point to the lab's shared Quay instance and determine the target registry.
 Konflux then derives the image repository path automatically from your namespace and component name:
 
-`{quay_url}/tsf/{openshift_username}-tenant/<component-name>`
+`{quay_hostname}/tsf/{openshift_username}-tenant/<component-name>`
 
 You can confirm the exact image path Konflux assigned by running:
 

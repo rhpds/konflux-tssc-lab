@@ -40,7 +40,7 @@ This simulates the developer's out-of-band push — `skopeo copy` moves image la
 
 [source,bash,role="execute",subs="attributes+"]
 ----
-QUAY_HOST=$(echo {quay_url} | sed 's|https://||')
+QUAY_HOST={quay_hostname}
 skopeo login "$QUAY_HOST" \
   --username {openshift_username} \
   --password "$(oc whoami -t)"
