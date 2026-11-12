@@ -4,228 +4,324 @@
 Estimated time: *15 minutes*
 
 You have a complete supply chain running.
-This module shows what it is actually protecting against — two scenarios, the exact failure output each one produces, and a set of verification commands you can take back to your own projects.
+This module shows what it is actually protecting against — not just from the CLI, but inside Konflux itself, from the moment a bad image enters the pipeline to the point where a release attempt is blocked.
 
-== What the Supply Chain Catches
+You will simulate a real incident, watch Konflux catch it at the Integration stage, and trace the evidence trail that explains exactly what went wrong.
 
-[cols="25,~,~", options="header"]
-|===
-|Scenario |What a developer does |What the supply chain sees
+== The Scenario
 
-|A — Image pushed outside Konflux
-|Pushes an image directly to Quay, skipping the build pipeline
-|No signature, no SLSA attestation, no SBOM — `ec validate image` blocks it
-
-|B — Modified production image
-|Changes the image in the registry after it was signed
-|The SHA-256 digest changes; the old signature no longer matches; `cosign verify` fails
-|===
-
-== Scenario A — Pushing an Image Outside Konflux
-
-=== The Situation
-
-A developer needs to ship a critical fix immediately.
-They build the image locally and push it straight to the Quay registry, skipping Konflux.
+A developer is under pressure to ship a critical fix immediately.
+They build an image locally and push it straight to the Quay registry — skipping Konflux entirely.
 No pipeline ran, so no signing step ran, no SBOM was generated, and no SLSA provenance was recorded.
+The lab provides a pre-built image that represents exactly this artifact.
 
-From the outside the image looks fine — right organization, plausible tag, ready to pull.
-The supply chain does not look at the tag.
-It checks cryptographic evidence attached to the image digest, and there is none.
+The developer then submits a Snapshot pointing to that image and requests a release.
 
-=== Push the Image Directly to Quay
+You will play the on-call engineer who discovers the blocked release and traces it back to the root cause.
 
-Log in to the lab Quay registry and copy a public image directly into your namespace.
-This simulates the developer's out-of-band push — `skopeo copy` moves image layers between registries without running any build pipeline.
+== 1. Set the Unsigned Image Reference
 
-[source,bash,role="execute",subs="attributes+"]
-----
-QUAY_HOST={quay_hostname}
-skopeo login "$QUAY_HOST" \
-  --username {openshift_username} \
-  --password "$(oc whoami -t)"
-
-skopeo copy \
-  docker://registry.access.redhat.com/ubi9/ubi-minimal:latest \
-  "docker://$QUAY_HOST/{openshift_username}/my-sample-app:hotfix-unsigned"
-
-HOTFIX_IMAGE="$QUAY_HOST/{openshift_username}/my-sample-app:hotfix-unsigned"
-----
-
-NOTE: If `oc whoami -t` does not authenticate against Quay, use the robot account credentials from your Quay organization settings.
-
-=== What the Supply Chain Sees
-
-Run each verification tool against the hotfix image and observe the output:
-
-*Signature check*
+The lab provides a pre-built unsigned image that simulates the developer's out-of-band push.
+Set it in your terminal:
 
 [source,bash,role="execute",subs="attributes+"]
 ----
-cosign verify \
-  --certificate-identity-regexp 'https://konflux.*' \
-  --certificate-oidc-issuer {tas_oidc_issuer} \
-  "$HOTFIX_IMAGE"
+export HOTFIX_IMAGE="{quay_hostname}/tsf/unsigned-image:latest"
+echo "Hotfix image: ${HOTFIX_IMAGE}"
 ----
 
-[source,text]
-----
-Error: no matching signatures:
-failed to verify signature
-----
+=== Verify
 
-`cosign` looked for a signature stored against this image's SHA-256 digest.
-It found nothing — because no Tekton Chains signing task ever ran.
+[%interactive]
+* [ ] `$HOTFIX_IMAGE` is set in your terminal.
 
-*Attestation check*
+== 2. Create a Snapshot and Watch the Integration Pipeline Fail
 
-[source,bash,role="execute"]
-----
-cosign download attestation "$HOTFIX_IMAGE" | jq 'length'
-----
+In a real incident, a developer might create a Snapshot manually to test whether a hotfix image can be released — bypassing the normal build pipeline.
+Conflict creates a Snapshot manually with `oc apply`.
+When the Snapshot is created, Konflux automatically triggers the Integration pipeline against it.
 
-[source,text]
-----
-0
-----
-
-Zero attestations means no SBOM and no SLSA provenance record.
-Conforma cannot determine the build origin, the pipeline that produced it, or whether the source commit is known.
-
-*Full policy evaluation*
-
+. Create the Snapshot:
++
 [source,bash,role="execute",subs="attributes+"]
 ----
-POLICY=$(oc get integrationtestscenario -n {openshift_username}-tenant \
-  -o jsonpath='{.items[0].spec.params[?(@.name=="POLICY_CONFIGURATION")].value}')
+cat <<EOF | oc apply -f -
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: Snapshot
+metadata:
+  name: hotfix-snapshot
+  namespace: {openshift_username}-tenant
+spec:
+  application: my-sample-app
+  components:
+  - name: sample-component-golang
+    containerImage: ${HOTFIX_IMAGE}
+EOF
+----
 
+. Switch to the Konflux UI.
+Navigate to your `my-sample-app` Application and click the *Snapshots* tab.
++
+You will see `hotfix-snapshot` appear in the list within a few seconds.
+Notice it has no *Commit message* or *Reference* — distinguishing it from pipeline-built Snapshots, which carry a Git commit reference.
++
+.Konflux Snapshots tab showing hotfix-snapshot in the list
+image::module-07-snapshot-list.png[Konflux Snapshots tab showing hotfix-snapshot with a dash in the Commit message and Reference columns,800]
+
+. Click *hotfix-snapshot* to open its detail view, then click the *Pipeline runs* tab.
++
+Wait 2–3 minutes if the run is still in progress.
+When complete, you will see the enterprise contract pipeline run listed with *Status: Failed* and *Type: Test*.
++
+.hotfix-snapshot Pipeline runs tab showing the enterprise-contract run as Failed
+image::module-07-snapshot-failed.png[Konflux Snapshot detail Pipeline runs tab showing the enterprise-contract pipeline run with Failed status and Test type,800]
+
+. In the terminal, check the Snapshot conditions to confirm the failure state:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+oc get snapshot hotfix-snapshot -n {openshift_username}-tenant \
+  -o jsonpath='{.status.conditions}' | jq .
+----
++
+Expected output — two conditions are key:
++
+----
+[
+  {
+    "lastTransitionTime": "2026-11-12T20:27:35Z",
+    "message": "Snapshot integration status condition is finished since all testing pipelines completed",
+    "reason": "Finished",
+    "status": "True",
+    "type": "AppStudioIntegrationStatus"
+  },
+  {
+    "lastTransitionTime": "2026-11-12T20:27:35Z",
+    "message": "Some Integration pipeline tests failed",
+    "reason": "Failed",
+    "status": "False",
+    "type": "AppStudioTestSucceeded"
+  }
+]
+----
++
+`AppStudioIntegrationStatus: True / Finished` means the Integration pipeline *completed* — it ran to the end.
+`AppStudioTestSucceeded: False / Failed` means the tests *failed* — the Conforma check found violations.
+
+=== Verify
+
+[%interactive]
+* [ ] `hotfix-snapshot` appears in the Konflux Snapshots tab.
+* [ ] The enterprise contract integration pipeline shows *Failed* status.
+* [ ] `oc get snapshot` returns `AppStudioTestSucceeded: False`.
+
+== 3. Attempt a Release and Observe the Block
+
+The developer, unaware of the failure, submits a release request pointing at the failed Snapshot.
+
+. Create the Release:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+cat <<EOF | oc apply -f -
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: Release
+metadata:
+  name: hotfix-release-attempt
+  namespace: {openshift_username}-tenant
+spec:
+  snapshot: hotfix-snapshot
+  releasePlan: production-release
+EOF
+----
+
+. Check the Release conditions.
+If you run this immediately after creating the Release, you will see `Released: False / Progressing` and `TenantPipelineProcessed: False / Progressing` — the release pipeline is still running.
+Wait approximately one minute, then run:
++
+[source,bash,role="execute",subs="attributes+"]
+----
+oc get release hotfix-release-attempt -n {openshift_username}-tenant \
+  -o jsonpath='{.status.conditions}' | jq .
+----
++
+Expected final output:
++
+----
+[
+  {
+    "lastTransitionTime": "...",
+    "message": "Release processing failed on managed pipelineRun",
+    "reason": "Failed",
+    "status": "False",
+    "type": "Released"
+  },
+  {
+    "lastTransitionTime": "...",
+    "message": "",
+    "reason": "Succeeded",
+    "status": "True",
+    "type": "Validated"
+  },
+  {
+    "lastTransitionTime": "...",
+    "message": "",
+    "reason": "Skipped",
+    "status": "True",
+    "type": "TenantCollectorsPipelineProcessed"
+  },
+  {
+    "lastTransitionTime": "...",
+    "message": "",
+    "reason": "Skipped",
+    "status": "True",
+    "type": "ManagedCollectorsPipelineProcessed"
+  },
+  {
+    "lastTransitionTime": "...",
+    "message": "",
+    "reason": "Succeeded",
+    "status": "True",
+    "type": "TenantPipelineProcessed"
+  },
+  {
+    "lastTransitionTime": "...",
+    "message": "Release processing failed on managed pipelineRun",
+    "reason": "Failed",
+    "status": "False",
+    "type": "ManagedPipelineProcessed"
+  },
+  {
+    "lastTransitionTime": "...",
+    "message": "",
+    "reason": "Skipped",
+    "status": "True",
+    "type": "FinalPipelineProcessed"
+  }
+]
+----
++
+The key signal is `ManagedPipelineProcessed: False / Failed`.
+The release is not blocked at creation time — the Release Service accepts the request and starts the pipeline.
+The managed pipeline runs, executes `ec validate image` against the hotfix image, finds no signature and no SLSA provenance, and fails.
+`Released: False / Failed` is the result.
++
+NOTE: `Validated: True / Succeeded` and `TenantPipelineProcessed: True / Succeeded` both passing is expected — the Release reference is structurally valid and the tenant-side steps succeed.
+The block is in the managed namespace pipeline, where Conforma policy is enforced at release time.
+
+. In the Konflux UI, navigate to your `my-sample-app` Application and click the *Releases* tab.
+Confirm `hotfix-release-attempt` shows *Status: Failed*, with *Release Plan: production-release* and *Release Snapshot: hotfix-snapshot*.
++
+.Releases tab showing hotfix-release-attempt as Failed alongside the successful Module 6 release
+image::module-07-release-failed.png[Konflux Releases tab showing hotfix-release-attempt with Failed status and production-releasejnkwr with Succeeded status,800]
+
+=== Verify
+
+[%interactive]
+* [ ] `oc get release hotfix-release-attempt` returns `Released: False` with reason `Failed`.
+* [ ] `ManagedPipelineProcessed` shows `False / Failed` with message "Release processing failed on managed pipelineRun".
+* [ ] The Konflux UI shows the release as Failed.
+
+== 4. Investigate the Root Cause
+
+The Release is blocked and the Snapshot failed — now trace back to the specific violation.
+The Integration pipeline ran `ec validate image` as a task.
+You can read the same violation detail directly.
+
+. Run `ec validate image` against the hotfix image to read the same violations the Integration pipeline saw.
+This uses the same policy reference as Module 5:
++
+[source,bash,role="execute",subs="attributes+"]
+----
 ec validate image \
-  --image "$HOTFIX_IMAGE" \
-  --policy "$POLICY" \
+  --image "${HOTFIX_IMAGE}" \
+  --policy enterprise-contract-service/lab-policy \
+  --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
+  --certificate-oidc-issuer {tas_oidc_issuer} \
+  --rekor-url https://rekor-server-tsf-tas.{openshift_apps_domain} \
   --output json | jq '[.components[].violations[] | {rule: .metadata.code, msg: .msg}]'
 ----
-
++
+Expected output:
++
 [source,json]
 ----
 [
   {
     "rule": "builtin.attestation.signature_check",
-    "msg": "Image signature verification failed: no signatures found"
+    "msg": "Image attestation check failed: no matching attestations: "
   },
   {
-    "rule": "builtin.provenance.slsa_provenance_available",
-    "msg": "No SLSA provenance attestation found from a trusted builder"
+    "rule": "builtin.image.signature_check",
+    "msg": "Image signature check failed: no signatures found"
   }
 ]
 ----
++
+NOTE: `ec` also prints `Error: success criteria not met` to stderr after the JSON output — that is expected behavior, not a command error.
++
+These are the exact violations the Integration pipeline recorded.
+The root cause is unambiguous: the image was never processed by a Konflux build pipeline, so no signature and no SLSA provenance exist.
 
-These two violations together mean the image cannot be released through any Konflux ReleasePlan.
-The block is permanent: there is no way to add a valid Konflux signature or SLSA attestation to an image after it has been pushed outside the pipeline.
-A developer who tries `cosign sign` manually will produce a signature tied to their personal OIDC identity — not to the Tekton Chains service account — and `cosign verify --certificate-identity-regexp 'https://konflux.*'` will still fail.
+. Confirm there are no attestations attached to this digest:
++
+[source,bash,role="execute"]
+----
+cosign download attestation "${HOTFIX_IMAGE}" | jq -s 'length'
+----
++
+Expected output:
++
+----
+Error: found no attestations
+error during command execution: found no attestations
+0
+----
++
+The two error lines are `cosign` printing to stderr — that is expected when no attestations exist.
+The `0` from `jq` is the meaningful value: zero attestations means no SBOM and no SLSA provenance.
+Conforma cannot determine the build origin, the pipeline that produced it, or whether the source commit is known.
 
-== Scenario B — What a Tampered Production Image Looks Like
+=== Why the Block Is Permanent
 
-=== Why Any Change Breaks the Signature
+The signing certificate is issued to the Tekton Chains service account identity — an identity that only exists inside a running Konflux pipeline.
+There is no approved path for an out-of-band image to acquire a valid Konflux signature or SLSA attestation after the fact.
 
-A cosign signature is not embedded inside the image.
-It is stored as a separate OCI artifact in the same registry, in a tag whose name encodes the SHA-256 digest of the image it signs — something like `my-sample-app:sha256-abc123....sig`.
+A developer who tries `cosign sign` manually produces a signature tied to their personal OIDC identity — not the Tekton Chains service account — and `cosign verify --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*'` will still fail.
+The correct remediation is to open a merge request to the source repository and let Konflux run the build.
 
-When Konflux built and signed your production image, the signature was recorded for exactly that digest.
-If anyone modifies the image — swaps a binary, adds a layer, changes a label, even modifies a single byte — the SHA-256 digest changes.
-The new digest maps to a different tag name.
-That tag does not exist.
-The old signature is still present at the old tag, valid for the original bytes, but it says nothing about the new image.
+=== Verify
 
-=== What You See When the Digest Does Not Match
+[%interactive]
+* [ ] `ec validate image` against `$HOTFIX_IMAGE` returns `builtin.attestation.signature_check` and `builtin.provenance.slsa_provenance_available` violations.
+* [ ] `cosign download attestation` returns `0` attestations.
 
-First confirm your production image still passes:
+== 5. Clean Up
+
+Remove the failed Snapshot and Release before moving on.
 
 [source,bash,role="execute",subs="attributes+"]
 ----
-cosign verify \
-  --certificate-identity-regexp 'https://konflux.*' \
-  --certificate-oidc-issuer {tas_oidc_issuer} \
-  "$PROD_IMAGE"
+oc delete release hotfix-release-attempt -n {openshift_username}-tenant
+oc delete snapshot hotfix-snapshot -n {openshift_username}-tenant
 ----
 
-[source,text]
-----
-Verification for quay.<cluster>/<org>/my-sample-app@sha256:<digest> -- Verified OK
-----
-
-Now run the same command against an image that was not built by Konflux.
-This is the exact output you would see for any tampered or replaced production image:
-
-[source,bash,role="execute",subs="attributes+"]
-----
-cosign verify \
-  --certificate-identity-regexp 'https://konflux.*' \
-  --certificate-oidc-issuer {tas_oidc_issuer} \
-  registry.access.redhat.com/ubi9/ubi-minimal:latest
-----
-
-[source,text]
-----
-Error: no matching signatures:
-failed to verify signature
-----
-
-The error is the same whether the image was never signed, was signed by the wrong builder, or was modified after signing.
-`cosign verify` exits non-zero in all three cases — making it straightforward to gate on in a CI pipeline or Kubernetes admission controller without parsing the output.
-
-NOTE: If `$PROD_IMAGE` is not set, retrieve it from the Konflux UI release detail view or the Module 6 release pipeline task logs.
-
-== Verification Commands to Take With You
-
-These commands work against any image in any Quay or OCI-compatible registry where the Sigstore toolchain is installed.
-
-[cols="~,~,25", options="header"]
-|===
-|Command |What it checks |Healthy output
-
-|`cosign verify +
-  --certificate-identity-regexp '<regexp>' +
-  --certificate-oidc-issuer '<issuer>' +
-  IMAGE`
-|Image was signed by a certificate issued to the expected builder identity
-|`Verified OK` (exit 0)
-
-|`cosign download attestation IMAGE \| jq 'length'`
-|Number of attestations (SBOM + SLSA provenance) attached to this digest
-|Any value > 0
-
-|`cosign download attestation IMAGE \| +
-  jq '.[0].payload \| @base64d \| fromjson \| +
-  {type: .predicateType, builder: .predicate.runDetails.builder.id}'`
-|SLSA predicate version and builder identity
-|`builder.id` matches your Konflux Tekton pipeline ref
-
-|`ec validate image --image IMAGE +
-  --policy POLICY --output json \| +
-  jq '.components[].violations'`
-|Full policy: signature, provenance, SBOM, and custom org rules
-|Empty array `[]`
-|===
-
-Substitute in your own cluster:
-
-* `<regexp>` → `https://konflux.*` or the specific Tekton pipeline URI for your instance
-* `<issuer>` → your Trusted Artifact Signer Keycloak realm URL
-* `POLICY` → the OCI bundle ref in your IntegrationTestScenario or ReleasePlanAdmission `spec.policy`
-
-For the SLSA provenance command: check `.predicateType` first.
-`https://slsa.dev/provenance/v1` uses `.predicate.runDetails.builder.id`; `https://slsa.dev/provenance/v0.2` uses `.predicate.builder.id`.
+Expected output: `release.appstudio.redhat.com "hotfix-release-attempt" deleted` and `snapshot.appstudio.redhat.com "hotfix-snapshot" deleted`.
 
 == Key Takeaways
 
-* An image pushed outside Konflux cannot acquire a valid signature or SLSA attestation after the fact.
-  The signing certificate is issued to the Tekton Chains service account identity — an identity that only exists inside a running Konflux pipeline.
+* Konflux evaluates every Snapshot through the Integration pipeline automatically.
+  A manually created Snapshot from an unsigned image triggers the same policy check as a pipeline-built Snapshot — and fails for the same reason.
 
-* Signatures are digest-bound.
-  Any byte-level change to an image produces a new SHA-256 digest, and no valid signature exists for that new digest.
-  The check does not depend on tag names or registry location.
+* The release pipeline re-evaluates Conforma policy in the managed namespace at release time.
+  The managed pipeline runs `ec validate image` against the image and fails if the evidence is missing — the same violations that blocked the Integration test.
+  A human reviewer is never required; the block is automatic and consistent.
 
-* `cosign verify` exits non-zero on any failure.
-  A single line in a deployment script or a Kubernetes admission policy is enough to enforce the control without custom parsing logic.
+* The violation evidence is readable.
+  `ec validate image` produces the same violation detail the Integration pipeline logged, so an on-call engineer can confirm the root cause without digging through pipeline task logs.
+
+* Signatures are issued to pipeline identities.
+  A personal `cosign sign` does not substitute for a Tekton Chains signature — the certificate identity check will fail regardless of whether the image bytes match.
 
 xref:module-06-release-production.adoc[← Module 6 — Release to Production]
+xref:conclusion.adoc[Conclusion →]
