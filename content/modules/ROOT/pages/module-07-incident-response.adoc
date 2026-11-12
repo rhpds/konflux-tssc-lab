@@ -139,7 +139,9 @@ spec:
 EOF
 ----
 
-. Check the Release conditions immediately to see how Konflux responds:
+. Check the Release conditions.
+If you run this immediately after creating the Release, you will see `Released: False / Progressing` and `TenantPipelineProcessed: False / Progressing` — the release pipeline is still running.
+Wait approximately one minute, then run:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
@@ -147,30 +149,79 @@ oc get release hotfix-release-attempt -n {openshift_username}-tenant \
   -o jsonpath='{.status.conditions}' | jq .
 ----
 +
-Expected output:
+Expected final output:
 +
 ----
 [
   {
-    "type": "Released",
+    "lastTransitionTime": "...",
+    "message": "Release processing failed on managed pipelineRun",
+    "reason": "Failed",
     "status": "False",
-    "reason": "SnapshotNotValid",
-    "message": "The Snapshot hotfix-snapshot has not passed all required integration tests"
+    "type": "Released"
+  },
+  {
+    "lastTransitionTime": "...",
+    "message": "",
+    "reason": "Succeeded",
+    "status": "True",
+    "type": "Validated"
+  },
+  {
+    "lastTransitionTime": "...",
+    "message": "",
+    "reason": "Skipped",
+    "status": "True",
+    "type": "TenantCollectorsPipelineProcessed"
+  },
+  {
+    "lastTransitionTime": "...",
+    "message": "",
+    "reason": "Skipped",
+    "status": "True",
+    "type": "ManagedCollectorsPipelineProcessed"
+  },
+  {
+    "lastTransitionTime": "...",
+    "message": "",
+    "reason": "Succeeded",
+    "status": "True",
+    "type": "TenantPipelineProcessed"
+  },
+  {
+    "lastTransitionTime": "...",
+    "message": "Release processing failed on managed pipelineRun",
+    "reason": "Failed",
+    "status": "False",
+    "type": "ManagedPipelineProcessed"
+  },
+  {
+    "lastTransitionTime": "...",
+    "message": "",
+    "reason": "Skipped",
+    "status": "True",
+    "type": "FinalPipelineProcessed"
   }
 ]
 ----
 +
-The Release Service reads `AppStudioTestSucceeded: False` from the Snapshot and refuses the release before the release pipeline even starts.
-The block happens automatically — no human review step is needed.
+The key signal is `ManagedPipelineProcessed: False / Failed`.
+The release is not blocked at creation time — the Release Service accepts the request and starts the pipeline.
+The managed pipeline runs, executes `ec validate image` against the hotfix image, finds no signature and no SLSA provenance, and fails.
+`Released: False / Failed` is the result.
++
+NOTE: `Validated: True / Succeeded` and `TenantPipelineProcessed: True / Succeeded` both passing is expected — the Release reference is structurally valid and the tenant-side steps succeed.
+The block is in the managed namespace pipeline, where Conforma policy is enforced at release time.
 
-. In the Konflux UI, navigate to *Releases*.
-Confirm `hotfix-release-attempt` shows a *Failed* or *Rejected* status with a message referencing the Snapshot validation failure.
+. In the Konflux UI, navigate to *Releases* in the left menu.
+Confirm `hotfix-release-attempt` shows a *Failed* status.
 
 === Verify
 
 [%interactive]
-* [ ] `oc get release hotfix-release-attempt` returns `Released: False` with reason `SnapshotNotValid`.
-* [ ] The Konflux UI shows the release as blocked.
+* [ ] `oc get release hotfix-release-attempt` returns `Released: False` with reason `Failed`.
+* [ ] `ManagedPipelineProcessed` shows `False / Failed` with message "Release processing failed on managed pipelineRun".
+* [ ] The Konflux UI shows the release as Failed.
 
 == 4. Investigate the Root Cause
 
@@ -259,8 +310,9 @@ Expected output: `release.appstudio.redhat.com "hotfix-release-attempt" deleted`
 * Konflux evaluates every Snapshot through the Integration pipeline automatically.
   A manually created Snapshot from an unsigned image triggers the same policy check as a pipeline-built Snapshot — and fails for the same reason.
 
-* The Release gate reads `AppStudioTestSucceeded` from the Snapshot before starting the release pipeline.
-  A failed Snapshot cannot be released — the block is automatic, consistent, and does not require a human reviewer.
+* The release pipeline re-evaluates Conforma policy in the managed namespace at release time.
+  The managed pipeline runs `ec validate image` against the image and fails if the evidence is missing — the same violations that blocked the Integration test.
+  A human reviewer is never required; the block is automatic and consistent.
 
 * The violation evidence is readable.
   `ec validate image` produces the same violation detail the Integration pipeline logged, so an on-call engineer can confirm the root cause without digging through pipeline task logs.
