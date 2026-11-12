@@ -63,21 +63,22 @@ EOF
 Navigate to your `my-sample-app` Application and click the *Snapshots* tab.
 +
 You will see `hotfix-snapshot` appear in the list within a few seconds.
-The *Status* column will show the Integration pipeline running.
+Notice it has no *Commit message* or *Reference* — distinguishing it from pipeline-built Snapshots, which carry a Git commit reference.
 +
-.Konflux Snapshots tab with hotfix-snapshot Integration pipeline running
-image::module-07-snapshot-running.png[Konflux Snapshots tab showing hotfix-snapshot with an in-progress integration pipeline status,800]
+.Konflux Snapshots tab showing hotfix-snapshot in the list
+image::module-07-snapshot-list.png[Konflux Snapshots tab showing hotfix-snapshot with a dash in the Commit message and Reference columns,800]
 // TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/N
-image::screenshot-placeholder.svg[Konflux Snapshots tab showing hotfix-snapshot with integration pipeline in progress,800]
+image::screenshot-placeholder.svg[Konflux Snapshots tab showing hotfix-snapshot in the list,800]
 
-. Wait 2–3 minutes for the Integration pipeline to complete, then click `hotfix-snapshot` to open its detail view.
+. Click *hotfix-snapshot* to open its detail view, then click the *Pipeline runs* tab.
 +
-Observe that the enterprise contract check shows *Failed* — unlike your Module 3 build, which passed.
+Wait 2–3 minutes if the run is still in progress.
+When complete, you will see the enterprise contract pipeline run listed with *Status: Failed* and *Type: Test*.
 +
-.hotfix-snapshot Integration pipeline showing Failed status
-image::module-07-snapshot-failed.png[Konflux Snapshot detail showing the enterprise-contract integration pipeline with a Failed status,800]
+.hotfix-snapshot Pipeline runs tab showing the enterprise-contract run as Failed
+image::module-07-snapshot-failed.png[Konflux Snapshot detail Pipeline runs tab showing the enterprise-contract pipeline run with Failed status and Test type,800]
 // TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/N
-image::screenshot-placeholder.svg[Konflux Snapshot detail showing enterprise-contract integration test with Failed status,800]
+image::screenshot-placeholder.svg[Konflux Snapshot Pipeline runs tab showing the enterprise-contract run with Failed status,800]
 
 . In the terminal, check the Snapshot conditions to confirm the failure state:
 +
