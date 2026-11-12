@@ -1,5 +1,6 @@
-= My Lab Title
+= LB1353: Build, Sign, and Ship — Securing the Software Supply Chain with Konflux
 
-This project was created with the RHDP Publishing House template.
+Modern software supply chains need more than a passing build.
+This lab walks you through the full lifecycle: onboarding an application into Konflux, triggering automated builds via Pipelines-as-Code, inspecting SBOM and SLSA Level 3 provenance attestations, verifying cryptographic signatures with cosign and Red Hat Trusted Artifact Signer, gating a release with Conforma policy checks, and promoting a signed artifact to a production registry — all in your own isolated tenant namespace.
 
-Run `/rhdp-publishing-house` in Claude Code to begin.
+By the end, you will understand how every artifact in your supply chain is verified, what blocks a bad artifact from reaching production, and how to diagnose failures using the same tools your security team uses.
