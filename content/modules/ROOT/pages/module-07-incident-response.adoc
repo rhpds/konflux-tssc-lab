@@ -232,22 +232,17 @@ The Release is blocked and the Snapshot failed — now trace back to the specifi
 The Integration pipeline ran `ec validate image` as a task.
 You can read the same violation detail directly.
 
-. Retrieve the IntegrationTestScenario policy reference:
-+
-[source,bash,role="execute",subs="attributes+"]
-----
-export POLICY=$(oc get integrationtestscenario -n {openshift_username}-tenant \
-  -o jsonpath='{.items[0].spec.params[?(@.name=="POLICY_CONFIGURATION")].value}')
-echo "Policy: ${POLICY}"
-----
-
-. Run `ec validate image` against the hotfix image to read the same violations the Integration pipeline saw:
+. Run `ec validate image` against the hotfix image to read the same violations the Integration pipeline saw.
+This uses the same policy reference as Module 5:
 +
 [source,bash,role="execute",subs="attributes+"]
 ----
 ec validate image \
   --image "${HOTFIX_IMAGE}" \
-  --policy "${POLICY}" \
+  --policy enterprise-contract-service/lab-policy \
+  --certificate-identity-regexp 'https://kubernetes.io/namespaces/.*/serviceaccounts/build-pipeline-.*' \
+  --certificate-oidc-issuer {tas_oidc_issuer} \
+  --rekor-url https://rekor-server-tsf-tas.{openshift_apps_domain} \
   --output json | jq '[.components[].violations[] | {rule: .metadata.code, msg: .msg}]'
 ----
 +
