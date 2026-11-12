@@ -13,38 +13,27 @@ You will simulate a real incident, watch Konflux catch it at the Integration sta
 A developer is under pressure to ship a critical fix immediately.
 They build an image locally and push it straight to the Quay registry — skipping Konflux entirely.
 No pipeline ran, so no signing step ran, no SBOM was generated, and no SLSA provenance was recorded.
+The lab provides a pre-built image that represents exactly this artifact.
 
 The developer then submits a Snapshot pointing to that image and requests a release.
 
 You will play the on-call engineer who discovers the blocked release and traces it back to the root cause.
 
-== 1. Push the Unsigned Image to Quay
+== 1. Set the Unsigned Image Reference
 
-Log in to the lab Quay registry and copy a public image directly into your namespace.
-This simulates the developer's out-of-band push — `skopeo copy` moves image layers between registries without running any build pipeline.
+The lab provides a pre-built unsigned image that simulates the developer's out-of-band push.
+Set it in your terminal:
 
 [source,bash,role="execute",subs="attributes+"]
 ----
-QUAY_HOST={quay_hostname}
-skopeo login "$QUAY_HOST" \
-  --username {openshift_username} \
-  --password "$(oc whoami -t)"
-
-skopeo copy \
-  docker://registry.access.redhat.com/ubi9/ubi-minimal:latest \
-  "docker://$QUAY_HOST/{openshift_username}/my-sample-app:hotfix-unsigned"
-
-export HOTFIX_IMAGE="$QUAY_HOST/{openshift_username}/my-sample-app:hotfix-unsigned"
+export HOTFIX_IMAGE="{quay_hostname}/tsf/unsigned-image:latest"
 echo "Hotfix image: ${HOTFIX_IMAGE}"
 ----
-
-NOTE: If `oc whoami -t` does not authenticate against Quay, use the robot account credentials from your Quay organization settings.
 
 === Verify
 
 [%interactive]
 * [ ] `$HOTFIX_IMAGE` is set in your terminal.
-* [ ] The image appears in Quay under your namespace with the `hotfix-unsigned` tag.
 
 == 2. Create a Snapshot and Watch the Integration Pipeline Fail
 
