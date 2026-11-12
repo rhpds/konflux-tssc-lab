@@ -249,14 +249,16 @@ Expected output:
 [
   {
     "rule": "builtin.attestation.signature_check",
-    "msg": "Image signature verification failed: no signatures found"
+    "msg": "Image attestation check failed: no matching attestations: "
   },
   {
-    "rule": "builtin.provenance.slsa_provenance_available",
-    "msg": "No SLSA provenance attestation found from a trusted builder"
+    "rule": "builtin.image.signature_check",
+    "msg": "Image signature check failed: no signatures found"
   }
 ]
 ----
++
+NOTE: `ec` also prints `Error: success criteria not met` to stderr after the JSON output — that is expected behavior, not a command error.
 +
 These are the exact violations the Integration pipeline recorded.
 The root cause is unambiguous: the image was never processed by a Konflux build pipeline, so no signature and no SLSA provenance exist.
