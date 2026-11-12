@@ -67,8 +67,6 @@ Notice it has no *Commit message* or *Reference* — distinguishing it from pipe
 +
 .Konflux Snapshots tab showing hotfix-snapshot in the list
 image::module-07-snapshot-list.png[Konflux Snapshots tab showing hotfix-snapshot with a dash in the Commit message and Reference columns,800]
-// TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/N
-image::screenshot-placeholder.svg[Konflux Snapshots tab showing hotfix-snapshot in the list,800]
 
 . Click *hotfix-snapshot* to open its detail view, then click the *Pipeline runs* tab.
 +
@@ -77,8 +75,6 @@ When complete, you will see the enterprise contract pipeline run listed with *St
 +
 .hotfix-snapshot Pipeline runs tab showing the enterprise-contract run as Failed
 image::module-07-snapshot-failed.png[Konflux Snapshot detail Pipeline runs tab showing the enterprise-contract pipeline run with Failed status and Test type,800]
-// TODO: replace placeholder with real screenshot — see https://github.com/rhpds/konflux-tssc-lab/issues/N
-image::screenshot-placeholder.svg[Konflux Snapshot Pipeline runs tab showing the enterprise-contract run with Failed status,800]
 
 . In the terminal, check the Snapshot conditions to confirm the failure state:
 +
