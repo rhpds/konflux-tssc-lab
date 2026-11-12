@@ -270,9 +270,16 @@ The root cause is unambiguous: the image was never processed by a Konflux build 
 cosign download attestation "${HOTFIX_IMAGE}" | jq -s 'length'
 ----
 +
-Expected output: `0`
+Expected output:
 +
-Zero attestations means no SBOM and no SLSA provenance.
+----
+Error: found no attestations
+error during command execution: found no attestations
+0
+----
++
+The two error lines are `cosign` printing to stderr — that is expected when no attestations exist.
+The `0` from `jq` is the meaningful value: zero attestations means no SBOM and no SLSA provenance.
 Conforma cannot determine the build origin, the pipeline that produced it, or whether the source commit is known.
 
 === Why the Block Is Permanent
