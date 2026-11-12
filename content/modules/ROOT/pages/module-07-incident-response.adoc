@@ -93,16 +93,18 @@ Expected output — two conditions are key:
 ----
 [
   {
-    "type": "AppStudioIntegrationStatus",
-    "status": "True",
+    "lastTransitionTime": "2026-11-12T20:27:35Z",
+    "message": "Snapshot integration status condition is finished since all testing pipelines completed",
     "reason": "Finished",
-    "message": "..."
+    "status": "True",
+    "type": "AppStudioIntegrationStatus"
   },
   {
-    "type": "AppStudioTestSucceeded",
-    "status": "False",
+    "lastTransitionTime": "2026-11-12T20:27:35Z",
+    "message": "Some Integration pipeline tests failed",
     "reason": "Failed",
-    "message": "..."
+    "status": "False",
+    "type": "AppStudioTestSucceeded"
   }
 ]
 ----
