@@ -213,8 +213,11 @@ The managed pipeline runs, executes `ec validate image` against the hotfix image
 NOTE: `Validated: True / Succeeded` and `TenantPipelineProcessed: True / Succeeded` both passing is expected — the Release reference is structurally valid and the tenant-side steps succeed.
 The block is in the managed namespace pipeline, where Conforma policy is enforced at release time.
 
-. In the Konflux UI, navigate to *Releases* in the left menu.
-Confirm `hotfix-release-attempt` shows a *Failed* status.
+. In the Konflux UI, navigate to your `my-sample-app` Application and click the *Releases* tab.
+Confirm `hotfix-release-attempt` shows *Status: Failed*, with *Release Plan: production-release* and *Release Snapshot: hotfix-snapshot*.
++
+.Releases tab showing hotfix-release-attempt as Failed alongside the successful Module 6 release
+image::module-07-release-failed.png[Konflux Releases tab showing hotfix-release-attempt with Failed status and production-releasejnkwr with Succeeded status,800]
 
 === Verify
 
